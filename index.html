@@ -614,6 +614,49 @@
       }
     }
 
+    async function createSignedImageUrl(objectPath, apiKey, expiresIn = 300) {
+      const response = await fetch(
+        SUPABASE_URL +
+          "/storage/v1/object/sign/insx-images/" +
+          encodePath(objectPath),
+        {
+          method: "POST",
+          headers: {
+            "apikey": apiKey,
+            "Authorization": "Bearer " + apiKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            expiresIn: expiresIn
+          })
+        }
+      );
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        throw new Error(
+          "SIGNED URL HTTP " +
+          response.status +
+          ": " +
+          responseText.slice(0, 250)
+        );
+      }
+
+      const data = responseText ? JSON.parse(responseText) : {};
+      const signedPath = data.signedURL || data.signedUrl || data.signed_url;
+
+      if (!signedPath) {
+        throw new Error("Supabase ไม่คืน signed URL");
+      }
+
+      if (/^https?:\/\//i.test(signedPath)) {
+        return signedPath;
+      }
+
+      return SUPABASE_URL + "/storage/v1" + signedPath;
+    }
+
     async function fetchPrivateImage(objectPath, apiKey) {
       const response = await fetch(
         SUPABASE_URL +
@@ -844,6 +887,7 @@
         siteSelect.options[siteSelect.selectedIndex]?.text ||
         batch.site_name ||
         "-";
+      const apiKey = getApiKey();
 
       const message =
         "❌ รูปไม่ผ่าน\n" +
@@ -856,6 +900,11 @@
       try {
         if (!window.qcAccessAllowed) {
           alert("บัญชีนี้ยังไม่ได้รับอนุญาตให้เข้า QC");
+          return;
+        }
+
+        if (!apiKey) {
+          alert("กรุณาตั้งค่า Supabase Key ก่อน");
           return;
         }
 
@@ -872,11 +921,28 @@
           return;
         }
 
+        const objectPath =
+          batch.site_code + "/" +
+          batch.raw_date + "/" +
+          batch.batch_id + "/" +
+          fileName;
+
+        const signedUrl = await createSignedImageUrl(
+          objectPath,
+          apiKey,
+          300
+        );
+
         const result = await liff.shareTargetPicker(
           [
             {
               type: "text",
               text: message
+            },
+            {
+              type: "image",
+              originalContentUrl: signedUrl,
+              previewImageUrl: signedUrl
             }
           ],
           {
@@ -885,11 +951,11 @@
         );
 
         if (result) {
-          alert("ส่งข้อความเข้า LINE สำเร็จ ✓");
+          alert("ส่งข้อความและรูปเข้า LINE สำเร็จ ✓");
         }
       } catch (error) {
         alert(
-          "เปิดตัวเลือกผู้รับ LINE ไม่สำเร็จ\n" +
+          "ส่งเข้า LINE ไม่สำเร็จ\n" +
           (error && (error.message || error.code)
             ? (error.message || error.code)
             : String(error))
