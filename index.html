@@ -321,53 +321,59 @@
         <strong>LINE Login</strong>
         <span id="lineUserStatus" class="key-status">กำลังตรวจสอบ...</span>
       </div>
-
-      <div class="key-box">
-        <button onclick="setApiKey()">ตั้งค่า Supabase Key</button>
-        <span id="keyStatus" class="key-status"></span>
-      </div>
     </div>
   </div>
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
     const LIFF_ID = "2011407195-ZXPgFEKe";
-    const SUPABASE_URL = "https://neauzvqroaszvqffahkv.supabase.co";
-    const KEY_STORAGE = "divergent_qc_supabase_key";
+    const QC_API_URL =
+      "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api";
 
-    function getApiKey() {
-      return sessionStorage.getItem(KEY_STORAGE) || "";
-    }
-
-    function updateKeyStatus() {
-      const keyStatus = document.getElementById("keyStatus");
-      keyStatus.textContent = getApiKey()
-        ? "ตั้งค่า Key แล้ว ✓"
-        : "ยังไม่ได้ตั้งค่า Key";
-    }
-
-    function setApiKey() {
-      const oldKey = getApiKey();
-      const value = prompt(
-        "วาง Supabase Publishable/Anon Key ของโปรเจกต์นี้",
-        oldKey
-      );
-
-      if (value === null) return;
-
-      const key = value.trim();
-
-      if (!key) {
-        sessionStorage.removeItem(KEY_STORAGE);
-        updateKeyStatus();
-        checkQcAccess();
-        return;
+    async function getLineIdToken() {
+      if (!window.liff || !liff.isLoggedIn()) {
+        throw new Error("LINE_NOT_LOGGED_IN");
       }
 
-      sessionStorage.setItem(KEY_STORAGE, key);
-      updateKeyStatus();
-      checkQcAccess();
-      alert("บันทึก Key สำหรับหน้าต่างนี้แล้ว");
+      const token = liff.getIDToken();
+      if (!token) {
+        throw new Error("LINE_ID_TOKEN_NOT_AVAILABLE");
+      }
+
+      return token;
+    }
+
+    async function qcApi(action, payload = {}) {
+      const idToken = await getLineIdToken();
+
+      const response = await fetch(QC_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + idToken,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ action, ...payload })
+      });
+
+      const responseText = await response.text();
+      let data = {};
+
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (_) {
+        throw new Error(
+          "Server ตอบกลับไม่ถูกต้อง HTTP " +
+          response.status +
+          ": " +
+          responseText.slice(0, 200)
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || ("HTTP " + response.status));
+      }
+
+      return data;
     }
 
     function showStatus(message, isError = false) {
@@ -454,7 +460,6 @@
     async function checkQcAccess() {
       const status = document.getElementById("lineUserStatus");
       const profile = window.lineProfile;
-      const apiKey = getApiKey();
 
       setQcEnabled(false);
 
@@ -463,45 +468,14 @@
         return false;
       }
 
-      if (!apiKey) {
-        status.textContent =
-          "เข้าสู่ระบบ LINE แล้ว ✓ · รอตรวจสิทธิ์ QC หลังตั้งค่า Supabase Key";
-        return false;
-      }
-
       status.textContent = "กำลังตรวจสิทธิ์ QC...";
 
       try {
-        const response = await fetch(
-          SUPABASE_URL + "/rest/v1/rpc/check_qc_access",
-          {
-            method: "POST",
-            headers: {
-              "apikey": apiKey,
-              "Authorization": "Bearer " + apiKey,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              p_line_user_id: profile.userId
-            })
-          }
-        );
-
-        const responseText = await response.text();
-
-        if (!response.ok) {
-          throw new Error(
-            "HTTP " + response.status + ": " + responseText.slice(0, 250)
-          );
-        }
-
-        const rows = responseText ? JSON.parse(responseText) : [];
-        const user = Array.isArray(rows) && rows.length ? rows[0] : null;
+        const user = await qcApi("access");
 
         if (!user || user.allowed !== true) {
           status.textContent =
             "ไม่มีสิทธิ์เข้า QC ✕ · กรุณาติดต่อผู้ดูแลระบบ";
-          setQcEnabled(false);
           return false;
         }
 
@@ -514,7 +488,6 @@
         window.qcAuthorizedUser = user;
         setQcEnabled(true);
         return true;
-
       } catch (error) {
         status.textContent =
           "ตรวจสิทธิ์ QC ไม่สำเร็จ: " + (error.message || error);
@@ -525,7 +498,6 @@
 
     async function loadBatches() {
       const siteCode = document.getElementById("siteSelect").value;
-      const apiKey = getApiKey();
       const button = document.getElementById("loadButton");
       const area = document.getElementById("batchArea");
       const list = document.getElementById("batchList");
@@ -541,11 +513,6 @@
         return;
       }
 
-      if (!apiKey) {
-        alert("กรุณากด “ตั้งค่า Supabase Key” ก่อน");
-        return;
-      }
-
       button.disabled = true;
       document.getElementById("detailArea").style.display = "none";
       area.style.display = "none";
@@ -554,30 +521,8 @@
       showStatus("กำลังดึงรายการ Batch จาก Server...");
 
       try {
-        const response = await fetch(
-          SUPABASE_URL + "/rest/v1/rpc/get_image_batches_by_site",
-          {
-            method: "POST",
-            headers: {
-              "apikey": apiKey,
-              "Authorization": "Bearer " + apiKey,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              p_site_code: siteCode
-            })
-          }
-        );
-
-        const responseText = await response.text();
-
-        if (!response.ok) {
-          throw new Error(
-            "HTTP " + response.status + ": " + responseText.slice(0,250)
-          );
-        }
-
-        const batches = responseText ? JSON.parse(responseText) : [];
+        const result = await qcApi("batches", { siteCode });
+        const batches = result.batches || [];
         window.currentBatches = batches;
 
         area.style.display = "block";
@@ -602,98 +547,38 @@
         `).join("");
 
         showStatus("ดึงข้อมูลจาก Server สำเร็จ ✓");
-
       } catch (error) {
         area.style.display = "none";
-        showStatus(
-          "ดึงข้อมูลไม่สำเร็จ: " + (error.message || error),
-          true
-        );
+        showStatus("ดึงข้อมูลไม่สำเร็จ: " + (error.message || error), true);
       } finally {
         button.disabled = false;
       }
     }
 
-    async function createSignedImageUrl(objectPath, apiKey, expiresIn = 300) {
-      const response = await fetch(
-        SUPABASE_URL +
-          "/storage/v1/object/sign/insx-images/" +
-          encodePath(objectPath),
-        {
-          method: "POST",
-          headers: {
-            "apikey": apiKey,
-            "Authorization": "Bearer " + apiKey,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            expiresIn: expiresIn
-          })
-        }
-      );
+    async function createSignedImageUrl(objectPath) {
+      const result = await qcApi("signed-url", { objectPath });
 
-      const responseText = await response.text();
-
-      if (!response.ok) {
-        throw new Error(
-          "SIGNED URL HTTP " +
-          response.status +
-          ": " +
-          responseText.slice(0, 250)
-        );
+      if (!result?.signedUrl) {
+        throw new Error("Server ไม่คืน signed URL");
       }
 
-      const data = responseText ? JSON.parse(responseText) : {};
-      const signedPath = data.signedURL || data.signedUrl || data.signed_url;
-
-      if (!signedPath) {
-        throw new Error("Supabase ไม่คืน signed URL");
-      }
-
-      if (/^https?:\/\//i.test(signedPath)) {
-        return signedPath;
-      }
-
-      // Supabase may return either:
-      //   /object/sign/<bucket>/<path>?token=...
-      // or
-      //   /storage/v1/object/sign/<bucket>/<path>?token=...
-      if (signedPath.startsWith("/storage/v1/")) {
-        return SUPABASE_URL + signedPath;
-      }
-
-      if (signedPath.startsWith("storage/v1/")) {
-        return SUPABASE_URL + "/" + signedPath;
-      }
-
-      if (signedPath.startsWith("/")) {
-        return SUPABASE_URL + "/storage/v1" + signedPath;
-      }
-
-      return SUPABASE_URL + "/storage/v1/" + signedPath;
+      return result.signedUrl;
     }
 
-    async function fetchPrivateImage(objectPath, apiKey) {
-      const response = await fetch(
-        SUPABASE_URL +
-          "/storage/v1/object/authenticated/insx-images/" +
-          encodePath(objectPath),
-        {
-          method: "GET",
-          headers: {
-            "apikey": apiKey,
-            "Authorization": "Bearer " + apiKey
-          }
-        }
-      );
+    async function fetchPrivateImage(objectPath) {
+      const signedUrl = await createSignedImageUrl(objectPath);
+
+      const response = await fetch(signedUrl, {
+        method: "GET",
+        cache: "no-store"
+      });
 
       if (!response.ok) {
-        const text = await response.text();
+        const responseText = await response.text().catch(() => "");
         throw new Error(
           "เปิดรูปไม่สำเร็จ HTTP " +
           response.status +
-          ": " +
-          text.slice(0,160)
+          (responseText ? ": " + responseText.slice(0,160) : "")
         );
       }
 
@@ -706,75 +591,19 @@
       if (!batch) return;
       window.currentBatch = batch;
 
-      const apiKey = getApiKey();
-
-      if (!apiKey) {
-        alert("กรุณาตั้งค่า Supabase Key ก่อน");
-        return;
-      }
-
-      document.getElementById("batchArea").style.display = "none";
-
-      const detailArea = document.getElementById("detailArea");
-      const detailStatus = document.getElementById("detailStatus");
-      const imageGroups = document.getElementById("imageGroups");
-
-      detailArea.style.display = "block";
-      document.getElementById("detailTitle").textContent = batch.batch_id;
-      detailStatus.style.display = "block";
-      detailStatus.className = "status-box";
-      detailStatus.textContent = "กำลังดึงรายการรูปจาก Storage...";
-      imageGroups.innerHTML = "";
-
-      // จุดสำคัญ V3: ใช้ path จริงและใส่ / ท้าย prefix
-      const folder =
-        batch.site_code + "/" +
-        batch.raw_date + "/" +
-        batch.batch_id + "/";
 
       try {
-        const response = await fetch(
-          SUPABASE_URL + "/storage/v1/object/list/insx-images",
-          {
-            method: "POST",
-            headers: {
-              "apikey": apiKey,
-              "Authorization": "Bearer " + apiKey,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              prefix: folder,
-              limit: 1000,
-              offset: 0,
-              sortBy: {
-                column: "name",
-                order: "asc"
-              }
-            })
-          }
-        );
+        const result = await qcApi("images", {
+          siteCode: batch.site_code,
+          rawDate: batch.raw_date,
+          batchId: batch.batch_id
+        });
 
-        const responseText = await response.text();
-
-        if (!response.ok) {
-          throw new Error(
-            "LIST HTTP " +
-            response.status +
-            ": " +
-            responseText.slice(0,300)
-          );
-        }
-
-        const objects = responseText ? JSON.parse(responseText) : [];
-
-        // ในบาง response id อาจไม่ถูกคืนมา จึงกรองจาก name อย่างเดียว
-        const files = objects.filter(
-          x => x && x.name && !String(x.name).endsWith("/")
-        );
+        const files = result.files || [];
 
         if (!files.length) {
           detailStatus.textContent =
-            "ไม่พบรูปใน Batch นี้\nPath: " + folder;
+            "ไม่พบรูปใน Batch นี้";
           return;
         }
 
@@ -793,7 +622,7 @@
 
           groups[ca].push({
             name: fileName,
-            objectPath: folder + fileName
+            objectPath: file.objectPath
           });
         }
 
@@ -845,8 +674,7 @@
 
             try {
               const objectUrl = await fetchPrivateImage(
-                img.objectPath,
-                apiKey
+                img.objectPath
               );
 
               if (slot) {
@@ -903,7 +731,6 @@
         siteSelect.options[siteSelect.selectedIndex]?.text ||
         batch.site_name ||
         "-";
-      const apiKey = getApiKey();
 
       const message =
         "❌ รูปไม่ผ่าน\n" +
@@ -916,11 +743,6 @@
       try {
         if (!window.qcAccessAllowed) {
           alert("บัญชีนี้ยังไม่ได้รับอนุญาตให้เข้า QC");
-          return;
-        }
-
-        if (!apiKey) {
-          alert("กรุณาตั้งค่า Supabase Key ก่อน");
           return;
         }
 
@@ -946,11 +768,7 @@
         // LINE's server must be able to fetch the image URL itself.
         // Create a longer-lived Supabase signed URL and verify that the URL
         // really returns an image before handing it to shareTargetPicker.
-        const signedUrl = await createSignedImageUrl(
-          objectPath,
-          apiKey,
-          3600
-        );
+        const signedUrl = await createSignedImageUrl(objectPath);
 
         const imageCheck = await fetch(signedUrl, {
           method: "GET",
@@ -1012,7 +830,6 @@
       document.getElementById("batchArea").style.display = "block";
     }
 
-    updateKeyStatus();
     setQcEnabled(false);
     initLiff();
   </script>
