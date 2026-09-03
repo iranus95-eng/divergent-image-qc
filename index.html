@@ -405,6 +405,46 @@
     }
 
 
+    async function initLiff() {
+      const status = document.getElementById("lineUserStatus");
+
+      try {
+        status.textContent = "กำลังเชื่อมต่อ LINE...";
+
+        await liff.init({
+          liffId: LIFF_ID,
+          withLoginOnExternalBrowser: true
+        });
+
+        if (!liff.isLoggedIn()) {
+          status.textContent = "กำลังเข้าสู่ระบบ LINE...";
+          liff.login({
+            redirectUri: window.location.href
+          });
+          return;
+        }
+
+        status.textContent = "กำลังอ่านบัญชี LINE...";
+
+        const profile = await liff.getProfile();
+        window.lineProfile = profile;
+
+        status.textContent =
+          "เข้าสู่ระบบ LINE แล้ว ✓ " +
+          (profile.displayName || "");
+
+        await checkQcAccess();
+
+      } catch (error) {
+        status.textContent =
+          "LINE Login ไม่สำเร็จ: " +
+          (error && (error.message || error.code)
+            ? (error.message || error.code)
+            : String(error));
+        setQcEnabled(false);
+      }
+    }
+
     function setQcEnabled(enabled) {
       document.getElementById("siteSelect").disabled = !enabled;
       document.getElementById("loadButton").disabled = !enabled;
