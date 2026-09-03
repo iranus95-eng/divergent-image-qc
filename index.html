@@ -270,7 +270,7 @@
     <div class="card">
       <label for="siteSelect">เลือก Site งาน</label>
 
-      <select id="siteSelect">
+      <select id="siteSelect" disabled>
         <option value="">-- เลือก Site --</option>
         <option value="UDON">การไฟฟ้าส่วนภูมิภาคสาขาอุดรธานี</option>
         <option value="PHUWIANG">การไฟฟ้าส่วนภูมิภาคอำเภอภูเวียง</option>
@@ -296,7 +296,7 @@
         <option value="NONGBUNMAK">การไฟฟ้าส่วนภูมิภาคอำเภอหนองบุญมาก</option>
       </select>
 
-      <button id="loadButton" onclick="loadBatches()">ดู Batch จาก Server</button>
+      <button id="loadButton" onclick="loadBatches()" disabled>ดู Batch จาก Server</button>
 
       <div id="statusBox" class="status-box"></div>
 
@@ -360,11 +360,13 @@
       if (!key) {
         sessionStorage.removeItem(KEY_STORAGE);
         updateKeyStatus();
+        checkQcAccess();
         return;
       }
 
       sessionStorage.setItem(KEY_STORAGE, key);
       updateKeyStatus();
+      checkQcAccess();
       alert("บันทึก Key สำหรับหน้าต่างนี้แล้ว");
     }
 
@@ -402,6 +404,85 @@
       return String(path).split("/").map(encodeURIComponent).join("/");
     }
 
+
+    function setQcEnabled(enabled) {
+      document.getElementById("siteSelect").disabled = !enabled;
+      document.getElementById("loadButton").disabled = !enabled;
+      window.qcAccessAllowed = !!enabled;
+    }
+
+    async function checkQcAccess() {
+      const status = document.getElementById("lineUserStatus");
+      const profile = window.lineProfile;
+      const apiKey = getApiKey();
+
+      setQcEnabled(false);
+
+      if (!profile || !profile.userId) {
+        status.textContent = "ยังไม่สามารถอ่านบัญชี LINE ได้";
+        return false;
+      }
+
+      if (!apiKey) {
+        status.textContent =
+          "เข้าสู่ระบบ LINE แล้ว ✓ · รอตรวจสิทธิ์ QC หลังตั้งค่า Supabase Key";
+        return false;
+      }
+
+      status.textContent = "กำลังตรวจสิทธิ์ QC...";
+
+      try {
+        const response = await fetch(
+          SUPABASE_URL + "/rest/v1/rpc/check_qc_access",
+          {
+            method: "POST",
+            headers: {
+              "apikey": apiKey,
+              "Authorization": "Bearer " + apiKey,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              p_line_user_id: profile.userId
+            })
+          }
+        );
+
+        const responseText = await response.text();
+
+        if (!response.ok) {
+          throw new Error(
+            "HTTP " + response.status + ": " + responseText.slice(0, 250)
+          );
+        }
+
+        const rows = responseText ? JSON.parse(responseText) : [];
+        const user = Array.isArray(rows) && rows.length ? rows[0] : null;
+
+        if (!user || user.allowed !== true) {
+          status.textContent =
+            "ไม่มีสิทธิ์เข้า QC ✕ · กรุณาติดต่อผู้ดูแลระบบ";
+          setQcEnabled(false);
+          return false;
+        }
+
+        status.textContent =
+          "อนุญาตเข้า QC ✓ " +
+          (user.display_name || profile.displayName || "") +
+          " · " +
+          (user.user_role || "user");
+
+        window.qcAuthorizedUser = user;
+        setQcEnabled(true);
+        return true;
+
+      } catch (error) {
+        status.textContent =
+          "ตรวจสิทธิ์ QC ไม่สำเร็จ: " + (error.message || error);
+        setQcEnabled(false);
+        return false;
+      }
+    }
+
     async function loadBatches() {
       const siteCode = document.getElementById("siteSelect").value;
       const apiKey = getApiKey();
@@ -409,6 +490,11 @@
       const area = document.getElementById("batchArea");
       const list = document.getElementById("batchList");
       const count = document.getElementById("batchCount");
+
+      if (!window.qcAccessAllowed) {
+        alert("บัญชีนี้ยังไม่ได้รับอนุญาตให้เข้า QC");
+        return;
+      }
 
       if (!siteCode) {
         alert("กรุณาเลือก Site งาน");
@@ -860,8 +946,10 @@
         }
         const profile = await liff.getProfile();
         window.lineProfile = profile;
-        status.textContent = "เข้าสู่ระบบแล้ว ✓ " + (profile.displayName || "") +
-          " · User ID: " + (profile.userId || "-");
+        status.textContent =
+          "เข้าสู่ระบบ LINE แล้ว ✓ " + (profile.displayName || "");
+
+        await checkQcAccess();
       } catch (error) {
         status.textContent = "LINE Login ไม่สำเร็จ: " + (error.message || error);
       }
@@ -873,6 +961,7 @@
     }
 
     updateKeyStatus();
+    setQcEnabled(false);
     initLiff();
   </script>
 </body>
