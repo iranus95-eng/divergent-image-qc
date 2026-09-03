@@ -654,7 +654,23 @@
         return signedPath;
       }
 
-      return SUPABASE_URL + "/storage/v1" + signedPath;
+      // Supabase may return either:
+      //   /object/sign/<bucket>/<path>?token=...
+      // or
+      //   /storage/v1/object/sign/<bucket>/<path>?token=...
+      if (signedPath.startsWith("/storage/v1/")) {
+        return SUPABASE_URL + signedPath;
+      }
+
+      if (signedPath.startsWith("storage/v1/")) {
+        return SUPABASE_URL + "/" + signedPath;
+      }
+
+      if (signedPath.startsWith("/")) {
+        return SUPABASE_URL + "/storage/v1" + signedPath;
+      }
+
+      return SUPABASE_URL + "/storage/v1/" + signedPath;
     }
 
     async function fetchPrivateImage(objectPath, apiKey) {
@@ -927,22 +943,50 @@
           batch.batch_id + "/" +
           fileName;
 
+        // LINE's server must be able to fetch the image URL itself.
+        // Create a longer-lived Supabase signed URL and verify that the URL
+        // really returns an image before handing it to shareTargetPicker.
         const signedUrl = await createSignedImageUrl(
           objectPath,
           apiKey,
-          300
+          3600
         );
+
+        const imageCheck = await fetch(signedUrl, {
+          method: "GET",
+          cache: "no-store"
+        });
+
+        if (!imageCheck.ok) {
+          const checkText = await imageCheck.text().catch(() => "");
+          throw new Error(
+            "Signed image URL เปิดไม่ได้ HTTP " +
+            imageCheck.status +
+            (checkText ? ": " + checkText.slice(0, 160) : "")
+          );
+        }
+
+        const imageContentType =
+          (imageCheck.headers.get("content-type") || "").toLowerCase();
+
+        if (!imageContentType.startsWith("image/")) {
+          throw new Error(
+            "Signed URL ไม่ได้คืนไฟล์รูปภาพ (" +
+            (imageContentType || "ไม่พบ Content-Type") +
+            ")"
+          );
+        }
 
         const result = await liff.shareTargetPicker(
           [
             {
-              type: "text",
-              text: message
-            },
-            {
               type: "image",
               originalContentUrl: signedUrl,
               previewImageUrl: signedUrl
+            },
+            {
+              type: "text",
+              text: message
             }
           ],
           {
