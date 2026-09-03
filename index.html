@@ -175,6 +175,27 @@
       overflow: visible;
     }
 
+    .overview-group {
+      overflow: visible;
+    }
+
+    .overview-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .ca-badge {
+      font-size: 10px;
+      font-weight: 800;
+      color: #5b2ca0;
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .image-card {
       width: 148px;
       background: #fafafa;
@@ -772,54 +793,50 @@
         detailStatus.textContent =
           "พร้อมแล้ว ✓ พบ " + files.length + " ไฟล์ · กำลังโหลดรูป...";
 
-        const groups = {};
-
-        for (const file of files) {
+        const overviewImages = files.map((file, index) => {
           const fileName = file.name;
           const ca = parseCAFromName(fileName);
 
-          if (!groups[ca]) {
-            groups[ca] = [];
-          }
-
-          groups[ca].push({
+          return {
             name: fileName,
-            objectPath: file.objectPath
-          });
-        }
+            objectPath: file.objectPath,
+            ca: ca,
+            slotId: "imgslot-" + index
+          };
+        });
 
-        const caKeys = Object.keys(groups).sort();
+        const caKeys = [...new Set(overviewImages.map(img => img.ca))].sort();
 
-        // แสดงโครงหน้าจอทันที ไม่ต้องรอรูปโหลดครบ
-        let cardIndex = 0;
-        imageGroups.innerHTML = caKeys.map(ca => `
-          <section class="ca-group">
+        // แสดงภาพรวมทั้งหมดใน Gallery เดียว เพื่อกวาดสายตาตรวจงานได้เร็ว
+        imageGroups.innerHTML = `
+          <section class="ca-group overview-group">
             <div class="ca-title">
-              CA ${escapeHtml(ca)} · ${groups[ca].length} รูป
+              ภาพรวมทั้งหมด · ${overviewImages.length} รูป · ${caKeys.length} CA
             </div>
 
-            <div class="image-grid">
-              ${groups[ca].map(img => {
-                const id = "imgslot-" + (cardIndex++);
-                img.slotId = id;
+            <div class="image-grid overview-grid">
+              ${overviewImages.map(img => `
+                <div class="image-card">
+                  <div class="ca-badge">CA ${escapeHtml(img.ca)}</div>
 
-                return `
-                  <div class="image-card">
-                    <div id="${id}" class="image-loading">
-                      กำลังโหลดรูป...
-                    </div>
-                    <div class="image-name" title="${escapeHtml(img.name)}">${escapeHtml(img.name)}</div>
-                    <div class="thumbnail-hint">
-                      เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ
-                    </div>
+                  <div id="${img.slotId}" class="image-loading">
+                    กำลังโหลดรูป...
                   </div>
-                `;
-              }).join("")}
+
+                  <div class="image-name" title="${escapeHtml(img.name)}">
+                    ${escapeHtml(img.name)}
+                  </div>
+
+                  <div class="thumbnail-hint">
+                    เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ
+                  </div>
+                </div>
+              `).join("")}
             </div>
           </section>
-        `).join("");
+        `;
 
-        const allImages = caKeys.flatMap(ca => groups[ca]);
+        const allImages = overviewImages;
         let loadedCount = 0;
         let failedCount = 0;
 
@@ -836,7 +853,7 @@
               if (slot) {
                 const reviewData = encodeURIComponent(JSON.stringify({
                   src: objectUrl,
-                  ca: ca,
+                  ca: img.ca,
                   name: img.name
                 }));
 
