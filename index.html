@@ -168,56 +168,90 @@
     }
 
     .image-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-start;
+      overflow: visible;
     }
 
     .image-card {
+      width: 148px;
       background: #fafafa;
       border: 1px solid #ddd;
-      border-radius: 12px;
-      padding: 10px;
+      border-radius: 10px;
+      padding: 7px;
+      position: relative;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .image-card:hover {
+      border-color: #6a35b5;
+      box-shadow: 0 4px 14px rgba(0,0,0,.12);
+      z-index: 30;
     }
 
     .image-card img {
-      width: 100%;
-      height: 240px;
-      object-fit: contain;
+      width: 132px;
+      height: 96px;
+      object-fit: cover;
       background: #eee;
-      border-radius: 8px;
-      cursor: pointer;
+      border-radius: 7px;
+      cursor: zoom-in;
+      display: block;
+      transition: transform .16s ease, box-shadow .16s ease;
+      transform-origin: center center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .image-card img:hover {
+      transform: scale(2.65);
+      box-shadow: 0 10px 34px rgba(0,0,0,.40);
+      z-index: 50;
     }
 
     .image-loading {
-      width: 100%;
-      height: 240px;
+      width: 132px;
+      height: 96px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #eee;
-      border-radius: 8px;
+      border-radius: 7px;
       color: #666;
-      font-size: 14px;
+      font-size: 12px;
+      text-align: center;
     }
 
     .image-error {
-      width: 100%;
-      height: 240px;
+      width: 132px;
+      height: 96px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #fff0f0;
-      border-radius: 8px;
+      border-radius: 7px;
       color: #a00000;
       text-align: center;
-      padding: 10px;
+      padding: 6px;
+      font-size: 12px;
     }
 
     .image-name {
-      margin-top: 8px;
-      font-size: 12px;
-      overflow-wrap: anywhere;
+      margin-top: 6px;
+      font-size: 10px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .thumbnail-hint {
+      margin-top: 4px;
+      font-size: 10px;
+      color: #777;
+      text-align: center;
     }
 
     .line-share-button {
@@ -228,6 +262,81 @@
       background: #06c755;
       color: white;
       border-radius: 8px;
+    }
+
+    .review-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0,0,0,.78);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .review-modal.open {
+      display: flex;
+    }
+
+    .review-panel {
+      width: min(980px, 96vw);
+      max-height: 94vh;
+      overflow: auto;
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 16px 60px rgba(0,0,0,.35);
+    }
+
+    .review-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .review-title {
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .review-close {
+      border: 0;
+      background: #eee;
+      color: #222;
+      border-radius: 9px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .review-image {
+      width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      background: #111;
+      border-radius: 10px;
+      display: block;
+    }
+
+    .review-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .review-actions .line-share-button {
+      margin-top: 0;
+      flex: 1 1 260px;
+    }
+
+    .review-note {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
     }
 
     .copy-note {
@@ -324,7 +433,29 @@
     </div>
   </div>
 
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  
+  <div id="reviewModal" class="review-modal" onclick="closeImageReview(event)">
+    <div class="review-panel" onclick="event.stopPropagation()">
+      <div class="review-top">
+        <div id="reviewTitle" class="review-title">ตรวจรูป</div>
+        <button class="review-close" onclick="closeImageReview()">✕ ปิด</button>
+      </div>
+
+      <img id="reviewImage" class="review-image" alt="ภาพสำหรับตรวจงาน" />
+
+      <div class="review-actions">
+        <button id="reviewLineButton" class="line-share-button">
+          ❌ ยืนยันรูปไม่ผ่าน · ส่งเข้า LINE
+        </button>
+      </div>
+
+      <div class="review-note">
+        ขั้นแรกดูภาพรวมจากรูปย่อ → เลื่อนเมาส์เพื่อซูม → ถ้าผิดแน่ค่อยคลิกและส่ง LINE
+      </div>
+    </div>
+  </div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
     const LIFF_ID = "2011407195-ZXPgFEKe";
     const QC_API_URL =
@@ -612,9 +743,7 @@
               <div class="image-card">
                 <div class="image-loading">กำลังโหลดรูป...</div>
                 <div class="image-name">กำลังเตรียมไฟล์</div>
-                <button class="line-share-button" disabled>
-                  กำลังโหลด...
-                </button>
+                <div class="thumbnail-hint">เลื่อนเมาส์เพื่อซูม</div>
               </div>
             `).join("")}
           </div>
@@ -679,15 +808,9 @@
                     <div id="${id}" class="image-loading">
                       กำลังโหลดรูป...
                     </div>
-                    <div class="image-name">${escapeHtml(img.name)}</div>
-                    <button
-                      class="line-share-button"
-                      onclick="shareToLine('${escapeHtml(ca)}', '${escapeHtml(img.name)}')"
-                    >
-                      ❌ รูปไม่ผ่าน · ส่งเข้า LINE
-                    </button>
-                    <div class="copy-note">
-                      กดเพื่อเลือกเพื่อน / กลุ่ม / แชต
+                    <div class="image-name" title="${escapeHtml(img.name)}">${escapeHtml(img.name)}</div>
+                    <div class="thumbnail-hint">
+                      เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ
                     </div>
                   </div>
                 `;
@@ -711,17 +834,20 @@
               );
 
               if (slot) {
+                const reviewData = encodeURIComponent(JSON.stringify({
+                  src: objectUrl,
+                  ca: ca,
+                  name: img.name
+                }));
+
                 slot.outerHTML = `
-                  <a
-                    href="${objectUrl}"
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    <img
-                      src="${objectUrl}"
-                      alt="${escapeHtml(img.name)}"
-                    />
-                  </a>
+                  <img
+                    src="${objectUrl}"
+                    alt="${escapeHtml(img.name)}"
+                    title="เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ"
+                    data-review="${reviewData}"
+                    onclick="openImageReview(this)"
+                  />
                 `;
               }
 
@@ -756,6 +882,48 @@
           "ดึงรูปไม่สำเร็จ: " + (error.message || error);
       }
     }
+
+    function openImageReview(imgElement) {
+      try {
+        const data = JSON.parse(
+          decodeURIComponent(imgElement.dataset.review || "")
+        );
+
+        const modal = document.getElementById("reviewModal");
+        const reviewImage = document.getElementById("reviewImage");
+        const reviewTitle = document.getElementById("reviewTitle");
+        const reviewLineButton = document.getElementById("reviewLineButton");
+
+        reviewImage.src = data.src;
+        reviewTitle.textContent = "CA " + data.ca + " · " + data.name;
+
+        reviewLineButton.onclick = () => {
+          shareToLine(data.ca, data.name);
+        };
+
+        modal.classList.add("open");
+      } catch (e) {
+        alert("เปิดภาพสำหรับตรวจไม่ได้");
+      }
+    }
+
+    function closeImageReview(event) {
+      if (event && event.target !== document.getElementById("reviewModal")) {
+        return;
+      }
+
+      const modal = document.getElementById("reviewModal");
+      const reviewImage = document.getElementById("reviewImage");
+
+      modal.classList.remove("open");
+      reviewImage.removeAttribute("src");
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeImageReview();
+      }
+    });
 
     async function shareToLine(ca, fileName) {
       const batch = window.currentBatch || {};
