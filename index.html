@@ -543,6 +543,7 @@
             <div class="batch-row">จำนวนรูป: ${escapeHtml(batch.image_count)} รูป</div>
             <div class="batch-row">จำนวน CA: ${escapeHtml(batch.ca_count)}</div>
             <div class="status">สถานะ: ${escapeHtml(batch.status || "UPLOADED")}</div>
+            <div class="batch-row" style="margin-top:8px;font-weight:700;">แตะเพื่อเปิดดูรูป →</div>
           </div>
         `).join("");
 
@@ -601,8 +602,28 @@
       document.getElementById("detailTitle").textContent = batch.batch_id;
       detailStatus.style.display = "block";
       detailStatus.className = "status-box";
-      detailStatus.textContent = "กำลังดึงรายการรูปจาก Server...";
-      imageGroups.innerHTML = "";
+      detailStatus.textContent = "กำลังเตรียมรูปจาก Server...";
+
+      imageGroups.innerHTML = `
+        <section class="ca-group">
+          <div class="ca-title">กำลังโหลดข้อมูล...</div>
+          <div class="image-grid">
+            ${Array.from({ length: Math.min(Number(batch.image_count) || 3, 6) }).map(() => `
+              <div class="image-card">
+                <div class="image-loading">กำลังโหลดรูป...</div>
+                <div class="image-name">กำลังเตรียมไฟล์</div>
+                <button class="line-share-button" disabled>
+                  กำลังโหลด...
+                </button>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      `;
+
+      requestAnimationFrame(() => {
+        detailArea.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
 
       try {
         const result = await qcApi("images", {
@@ -620,7 +641,7 @@
         }
 
         detailStatus.textContent =
-          "พบรายการไฟล์ " + files.length + " ไฟล์ กำลังโหลดรูปแบบพร้อมกัน...";
+          "พร้อมแล้ว ✓ พบ " + files.length + " ไฟล์ · กำลังโหลดรูป...";
 
         const groups = {};
 
