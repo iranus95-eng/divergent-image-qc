@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Divergent Image Rescue - QC Center</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Tahoma, sans-serif;
+      background: #f5f6fa;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 36px auto;
+      padding: 0 20px 40px;
+    }
+
+    .header {
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 32px;
+    }
+
+    .header p {
+      margin: 8px 0 0;
+      color: #666;
+      font-size: 18px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    select {
+      width: 100%;
+      padding: 13px 14px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: white;
+      margin-bottom: 16px;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #6c4ed9;
+      color: white;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .status-box {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #f3f0ff;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    .status-error {
+      background: #fff0f0;
+      color: #a00000;
+    }
+
+    .batch-area {
+      margin-top: 28px;
+      display: none;
+    }
+
+    .batch-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .batch-header h2 {
+      margin: 0;
+    }
+
+    .batch-count {
+      color: #666;
+    }
+
+    .batch {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 18px;
+      margin-top: 12px;
+      background: #fafafa;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .batch:hover {
+      border-color: #6c4ed9;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+    }
+
+    .batch strong {
+      font-size: 18px;
+    }
+
+    .batch-row {
+      margin-top: 7px;
+    }
+
+    .status {
+      margin-top: 10px;
+      color: #138a3d;
+      font-weight: bold;
+    }
+
+    .detail-area {
+      display: none;
+      margin-top: 24px;
+    }
+
+    .detail-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .detail-top h2 {
+      margin: 0;
+    }
+
+    .ca-group {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid #ddd;
+    }
+
+    .ca-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+
+    .image-card {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .image-card img {
+      width: 100%;
+      height: 240px;
+      object-fit: contain;
+      background: #eee;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .image-loading {
+      width: 100%;
+      height: 240px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #eee;
+      border-radius: 8px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .image-error {
+      width: 100%;
+      height: 240px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff0f0;
+      border-radius: 8px;
+      color: #a00000;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .image-name {
+      margin-top: 8px;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .line-share-button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #06c755;
+      color: white;
+      border-radius: 8px;
+    }
+
+    .copy-note {
+      margin-top: 7px;
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+    }
+
+    .empty {
+      padding: 22px;
+      text-align: center;
+      color: #666;
+      border: 1px dashed #ccc;
+      border-radius: 12px;
+      background: #fafafa;
+    }
+
+    .key-box {
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+
+    .key-status {
+      margin-left: 10px;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Divergent Image Rescue</h1>
+      <p>QC Center</p>
+    </div>
+
+    <div class="card">
+      <label for="siteSelect">เลือก Site งาน</label>
+
+      <select id="siteSelect">
+        <option value="">-- เลือก Site --</option>
+        <option value="UDON">การไฟฟ้าส่วนภูมิภาคสาขาอุดรธานี</option>
+        <option value="PHUWIANG">การไฟฟ้าส่วนภูมิภาคอำเภอภูเวียง</option>
+        <option value="KRANUAN">การไฟฟ้าส่วนภูมิภาคสาขากระนวน</option>
+        <option value="KOSUM">การไฟฟ้าส่วนภูมิภาคอำเภอโกสุมพิสัย</option>
+        <option value="NONGSONGHONG">การไฟฟ้าส่วนภูมิภาคสาขาหนองสองห้อง</option>
+        <option value="BANFANG">การไฟฟ้าส่วนภูมิภาคอำเภอบ้านฝาง</option>
+        <option value="PHUKHIAO">การไฟฟ้าส่วนภูมิภาคสาขาภูเขียว</option>
+        <option value="MANCHAKHIRI">การไฟฟ้าส่วนภูมิภาคสาขามัญจาคีรี</option>
+        <option value="CHATTURAT">การไฟฟ้าส่วนภูมิภาคสาขาจัตุรัส</option>
+        <option value="CHAIYAPHUM">การไฟฟ้าส่วนภูมิภาคจังหวัดชัยภูมิ</option>
+        <option value="KAENGKHRO">การไฟฟ้าส่วนภูมิภาคสาขาแก้งคร้อ</option>
+        <option value="NONGKI">การไฟฟ้าส่วนภูมิภาคสาขาหนองกี่</option>
+        <option value="PRAKHONCHAI">การไฟฟ้าส่วนภูมิภาคสาขาประโคนชัย</option>
+        <option value="KORAT2">การไฟฟ้าส่วนภูมิภาคสาขาเมืองนครราชสีมา2 (หัวทะเล)</option>
+        <option value="PHUTTHAISONG">การไฟฟ้าส่วนภูมิภาคสาขาพุทไธสง</option>
+        <option value="CHUMPHUANG">การไฟฟ้าส่วนภูมิภาคสาขาชุมพวง</option>
+        <option value="SUNGNOEN">การไฟฟ้าส่วนภูมิภาคสาขาสูงเนิน</option>
+        <option value="NONTHAI">การไฟฟ้าส่วนภูมิภาคสาขาโนนไทย</option>
+        <option value="KANTHARALAK">การไฟฟ้าส่วนภูมิภาคสาขากันทรลักษ์</option>
+        <option value="PRATHAI">การไฟฟ้าส่วนภูมิภาคอำเภอประทาย</option>
+        <option value="BUAYAI">การไฟฟ้าส่วนภูมิภาคอำเภอบัวใหญ่</option>
+        <option value="NONGBUNMAK">การไฟฟ้าส่วนภูมิภาคอำเภอหนองบุญมาก</option>
+      </select>
+
+      <button id="loadButton" onclick="loadBatches()">ดู Batch จาก Server</button>
+
+      <div id="statusBox" class="status-box"></div>
+
+      <div id="batchArea" class="batch-area">
+        <div class="batch-header">
+          <h2>รายการ Batch</h2>
+          <div id="batchCount" class="batch-count"></div>
+        </div>
+        <div id="batchList"></div>
+      </div>
+
+      <div id="detailArea" class="detail-area">
+        <div class="detail-top">
+          <button onclick="closeBatchDetail()">← กลับรายการ Batch</button>
+          <h2 id="detailTitle">รายละเอียด Batch</h2>
+        </div>
+        <div id="detailStatus" class="status-box"></div>
+        <div id="imageGroups"></div>
+      </div>
+
+      <div class="key-box">
+        <button onclick="setApiKey()">ตั้งค่า Supabase Key</button>
+        <span id="keyStatus" class="key-status"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://neauzvqroaszvqffahkv.supabase.co";
+    const KEY_STORAGE = "divergent_qc_supabase_key";
+
+    function getApiKey() {
+      return sessionStorage.getItem(KEY_STORAGE) || "";
+    }
+
+    function updateKeyStatus() {
+      const keyStatus = document.getElementById("keyStatus");
+      keyStatus.textContent = getApiKey()
+        ? "ตั้งค่า Key แล้ว ✓"
+        : "ยังไม่ได้ตั้งค่า Key";
+    }
+
+    function setApiKey() {
+      const oldKey = getApiKey();
+      const value = prompt(
+        "วาง Supabase Publishable/Anon Key ของโปรเจกต์นี้",
+        oldKey
+      );
+
+      if (value === null) return;
+
+      const key = value.trim();
+
+      if (!key) {
+        sessionStorage.removeItem(KEY_STORAGE);
+        updateKeyStatus();
+        return;
+      }
+
+      sessionStorage.setItem(KEY_STORAGE, key);
+      updateKeyStatus();
+      alert("บันทึก Key สำหรับหน้าต่างนี้แล้ว");
+    }
+
+    function showStatus(message, isError = false) {
+      const box = document.getElementById("statusBox");
+      box.style.display = "block";
+      box.textContent = message;
+      box.className = isError
+        ? "status-box status-error"
+        : "status-box";
+    }
+
+    function formatRawDate(rawDate) {
+      if (!rawDate || rawDate.length !== 8) return rawDate || "-";
+      return rawDate.slice(0,2) + "/" +
+             rawDate.slice(2,4) + "/" +
+             rawDate.slice(4,8);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function parseCAFromName(name) {
+      const m = String(name || "").match(/^INSx(\d+)_/i);
+      return m ? m[1] : "ไม่ทราบ CA";
+    }
+
+    function encodePath(path) {
+      return String(path).split("/").map(encodeURIComponent).join("/");
+    }
+
+    async function loadBatches() {
+      const siteCode = document.getElementById("siteSelect").value;
+      const apiKey = getApiKey();
+      const button = document.getElementById("loadButton");
+      const area = document.getElementById("batchArea");
+      const list = document.getElementById("batchList");
+      const count = document.getElementById("batchCount");
+
+      if (!siteCode) {
+        alert("กรุณาเลือก Site งาน");
+        return;
+      }
+
+      if (!apiKey) {
+        alert("กรุณากด “ตั้งค่า Supabase Key” ก่อน");
+        return;
+      }
+
+      button.disabled = true;
+      document.getElementById("detailArea").style.display = "none";
+      area.style.display = "none";
+      list.innerHTML = "";
+      count.textContent = "";
+      showStatus("กำลังดึงรายการ Batch จาก Server...");
+
+      try {
+        const response = await fetch(
+          SUPABASE_URL + "/rest/v1/rpc/get_image_batches_by_site",
+          {
+            method: "POST",
+            headers: {
+              "apikey": apiKey,
+              "Authorization": "Bearer " + apiKey,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              p_site_code: siteCode
+            })
+          }
+        );
+
+        const responseText = await response.text();
+
+        if (!response.ok) {
+          throw new Error(
+            "HTTP " + response.status + ": " + responseText.slice(0,250)
+          );
+        }
+
+        const batches = responseText ? JSON.parse(responseText) : [];
+        window.currentBatches = batches;
+
+        area.style.display = "block";
+        count.textContent = batches.length + " ชุด";
+
+        if (batches.length === 0) {
+          list.innerHTML =
+            '<div class="empty">ยังไม่มี Batch สำหรับ Site นี้</div>';
+          showStatus("เชื่อมต่อ Server สำเร็จ ✓ แต่ยังไม่มี Batch");
+          return;
+        }
+
+        list.innerHTML = batches.map((batch, index) => `
+          <div class="batch" onclick="openBatchDetail(${index})">
+            <strong>${escapeHtml(batch.batch_id)}</strong>
+            <div class="batch-row">Site: ${escapeHtml(batch.site_name)}</div>
+            <div class="batch-row">วันที่: ${escapeHtml(formatRawDate(batch.raw_date))}</div>
+            <div class="batch-row">จำนวนรูป: ${escapeHtml(batch.image_count)} รูป</div>
+            <div class="batch-row">จำนวน CA: ${escapeHtml(batch.ca_count)}</div>
+            <div class="status">สถานะ: ${escapeHtml(batch.status || "UPLOADED")}</div>
+          </div>
+        `).join("");
+
+        showStatus("ดึงข้อมูลจาก Server สำเร็จ ✓");
+
+      } catch (error) {
+        area.style.display = "none";
+        showStatus(
+          "ดึงข้อมูลไม่สำเร็จ: " + (error.message || error),
+          true
+        );
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function fetchPrivateImage(objectPath, apiKey) {
+      const response = await fetch(
+        SUPABASE_URL +
+          "/storage/v1/object/authenticated/insx-images/" +
+          encodePath(objectPath),
+        {
+          method: "GET",
+          headers: {
+            "apikey": apiKey,
+            "Authorization": "Bearer " + apiKey
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(
+          "เปิดรูปไม่สำเร็จ HTTP " +
+          response.status +
+          ": " +
+          text.slice(0,160)
+        );
+      }
+
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    }
+
+    async function openBatchDetail(index) {
+      const batch = (window.currentBatches || [])[index];
+      if (!batch) return;
+      window.currentBatch = batch;
+
+      const apiKey = getApiKey();
+
+      if (!apiKey) {
+        alert("กรุณาตั้งค่า Supabase Key ก่อน");
+        return;
+      }
+
+      document.getElementById("batchArea").style.display = "none";
+
+      const detailArea = document.getElementById("detailArea");
+      const detailStatus = document.getElementById("detailStatus");
+      const imageGroups = document.getElementById("imageGroups");
+
+      detailArea.style.display = "block";
+      document.getElementById("detailTitle").textContent = batch.batch_id;
+      detailStatus.style.display = "block";
+      detailStatus.className = "status-box";
+      detailStatus.textContent = "กำลังดึงรายการรูปจาก Storage...";
+      imageGroups.innerHTML = "";
+
+      // จุดสำคัญ V3: ใช้ path จริงและใส่ / ท้าย prefix
+      const folder =
+        batch.site_code + "/" +
+        batch.raw_date + "/" +
+        batch.batch_id + "/";
+
+      try {
+        const response = await fetch(
+          SUPABASE_URL + "/storage/v1/object/list/insx-images",
+          {
+            method: "POST",
+            headers: {
+              "apikey": apiKey,
+              "Authorization": "Bearer " + apiKey,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              prefix: folder,
+              limit: 1000,
+              offset: 0,
+              sortBy: {
+                column: "name",
+                order: "asc"
+              }
+            })
+          }
+        );
+
+        const responseText = await response.text();
+
+        if (!response.ok) {
+          throw new Error(
+            "LIST HTTP " +
+            response.status +
+            ": " +
+            responseText.slice(0,300)
+          );
+        }
+
+        const objects = responseText ? JSON.parse(responseText) : [];
+
+        // ในบาง response id อาจไม่ถูกคืนมา จึงกรองจาก name อย่างเดียว
+        const files = objects.filter(
+          x => x && x.name && !String(x.name).endsWith("/")
+        );
+
+        if (!files.length) {
+          detailStatus.textContent =
+            "ไม่พบรูปใน Batch นี้\nPath: " + folder;
+          return;
+        }
+
+        detailStatus.textContent =
+          "พบรายการไฟล์ " + files.length + " ไฟล์ กำลังโหลดรูปแบบพร้อมกัน...";
+
+        const groups = {};
+
+        for (const file of files) {
+          const fileName = file.name;
+          const ca = parseCAFromName(fileName);
+
+          if (!groups[ca]) {
+            groups[ca] = [];
+          }
+
+          groups[ca].push({
+            name: fileName,
+            objectPath: folder + fileName
+          });
+        }
+
+        const caKeys = Object.keys(groups).sort();
+
+        // แสดงโครงหน้าจอทันที ไม่ต้องรอรูปโหลดครบ
+        let cardIndex = 0;
+        imageGroups.innerHTML = caKeys.map(ca => `
+          <section class="ca-group">
+            <div class="ca-title">
+              CA ${escapeHtml(ca)} · ${groups[ca].length} รูป
+            </div>
+
+            <div class="image-grid">
+              ${groups[ca].map(img => {
+                const id = "imgslot-" + (cardIndex++);
+                img.slotId = id;
+
+                return `
+                  <div class="image-card">
+                    <div id="${id}" class="image-loading">
+                      กำลังโหลดรูป...
+                    </div>
+                    <div class="image-name">${escapeHtml(img.name)}</div>
+                    <button
+                      class="line-share-button"
+                      onclick="shareToLine('${escapeHtml(ca)}', '${escapeHtml(img.name)}')"
+                    >
+                      ❌ รูปไม่ผ่าน · คัดลอกสำหรับ LINE
+                    </button>
+                    <div class="copy-note">
+                      กดแล้วไปที่ LINE และวางด้วย Ctrl+V
+                    </div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          </section>
+        `).join("");
+
+        const allImages = caKeys.flatMap(ca => groups[ca]);
+        let loadedCount = 0;
+        let failedCount = 0;
+
+        // โหลดทุกภาพพร้อมกัน
+        await Promise.allSettled(
+          allImages.map(async img => {
+            const slot = document.getElementById(img.slotId);
+
+            try {
+              const objectUrl = await fetchPrivateImage(
+                img.objectPath,
+                apiKey
+              );
+
+              if (slot) {
+                slot.outerHTML = `
+                  <a
+                    href="${objectUrl}"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      src="${objectUrl}"
+                      alt="${escapeHtml(img.name)}"
+                    />
+                  </a>
+                `;
+              }
+
+              loadedCount++;
+            } catch (e) {
+              failedCount++;
+
+              if (slot) {
+                slot.className = "image-error";
+                slot.textContent = "เปิดรูปไม่ได้";
+              }
+            }
+
+            detailStatus.textContent =
+              "โหลดแล้ว " +
+              (loadedCount + failedCount) +
+              "/" +
+              files.length +
+              " รูป";
+          })
+        );
+
+        detailStatus.textContent =
+          failedCount === 0
+            ? "พบ " + files.length + " รูป · " + caKeys.length + " CA ✓"
+            : "พบ " + files.length + " รูป · " + caKeys.length +
+              " CA · เปิดรูปไม่ได้ " + failedCount + " รูป";
+
+      } catch (error) {
+        detailStatus.className = "status-box status-error";
+        detailStatus.textContent =
+          "ดึงรูปไม่สำเร็จ: " + (error.message || error);
+      }
+    }
+
+    async function shareToLine(ca, fileName) {
+      const batch = window.currentBatch || {};
+      const siteSelect = document.getElementById("siteSelect");
+      const siteName =
+        siteSelect.options[siteSelect.selectedIndex]?.text ||
+        batch.site_name ||
+        "-";
+
+      const message =
+        "❌ รูปไม่ผ่าน\n" +
+        "Site: " + siteName + "\n" +
+        "CA: " + ca + "\n" +
+        "Batch: " + (batch.batch_id || "-") + "\n" +
+        "ไฟล์: " + fileName + "\n" +
+        "สาเหตุ: รูปไม่ชัด กรุณาตรวจสอบและถ่ายใหม่";
+
+      let copiedText = false;
+      let copiedImage = false;
+
+      // ค้นหารูปที่แสดงอยู่จากชื่อไฟล์
+      const imageCards = Array.from(
+        document.querySelectorAll(".image-card")
+      );
+
+      const targetCard = imageCards.find(card => {
+        const nameEl = card.querySelector(".image-name");
+        return nameEl && nameEl.textContent === fileName;
+      });
+
+      const img = targetCard
+        ? targetCard.querySelector("img")
+        : null;
+
+      // พยายามคัดลอกรูปเข้า Clipboard ก่อน
+      if (
+        img &&
+        img.src &&
+        navigator.clipboard &&
+        typeof ClipboardItem !== "undefined"
+      ) {
+        try {
+          const response = await fetch(img.src);
+          const blob = await response.blob();
+
+          let clipboardBlob = blob;
+
+          // Clipboard บน Windows/Chrome มักรองรับ PNG ได้เสถียรกว่า JPEG
+          if (blob.type !== "image/png") {
+            const bitmap = await createImageBitmap(blob);
+            const canvas = document.createElement("canvas");
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(bitmap, 0, 0);
+
+            clipboardBlob = await new Promise((resolve, reject) => {
+              canvas.toBlob(
+                b => b ? resolve(b) : reject(
+                  new Error("แปลงรูปเป็น PNG ไม่สำเร็จ")
+                ),
+                "image/png"
+              );
+            });
+          }
+
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              "image/png": clipboardBlob
+            })
+          ]);
+
+          copiedImage = true;
+        } catch (e) {
+          copiedImage = false;
+        }
+      }
+
+      // ถ้าคัดลอกรูปสำเร็จ จะใช้ข้อความเป็น fallback prompt ให้ผู้ใช้คัดลอกต่อ
+      // เพราะ Clipboard โดยทั่วไปเก็บ "รูป + ข้อความ" เป็นสองรายการพร้อมกันไม่ได้
+      if (copiedImage) {
+        try {
+          window.sessionStorage.setItem(
+            "divergent_qc_last_line_message",
+            message
+          );
+        } catch (e) {}
+
+        alert(
+          "คัดลอกรูปแล้ว ✓\n\n" +
+          "1) ไปที่ห้องแชต LINE\n" +
+          "2) กด Ctrl+V เพื่อวางรูป\n" +
+          "3) กลับมาหน้านี้ แล้วกด OK ด้านล่างเพื่อคัดลอกข้อความ"
+        );
+
+        try {
+          await navigator.clipboard.writeText(message);
+          copiedText = true;
+        } catch (e) {
+          copiedText = false;
+        }
+
+        if (copiedText) {
+          alert(
+            "คัดลอกข้อความ “❌ รูปไม่ผ่าน” แล้ว ✓\n" +
+            "ไปที่ LINE แล้วกด Ctrl+V อีกครั้งเพื่อวางข้อความ"
+          );
+        } else {
+          window.prompt(
+            "คัดลอกข้อความนี้ไปวางใน LINE",
+            message
+          );
+        }
+
+        return;
+      }
+
+      // ถ้าคัดลอกรูปไม่ได้ อย่างน้อยคัดลอกข้อความให้แน่นอน
+      try {
+        await navigator.clipboard.writeText(message);
+        copiedText = true;
+      } catch (e) {
+        copiedText = false;
+      }
+
+      if (copiedText) {
+        alert(
+          "คัดลอกข้อความสำหรับ LINE แล้ว ✓\n" +
+          "ไปที่ LINE Desktop เลือกห้องแชต แล้วกด Ctrl+V"
+        );
+      } else {
+        window.prompt(
+          "คัดลอกข้อความนี้ไปวางใน LINE",
+          message
+        );
+      }
+    }
+
+    function closeBatchDetail() {
+      document.getElementById("detailArea").style.display = "none";
+      document.getElementById("batchArea").style.display = "block";
+    }
+
+    updateKeyStatus();
+  </script>
+</body>
+</html>
