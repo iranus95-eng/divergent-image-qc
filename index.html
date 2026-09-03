@@ -387,6 +387,54 @@
       color: #666;
       font-size: 14px;
     }
+  
+    .registration-box {
+      display: none;
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px solid #dcdfe5;
+      border-radius: 14px;
+      background: #fafbfc;
+    }
+    .registration-box.show { display: block; }
+    .registration-title {
+      font-weight: 700;
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+    .registration-sub {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .registration-box input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 11px 12px;
+      border: 1px solid #cfd4dc;
+      border-radius: 10px;
+      font-size: 15px;
+      margin-bottom: 10px;
+    }
+    .registration-box button {
+      width: 100%;
+      margin-top: 0;
+    }
+    .registration-result {
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .registration-pending {
+      color: #9a6700;
+      font-weight: 600;
+    }
+    .registration-rejected {
+      color: #b42318;
+      font-weight: 600;
+    }
+
   </style>
 </head>
 
@@ -450,6 +498,27 @@
       <div id="lineUserBox" class="key-box">
         <strong>LINE Login</strong>
         <span id="lineUserStatus" class="key-status">กำลังตรวจสอบ...</span>
+      </div>
+
+      <div id="registrationBox" class="registration-box">
+        <div class="registration-title">ขอสิทธิ์เข้าใช้งาน QC</div>
+        <div id="registrationSub" class="registration-sub">
+          ระบบจะส่งคำขอจากบัญชี LINE ที่กำลังใช้งานอยู่ให้ผู้ดูแลอนุมัติ
+        </div>
+
+        <input
+          id="requestedName"
+          type="text"
+          maxlength="120"
+          placeholder="ชื่อพนักงาน / ชื่อที่ใช้ในงาน"
+          autocomplete="name"
+        />
+
+        <button id="registerButton" onclick="submitQcRegistration()">
+          ส่งคำขอเข้าใช้งาน
+        </button>
+
+        <div id="registrationResult" class="registration-result"></div>
       </div>
     </div>
   </div>
@@ -609,11 +678,43 @@
       window.qcAccessAllowed = !!enabled;
     }
 
+    function showRegistrationBox(show) {
+      const box = document.getElementById("registrationBox");
+      if (!box) return;
+      box.classList.toggle("show", !!show);
+    }
+
+    function setRegistrationState(statusValue, note = "") {
+      const result = document.getElementById("registrationResult");
+      const button = document.getElementById("registerButton");
+      const input = document.getElementById("requestedName");
+
+      result.className = "registration-result";
+      button.disabled = false;
+      input.disabled = false;
+
+      if (statusValue === "pending") {
+        result.classList.add("registration-pending");
+        result.textContent = "ส่งคำขอแล้ว ✓ กำลังรอผู้ดูแลอนุมัติ";
+        button.disabled = true;
+        input.disabled = true;
+      } else if (statusValue === "rejected") {
+        result.classList.add("registration-rejected");
+        result.textContent =
+          "คำขอครั้งก่อนยังไม่ได้รับอนุมัติ" +
+          (note ? " · หมายเหตุ: " + note : "") +
+          " · สามารถส่งคำขอใหม่ได้";
+      } else {
+        result.textContent = "";
+      }
+    }
+
     async function checkQcAccess() {
       const status = document.getElementById("lineUserStatus");
       const profile = window.lineProfile;
 
       setQcEnabled(false);
+      showRegistrationBox(false);
 
       if (!profile || !profile.userId) {
         status.textContent = "ยังไม่สามารถอ่านบัญชี LINE ได้";
@@ -623,28 +724,93 @@
       status.textContent = "กำลังตรวจสิทธิ์ QC...";
 
       try {
-        const user = await qcApi("access");
+        const info = await qcApi("registration-status");
 
-        if (!user || user.allowed !== true) {
+        if (info && info.allowed === true) {
           status.textContent =
-            "ไม่มีสิทธิ์เข้า QC ✕ · กรุณาติดต่อผู้ดูแลระบบ";
-          return false;
+            "อนุญาตเข้า QC ✓ " +
+            (info.display_name || profile.displayName || "") +
+            " · " +
+            (info.user_role || "user");
+
+          window.qcAuthorizedUser = info;
+          setQcEnabled(true);
+          showRegistrationBox(false);
+          return true;
         }
 
-        status.textContent =
-          "อนุญาตเข้า QC ✓ " +
-          (user.display_name || profile.displayName || "") +
-          " · " +
-          (user.user_role || "user");
+        const registrationStatus =
+          info?.registration_status || "not_registered";
 
-        window.qcAuthorizedUser = user;
-        setQcEnabled(true);
-        return true;
+        status.textContent =
+          "บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า QC";
+
+        const nameInput = document.getElementById("requestedName");
+        if (nameInput && !nameInput.value) {
+          nameInput.value = profile.displayName || "";
+        }
+
+        showRegistrationBox(true);
+        setRegistrationState(registrationStatus, info?.note || "");
+
+        if (registrationStatus === "pending") {
+          status.textContent = "คำขอเข้า QC อยู่ระหว่างรออนุมัติ";
+        } else if (registrationStatus === "rejected") {
+          status.textContent = "คำขอเข้า QC ยังไม่ได้รับอนุมัติ";
+        }
+
+        return false;
       } catch (error) {
         status.textContent =
           "ตรวจสิทธิ์ QC ไม่สำเร็จ: " + (error.message || error);
         setQcEnabled(false);
+        showRegistrationBox(false);
         return false;
+      }
+    }
+
+    async function submitQcRegistration() {
+      const button = document.getElementById("registerButton");
+      const input = document.getElementById("requestedName");
+      const result = document.getElementById("registrationResult");
+
+      const requestedName = (input.value || "").trim();
+      if (!requestedName) {
+        result.className = "registration-result registration-rejected";
+        result.textContent = "กรุณาระบุชื่อพนักงานก่อนส่งคำขอ";
+        input.focus();
+        return;
+      }
+
+      button.disabled = true;
+      input.disabled = true;
+      result.className = "registration-result";
+      result.textContent = "กำลังส่งคำขอ...";
+
+      try {
+        const data = await qcApi("register", { requestedName });
+
+        if (data?.allowed === true ||
+            data?.registration_status === "approved") {
+          result.textContent = "บัญชีนี้ได้รับอนุมัติแล้ว กำลังเปิด QC...";
+          await checkQcAccess();
+          return;
+        }
+
+        if (data?.registration_status === "pending") {
+          setRegistrationState("pending");
+          document.getElementById("lineUserStatus").textContent =
+            "ส่งคำขอเข้า QC แล้ว · รอผู้ดูแลอนุมัติ";
+          return;
+        }
+
+        throw new Error("REGISTER_STATUS_INVALID");
+      } catch (error) {
+        button.disabled = false;
+        input.disabled = false;
+        result.className = "registration-result registration-rejected";
+        result.textContent =
+          "ส่งคำขอไม่สำเร็จ: " + (error.message || error);
       }
     }
 
