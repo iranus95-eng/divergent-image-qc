@@ -591,6 +591,18 @@
       if (!batch) return;
       window.currentBatch = batch;
 
+      document.getElementById("batchArea").style.display = "none";
+
+      const detailArea = document.getElementById("detailArea");
+      const detailStatus = document.getElementById("detailStatus");
+      const imageGroups = document.getElementById("imageGroups");
+
+      detailArea.style.display = "block";
+      document.getElementById("detailTitle").textContent = batch.batch_id;
+      detailStatus.style.display = "block";
+      detailStatus.className = "status-box";
+      detailStatus.textContent = "กำลังดึงรายการรูปจาก Server...";
+      imageGroups.innerHTML = "";
 
       try {
         const result = await qcApi("images", {
