@@ -723,10 +723,10 @@
                       class="line-share-button"
                       onclick="shareToLine('${escapeHtml(ca)}', '${escapeHtml(img.name)}')"
                     >
-                      ❌ รูปไม่ผ่าน · คัดลอกสำหรับ LINE
+                      ❌ รูปไม่ผ่าน · ส่งเข้า LINE
                     </button>
                     <div class="copy-note">
-                      กดแล้วไปที่ LINE และวางด้วย Ctrl+V
+                      กดเพื่อเลือกเพื่อน / กลุ่ม / แชต
                     </div>
                   </div>
                 `;
@@ -813,145 +813,47 @@
         "ไฟล์: " + fileName + "\n" +
         "สาเหตุ: รูปไม่ชัด กรุณาตรวจสอบและถ่ายใหม่";
 
-      let copiedText = false;
-      let copiedImage = false;
-
-      // ค้นหารูปที่แสดงอยู่จากชื่อไฟล์
-      const imageCards = Array.from(
-        document.querySelectorAll(".image-card")
-      );
-
-      const targetCard = imageCards.find(card => {
-        const nameEl = card.querySelector(".image-name");
-        return nameEl && nameEl.textContent === fileName;
-      });
-
-      const img = targetCard
-        ? targetCard.querySelector("img")
-        : null;
-
-      // พยายามคัดลอกรูปเข้า Clipboard ก่อน
-      if (
-        img &&
-        img.src &&
-        navigator.clipboard &&
-        typeof ClipboardItem !== "undefined"
-      ) {
-        try {
-          const response = await fetch(img.src);
-          const blob = await response.blob();
-
-          let clipboardBlob = blob;
-
-          // Clipboard บน Windows/Chrome มักรองรับ PNG ได้เสถียรกว่า JPEG
-          if (blob.type !== "image/png") {
-            const bitmap = await createImageBitmap(blob);
-            const canvas = document.createElement("canvas");
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
-
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(bitmap, 0, 0);
-
-            clipboardBlob = await new Promise((resolve, reject) => {
-              canvas.toBlob(
-                b => b ? resolve(b) : reject(
-                  new Error("แปลงรูปเป็น PNG ไม่สำเร็จ")
-                ),
-                "image/png"
-              );
-            });
-          }
-
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              "image/png": clipboardBlob
-            })
-          ]);
-
-          copiedImage = true;
-        } catch (e) {
-          copiedImage = false;
-        }
-      }
-
-      // ถ้าคัดลอกรูปสำเร็จ จะใช้ข้อความเป็น fallback prompt ให้ผู้ใช้คัดลอกต่อ
-      // เพราะ Clipboard โดยทั่วไปเก็บ "รูป + ข้อความ" เป็นสองรายการพร้อมกันไม่ได้
-      if (copiedImage) {
-        try {
-          window.sessionStorage.setItem(
-            "divergent_qc_last_line_message",
-            message
-          );
-        } catch (e) {}
-
-        alert(
-          "คัดลอกรูปแล้ว ✓\n\n" +
-          "1) ไปที่ห้องแชต LINE\n" +
-          "2) กด Ctrl+V เพื่อวางรูป\n" +
-          "3) กลับมาหน้านี้ แล้วกด OK ด้านล่างเพื่อคัดลอกข้อความ"
-        );
-
-        try {
-          await navigator.clipboard.writeText(message);
-          copiedText = true;
-        } catch (e) {
-          copiedText = false;
-        }
-
-        if (copiedText) {
-          alert(
-            "คัดลอกข้อความ “❌ รูปไม่ผ่าน” แล้ว ✓\n" +
-            "ไปที่ LINE แล้วกด Ctrl+V อีกครั้งเพื่อวางข้อความ"
-          );
-        } else {
-          window.prompt(
-            "คัดลอกข้อความนี้ไปวางใน LINE",
-            message
-          );
-        }
-
-        return;
-      }
-
-      // ถ้าคัดลอกรูปไม่ได้ อย่างน้อยคัดลอกข้อความให้แน่นอน
       try {
-        await navigator.clipboard.writeText(message);
-        copiedText = true;
-      } catch (e) {
-        copiedText = false;
-      }
-
-      if (copiedText) {
-        alert(
-          "คัดลอกข้อความสำหรับ LINE แล้ว ✓\n" +
-          "ไปที่ LINE Desktop เลือกห้องแชต แล้วกด Ctrl+V"
-        );
-      } else {
-        window.prompt(
-          "คัดลอกข้อความนี้ไปวางใน LINE",
-          message
-        );
-      }
-    }
-
-    async function initLiff() {
-      const status = document.getElementById("lineUserStatus");
-      try {
-        await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
-        if (!liff.isLoggedIn()) {
-          status.textContent = "กำลังเข้าสู่ระบบ LINE...";
-          liff.login({ redirectUri: window.location.href });
+        if (!window.qcAccessAllowed) {
+          alert("บัญชีนี้ยังไม่ได้รับอนุญาตให้เข้า QC");
           return;
         }
-        const profile = await liff.getProfile();
-        window.lineProfile = profile;
-        status.textContent =
-          "เข้าสู่ระบบ LINE แล้ว ✓ " + (profile.displayName || "");
 
-        await checkQcAccess();
+        if (!window.liff || !liff.isLoggedIn()) {
+          alert("กรุณาเข้าสู่ระบบ LINE ก่อน");
+          return;
+        }
+
+        if (!liff.isApiAvailable("shareTargetPicker")) {
+          alert(
+            "อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับ shareTargetPicker\n" +
+            "กรุณาลองเปิดผ่าน LIFF หรือ LINE อีกครั้ง"
+          );
+          return;
+        }
+
+        const result = await liff.shareTargetPicker(
+          [
+            {
+              type: "text",
+              text: message
+            }
+          ],
+          {
+            isMultiple: true
+          }
+        );
+
+        if (result) {
+          alert("ส่งข้อความเข้า LINE สำเร็จ ✓");
+        }
       } catch (error) {
-        status.textContent = "LINE Login ไม่สำเร็จ: " + (error.message || error);
+        alert(
+          "เปิดตัวเลือกผู้รับ LINE ไม่สำเร็จ\n" +
+          (error && (error.message || error.code)
+            ? (error.message || error.code)
+            : String(error))
+        );
       }
     }
 
