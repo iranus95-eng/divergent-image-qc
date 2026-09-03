@@ -330,26 +330,26 @@
     const QC_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api";
 
-    async function getLineIdToken() {
+    async function getLineAccessToken() {
       if (!window.liff || !liff.isLoggedIn()) {
         throw new Error("LINE_NOT_LOGGED_IN");
       }
 
-      const token = liff.getIDToken();
+      const token = liff.getAccessToken();
       if (!token) {
-        throw new Error("LINE_ID_TOKEN_NOT_AVAILABLE");
+        throw new Error("LINE_ACCESS_TOKEN_NOT_AVAILABLE");
       }
 
       return token;
     }
 
     async function qcApi(action, payload = {}) {
-      const idToken = await getLineIdToken();
+      const accessToken = await getLineAccessToken();
 
       const response = await fetch(QC_API_URL, {
         method: "POST",
         headers: {
-          "Authorization": "Bearer " + idToken,
+          "Authorization": "Bearer " + accessToken,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ action, ...payload })
