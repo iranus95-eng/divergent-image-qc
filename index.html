@@ -984,6 +984,7 @@
         <input type="hidden" id="userEditId" />
         <div class="user-form-field"><label>ชื่อผู้ใช้</label><input id="userFormUsername" autocomplete="off" placeholder="อย่างน้อย 3 ตัวอักษร" /></div>
         <div class="user-form-field"><label>รหัสผ่าน</label><input id="userFormPassword" type="password" autocomplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร" /></div>
+        <div class="user-form-field"><label>ยืนยันรหัสผ่าน</label><input id="userFormPasswordConfirm" type="password" autocomplete="new-password" placeholder="กรอกรหัสผ่านอีกครั้ง" /></div>
         <div class="user-form-field"><label>บทบาท</label><select id="userFormRole"><option value="staff">พนักงาน</option><option value="user_creator">ผู้สร้างผู้ใช้</option><option value="admin">ผู้ดูแลระบบ</option></select></div>
         <div class="user-form-field"><label>วันหมดอายุ</label><input id="userFormExpiry" type="datetime-local" /></div>
         <div class="permissions-box">
@@ -1100,15 +1101,27 @@
       }).join("");
     }
     function openUserModal(id=null){
-      const u=id?adminUsers.find(x=>Number(x.id)===Number(id)):null; document.getElementById("userEditId").value=u?.id||""; document.getElementById("userModalTitle").textContent=u?"แก้ไขผู้ใช้งาน":"เพิ่มผู้ใช้งานใหม่"; const un=document.getElementById("userFormUsername"); un.value=u?.username||""; un.disabled=!!u; document.getElementById("userFormPassword").value=""; document.getElementById("userFormPassword").placeholder=u?"เว้นว่างหากไม่เปลี่ยนรหัสผ่าน":"อย่างน้อย 6 ตัวอักษร"; document.getElementById("userFormRole").value=u?.role||"staff"; document.getElementById("userFormExpiry").value=toLocalInput(u?.expires_at);
+      const u=id?adminUsers.find(x=>Number(x.id)===Number(id)):null; document.getElementById("userEditId").value=u?.id||""; document.getElementById("userModalTitle").textContent=u?"แก้ไขผู้ใช้งาน":"เพิ่มผู้ใช้งานใหม่"; const un=document.getElementById("userFormUsername"); un.value=u?.username||""; un.disabled=!!u; document.getElementById("userFormPassword").value=""; document.getElementById("userFormPassword").placeholder=u?"เว้นว่างหากไม่เปลี่ยนรหัสผ่าน":"อย่างน้อย 6 ตัวอักษร"; document.getElementById("userFormPasswordConfirm").value=""; document.getElementById("userFormPasswordConfirm").placeholder=u?"เว้นว่างหากไม่เปลี่ยนรหัสผ่าน":"กรอกรหัสผ่านอีกครั้ง"; document.getElementById("userFormRole").value=u?.role||"staff"; document.getElementById("userFormExpiry").value=toLocalInput(u?.expires_at);
       const map={permActive:"is_active",permQc:"can_access_qc",permUpload:"can_upload_data",permCreate:"can_create_users",permEdit:"can_edit_users",permExpiry:"can_set_expiry",permToggle:"can_toggle_users",permDelete:"can_delete_users",permDisconnect:"can_disconnect_users",permManage:"can_manage_permissions"}; for(const [eid,k] of Object.entries(map)) document.getElementById(eid).checked=u?!!u[k]:(eid==="permActive"); document.getElementById("userFormError").textContent=""; document.getElementById("userModal").classList.add("show");
     }
     function closeUserModal(){document.getElementById("userModal")?.classList.remove("show")}
     function collectUserPayload(){
       const expiry=document.getElementById("userFormExpiry").value; return {username:document.getElementById("userFormUsername").value.trim(),password:document.getElementById("userFormPassword").value,role:document.getElementById("userFormRole").value,expires_at:expiry?new Date(expiry).toISOString():null,is_active:document.getElementById("permActive").checked,can_access_qc:document.getElementById("permQc").checked,can_upload_data:document.getElementById("permUpload").checked,can_create_users:document.getElementById("permCreate").checked,can_edit_users:document.getElementById("permEdit").checked,can_set_expiry:document.getElementById("permExpiry").checked,can_toggle_users:document.getElementById("permToggle").checked,can_delete_users:document.getElementById("permDelete").checked,can_disconnect_users:document.getElementById("permDisconnect").checked,can_manage_permissions:document.getElementById("permManage").checked};
     }
+    function userAdminErrorText(code){
+      const m={INVALID_USERNAME:"ชื่อผู้ใช้ต้องมี 3–60 ตัว และใช้ a-z, 0-9, จุด, ขีดกลาง หรือ _ เท่านั้น",PASSWORD_TOO_SHORT:"รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",PERMISSION_DENIED:"บัญชีนี้ไม่มีสิทธิ์ดำเนินการ",ADMIN_ACCESS_DENIED:"เฉพาะผู้ดูแลระบบเท่านั้น",CANNOT_DISABLE_SELF:"ไม่สามารถระงับบัญชีของตัวเองได้",CANNOT_DELETE_SELF:"ไม่สามารถลบบัญชีของตัวเองได้",USER_NOT_FOUND:"ไม่พบบัญชีผู้ใช้งาน",SERVER_ERROR:"เซิร์ฟเวอร์ไม่สามารถบันทึกข้อมูลได้"};
+      return m[code]||code;
+    }
     async function saveUserForm(){
-      const id=document.getElementById("userEditId").value; const btn=document.getElementById("saveUserButton"); const err=document.getElementById("userFormError"); btn.disabled=true; err.textContent="กำลังบันทึก..."; try{const p=collectUserPayload(); if(id){p.id=Number(id); await userAdminApi("update",p);}else{await userAdminApi("create",p);} closeUserModal(); await loadAdminUsers();}catch(e){err.textContent="บันทึกไม่สำเร็จ: "+(e.message||e);}finally{btn.disabled=false;}
+      const id=document.getElementById("userEditId").value; const btn=document.getElementById("saveUserButton"); const err=document.getElementById("userFormError");
+      const p=collectUserPayload(); const confirmPassword=document.getElementById("userFormPasswordConfirm").value;
+      if(!id && !/^[a-zA-Z0-9._-]{3,60}$/.test(p.username)){err.textContent="ชื่อผู้ใช้ต้องมี 3–60 ตัว และใช้ตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง หรือ _";return;}
+      if(!id && p.password.length<6){err.textContent="รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";return;}
+      if(p.password!==confirmPassword){err.textContent="รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน";return;}
+      btn.disabled=true; err.textContent="กำลังบันทึก...";
+      try{if(id){p.id=Number(id); await userAdminApi("update",p);}else{await userAdminApi("create",p);} closeUserModal(); await loadAdminUsers();}
+      catch(e){err.textContent="บันทึกไม่สำเร็จ: "+userAdminErrorText(e.message||String(e));}
+      finally{btn.disabled=false;}
     }
     async function toggleAdminUser(id){const u=adminUsers.find(x=>Number(x.id)===Number(id)); if(!u)return; if(!confirm(`${u.is_active?"ระงับ":"เปิดใช้งาน"}บัญชี ${u.username} ?`))return; try{await userAdminApi("toggle",{id}); await loadAdminUsers();}catch(e){alert("ดำเนินการไม่สำเร็จ: "+(e.message||e));}}
     async function deleteAdminUser(id){const u=adminUsers.find(x=>Number(x.id)===Number(id)); if(!u)return; if(!confirm(`ลบบัญชี ${u.username} ถาวร?`))return; try{await userAdminApi("delete",{id}); await loadAdminUsers();}catch(e){alert("ลบไม่สำเร็จ: "+(e.message||e));}}
@@ -2084,6 +2097,6 @@
     setQcEnabled(false);
     initLiff();
   </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.5.0</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.5.1</div>
 </body>
 </html>
