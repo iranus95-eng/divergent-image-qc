@@ -109,33 +109,62 @@
       color: #666;
     }
 
+    #batchList {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+
     .batch {
       border: 1px solid #ddd;
       border-radius: 12px;
-      padding: 18px;
-      margin-top: 12px;
+      padding: 16px;
+      margin-top: 0;
       background: #fafafa;
       cursor: pointer;
       transition: 0.15s;
+      min-height: 190px;
+      display: flex;
+      flex-direction: column;
     }
 
     .batch:hover {
       border-color: #6c4ed9;
       box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+      transform: translateY(-1px);
     }
 
-    .batch strong {
-      font-size: 18px;
+    .batch-site {
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.4;
+      margin-bottom: 10px;
+      color: #222;
     }
 
     .batch-row {
       margin-top: 7px;
+      font-size: 14px;
+      color: #444;
     }
 
-    .status {
-      margin-top: 10px;
-      color: #138a3d;
-      font-weight: bold;
+    .batch-open {
+      margin-top: auto;
+      padding-top: 14px;
+      font-weight: 800;
+      color: #6c4ed9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-top: 1px solid #ece8f7;
+    }
+
+    @media (max-width: 640px) {
+      #batchList {
+        grid-template-columns: 1fr;
+      }
     }
 
     .detail-area {
@@ -508,7 +537,7 @@
 
       <div id="batchArea" class="batch-area">
         <div class="batch-header">
-          <h2>รายการ Batch</h2>
+          <h2>เลือกข้อมูลที่ต้องการตรวจสอบ</h2>
           <div id="batchCount" class="batch-count"></div>
         </div>
         <div id="batchList"></div>
@@ -516,7 +545,7 @@
 
       <div id="detailArea" class="detail-area">
         <div class="detail-top">
-          <button onclick="closeBatchDetail()">← กลับรายการ Batch</button>
+          <button onclick="closeBatchDetail()">← กลับหน้าเลือกข้อมูล</button>
           <h2 id="detailTitle">รายละเอียด Batch</h2>
         </div>
         <div id="detailStatus" class="status-box"></div>
@@ -959,14 +988,15 @@
         }
 
         list.innerHTML = batches.map((batch, index) => `
-          <div class="batch" onclick="openBatchDetail(${index})">
-            <strong>${escapeHtml(batch.batch_id)}</strong>
-            <div class="batch-row">Site: ${escapeHtml(batch.site_name)}</div>
-            <div class="batch-row">วันที่: ${escapeHtml(formatRawDate(batch.raw_date))}</div>
-            <div class="batch-row">จำนวนรูป: ${escapeHtml(batch.image_count)} รูป</div>
-            <div class="batch-row">จำนวน CA: ${escapeHtml(batch.ca_count)}</div>
-            <div class="status">สถานะ: ${escapeHtml(batch.status || "UPLOADED")}</div>
-            <div class="batch-row" style="margin-top:8px;font-weight:700;">แตะเพื่อเปิดดูรูป →</div>
+          <div class="batch" onclick="openBatchDetail(${index})" role="button" tabindex="0"
+               onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault();openBatchDetail(${index});}">
+            <div class="batch-site">ไซด์งาน ${escapeHtml(batch.site_name)}</div>
+            <div class="batch-row">วันที่ ${escapeHtml(formatRawDate(batch.raw_date))}</div>
+            <div class="batch-row">จำนวนรูป ${escapeHtml(batch.image_count)} รูป</div>
+            <div class="batch-open">
+              <span>เข้าตรวจสอบรูปภาพ</span>
+              <span aria-hidden="true">→</span>
+            </div>
           </div>
         `).join("");
 
@@ -1335,6 +1365,6 @@
     setQcEnabled(false);
     initLiff();
   </script>
-  <div class="app-version">Version 1.0.1</div>
+  <div class="app-version">Version 1.0.2</div>
 </body>
 </html>
