@@ -493,13 +493,101 @@
       backdrop-filter: blur(4px);
     }
   </style>
+
+<style id="divergent-theme-v110">
+  :root {
+    --dv-purple-900:#2f155e;
+    --dv-purple-800:#43217b;
+    --dv-purple-700:#5f31a8;
+    --dv-purple-600:#7443c8;
+    --dv-purple-500:#8b5ad8;
+    --dv-purple-300:#cdb7f4;
+    --dv-purple-200:#e6dcfb;
+    --dv-purple-100:#f3effc;
+    --dv-purple-050:#faf8ff;
+    --dv-text:#21173a;
+    --dv-muted:#756b89;
+    --dv-border:#e5ddf3;
+    --dv-success:#18884a;
+  }
+  html { min-height:100%; background:linear-gradient(145deg,#fbf9ff 0%,#f2edfb 48%,#fafcff 100%); }
+  body {
+    min-height:100vh;
+    padding-bottom:58px;
+    color:var(--dv-text);
+    background:
+      radial-gradient(circle at 8% 0%, rgba(142,89,216,.11), transparent 28%),
+      radial-gradient(circle at 95% 10%, rgba(92,49,168,.08), transparent 30%),
+      linear-gradient(145deg,#fbf9ff 0%,#f5f1fc 55%,#fafcff 100%);
+  }
+  .container { max-width:1180px; margin:28px auto; padding:0 22px 44px; }
+  .header {
+    display:flex; align-items:center; gap:20px; margin:0 0 20px;
+    padding:14px 18px; border:1px solid rgba(121,78,190,.14);
+    border-radius:18px; background:rgba(255,255,255,.78);
+    box-shadow:0 8px 28px rgba(60,30,102,.08); backdrop-filter:blur(12px);
+  }
+  .brand-logo { width:188px; max-width:42vw; height:auto; border-radius:10px; display:block; }
+  .brand-copy { min-width:0; }
+  .header h1 { color:var(--dv-purple-900); font-size:29px; letter-spacing:-.4px; }
+  .header p { color:var(--dv-purple-600); margin-top:5px; font-size:15px; font-weight:700; letter-spacing:.4px; }
+  .card {
+    border:1px solid rgba(109,65,175,.12); border-radius:20px; padding:26px;
+    background:rgba(255,255,255,.92); box-shadow:0 14px 40px rgba(55,29,94,.09);
+  }
+  label { color:var(--dv-purple-900); }
+  select { border:1px solid var(--dv-border); background:#fff; color:var(--dv-text); box-shadow:0 2px 8px rgba(71,42,111,.03); }
+  select:focus { outline:none; border-color:var(--dv-purple-500); box-shadow:0 0 0 4px rgba(139,90,216,.12); }
+  button {
+    background:linear-gradient(135deg,var(--dv-purple-700),var(--dv-purple-500));
+    box-shadow:0 8px 18px rgba(99,52,172,.20); transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+  }
+  button:not(:disabled):hover { transform:translateY(-1px); box-shadow:0 10px 22px rgba(99,52,172,.27); filter:saturate(1.05); }
+  .status-box { background:linear-gradient(90deg,#f1eafd,#f8f5ff); border:1px solid #e5d9fb; color:#4c2a7d; }
+  .batch-header h2,.detail-top h2 { color:var(--dv-purple-900); }
+  .batch-count { color:var(--dv-muted); }
+  .batch {
+    border:1px solid var(--dv-border); background:linear-gradient(155deg,#fff 0%,#faf7ff 100%);
+    box-shadow:0 7px 18px rgba(61,34,100,.055); border-radius:16px;
+  }
+  .batch:hover { border-color:#a980e5; box-shadow:0 12px 26px rgba(83,47,132,.13); transform:translateY(-2px); }
+  .batch strong { color:var(--dv-purple-800); }
+  .status { color:var(--dv-success); }
+  .image-card { border-color:var(--dv-border); background:#fff; box-shadow:0 4px 12px rgba(62,34,102,.055); }
+  .image-card:hover { border-color:var(--dv-purple-500); box-shadow:0 10px 24px rgba(78,42,129,.16); }
+  .ca-badge { color:var(--dv-purple-700); }
+  .thumbnail-hint,.image-name,.key-status { color:var(--dv-muted); }
+  .empty { background:#fbf9ff; border-color:#d9caef; color:var(--dv-muted); }
+  .app-version { display:none !important; }
+  .divergent-footer {
+    position:fixed; left:0; right:0; bottom:0; z-index:9999; height:44px;
+    display:flex; align-items:center; justify-content:flex-end; padding:0 28px;
+    color:#fff; font-size:12px; letter-spacing:.15px;
+    background:linear-gradient(90deg,var(--dv-purple-900),var(--dv-purple-700),var(--dv-purple-600));
+    box-shadow:0 -5px 18px rgba(48,23,88,.14);
+  }
+  .divergent-footer strong { font-weight:700; }
+  @media (max-width:700px) {
+    .container { margin:14px auto; padding:0 12px 52px; }
+    .header { padding:12px; gap:12px; border-radius:15px; }
+    .brand-logo { width:145px; }
+    .header h1 { font-size:22px; }
+    .header p { font-size:13px; }
+    .card { padding:16px; border-radius:16px; }
+    .divergent-footer { justify-content:center; padding:0 12px; font-size:11px; text-align:center; }
+  }
+</style>
+
 </head>
 
 <body>
   <div class="container">
     <div class="header">
-      <h1>Divergent Image Rescue</h1>
-      <p>QC Center</p>
+      <img class="brand-logo" src="data:image/jpeg;base64,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" alt="Divergent Corporation" />
+      <div class="brand-copy">
+        <h1>Divergent Image Rescue</h1>
+        <p>QC CENTER</p>
+      </div>
     </div>
 
     <div class="card">
@@ -1365,6 +1453,6 @@
     setQcEnabled(false);
     initLiff();
   </script>
-  <div class="app-version">Version 1.0.2</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.1.0</div>
 </body>
 </html>
