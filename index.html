@@ -435,6 +435,19 @@
       font-weight: 600;
     }
 
+    .admin-box { display:none; margin-top:18px; padding:18px; border:1px solid #dcdfe5; border-radius:14px; background:#fff; }
+    .admin-box.show { display:block; }
+    .admin-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .admin-title { font-weight:800; font-size:18px; }
+    .admin-refresh { width:auto; margin:0; padding:8px 14px; }
+    .admin-request { border:1px solid #e1e4e8; border-radius:12px; padding:14px; margin-top:10px; background:#fafbfc; }
+    .admin-request-name { font-weight:700; font-size:16px; overflow-wrap:anywhere; }
+    .admin-request-meta { color:#666; font-size:13px; margin-top:5px; }
+    .admin-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .admin-actions button { width:auto; margin:0; flex:1 1 150px; }
+    .admin-reject { background:#fff; color:#b42318; border:1px solid #f0b4ae; }
+    .admin-status { margin-top:10px; font-size:14px; color:#666; }
+
   </style>
 </head>
 
@@ -498,6 +511,17 @@
       <div id="lineUserBox" class="key-box">
         <strong>LINE Login</strong>
         <span id="lineUserStatus" class="key-status">กำลังตรวจสอบ...</span>
+      </div>
+
+
+
+      <div id="adminBox" class="admin-box">
+        <div class="admin-head">
+          <div class="admin-title">จัดการคำขอเข้าใช้งาน QC</div>
+          <button class="admin-refresh" onclick="loadAdminRequests()">รีเฟรชคำขอ</button>
+        </div>
+        <div id="adminRequestStatus" class="admin-status">กำลังโหลด...</div>
+        <div id="adminRequestList"></div>
       </div>
 
       <div id="registrationBox" class="registration-box">
@@ -715,6 +739,7 @@
 
       setQcEnabled(false);
       showRegistrationBox(false);
+      showAdminBox(false);
 
       if (!profile || !profile.userId) {
         status.textContent = "ยังไม่สามารถอ่านบัญชี LINE ได้";
@@ -736,6 +761,9 @@
           window.qcAuthorizedUser = info;
           setQcEnabled(true);
           showRegistrationBox(false);
+          const isAdmin = String(info.user_role || "").toLowerCase() === "admin";
+          showAdminBox(isAdmin);
+          if (isAdmin) await loadAdminRequests();
           return true;
         }
 
@@ -766,6 +794,68 @@
         setQcEnabled(false);
         showRegistrationBox(false);
         return false;
+      }
+    }
+
+    function showAdminBox(show) {
+      const box = document.getElementById("adminBox");
+      if (box) box.classList.toggle("show", !!show);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+      }[c]));
+    }
+
+    async function loadAdminRequests() {
+      const status = document.getElementById("adminRequestStatus");
+      const list = document.getElementById("adminRequestList");
+      if (!status || !list) return;
+      status.textContent = "กำลังโหลดคำขอ...";
+      list.innerHTML = "";
+      try {
+        const data = await qcApi("admin-requests");
+        const requests = Array.isArray(data?.requests) ? data.requests : [];
+        if (!requests.length) {
+          status.textContent = "ไม่มีคำขอที่รออนุมัติ ✓";
+          return;
+        }
+        status.textContent = `รออนุมัติ ${requests.length} รายการ`;
+        list.innerHTML = requests.map(r => {
+          const id = Number(r.id);
+          const name = escapeHtml(r.requested_name || r.line_display_name || "ไม่ระบุชื่อ");
+          const lineName = escapeHtml(r.line_display_name || "");
+          const when = r.requested_at ? new Date(r.requested_at).toLocaleString("th-TH") : "";
+          return `<div class="admin-request" id="adminRequest-${id}">
+            <div class="admin-request-name">${name}</div>
+            <div class="admin-request-meta">LINE: ${lineName || "-"}${when ? " · ส่งคำขอ " + escapeHtml(when) : ""}</div>
+            <div class="admin-actions">
+              <button onclick="reviewAdminRequest(${id}, 'approve')">✓ อนุมัติ</button>
+              <button class="admin-reject" onclick="reviewAdminRequest(${id}, 'reject')">✕ ปฏิเสธ</button>
+            </div>
+          </div>`;
+        }).join("");
+      } catch (error) {
+        status.textContent = "โหลดคำขอไม่สำเร็จ: " + (error.message || error);
+      }
+    }
+
+    async function reviewAdminRequest(requestId, decision) {
+      const isApprove = decision === "approve";
+      const verb = isApprove ? "อนุมัติ" : "ปฏิเสธ";
+      if (!confirm(`${verb}คำขอนี้หรือไม่?`)) return;
+      let note = "";
+      if (!isApprove) note = prompt("หมายเหตุการปฏิเสธ (ไม่บังคับ)", "") || "";
+      const card = document.getElementById(`adminRequest-${requestId}`);
+      if (card) card.querySelectorAll("button").forEach(b => b.disabled = true);
+      try {
+        await qcApi(isApprove ? "admin-approve" : "admin-reject", { requestId, note });
+        await loadAdminRequests();
+        alert(`${verb}เรียบร้อย ✓`);
+      } catch (error) {
+        if (card) card.querySelectorAll("button").forEach(b => b.disabled = false);
+        alert(`${verb}ไม่สำเร็จ\n` + (error.message || error));
       }
     }
 
