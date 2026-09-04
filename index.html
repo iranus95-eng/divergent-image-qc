@@ -447,14 +447,22 @@
     .admin-actions button { width:auto; margin:0; flex:1 1 150px; }
     .admin-reject { background:#fff; color:#b42318; border:1px solid #f0b4ae; }
     .admin-status { margin-top:10px; font-size:14px; color:#666; }
-    .admin-section { margin-top:18px; padding-top:16px; border-top:1px solid #eceff3; }
-    .admin-section:first-of-type { margin-top:0; padding-top:0; border-top:0; }
-    .admin-section-title { font-weight:800; font-size:16px; margin-bottom:8px; }
-    .admin-user { border:1px solid #e1e4e8; border-radius:12px; padding:14px; margin-top:10px; background:#fafbfc; }
-    .admin-user-name { font-weight:700; font-size:16px; overflow-wrap:anywhere; }
-    .admin-user-meta { color:#666; font-size:13px; margin-top:5px; }
-    .admin-revoke { background:#fff; color:#b42318; border:1px solid #f0b4ae; }
 
+
+    .app-version {
+      position: fixed;
+      right: 14px;
+      bottom: 10px;
+      z-index: 10000;
+      font-size: 12px;
+      color: #6b5a86;
+      background: rgba(255,255,255,.88);
+      border: 1px solid #e7def5;
+      border-radius: 999px;
+      padding: 5px 9px;
+      box-shadow: 0 2px 8px rgba(74,39,117,.08);
+      backdrop-filter: blur(4px);
+    }
   </style>
 </head>
 
@@ -524,21 +532,11 @@
 
       <div id="adminBox" class="admin-box">
         <div class="admin-head">
-          <div class="admin-title">จัดการผู้ใช้งาน QC</div>
-          <button class="admin-refresh" onclick="refreshAdminData()">รีเฟรชข้อมูล</button>
+          <div class="admin-title">จัดการคำขอเข้าใช้งาน QC</div>
+          <button class="admin-refresh" onclick="loadAdminRequests()">รีเฟรชคำขอ</button>
         </div>
-
-        <div class="admin-section">
-          <div class="admin-section-title">คำขอรออนุมัติ</div>
-          <div id="adminRequestStatus" class="admin-status">กำลังโหลด...</div>
-          <div id="adminRequestList"></div>
-        </div>
-
-        <div class="admin-section">
-          <div class="admin-section-title">พนักงานที่ได้รับสิทธิ์ QC</div>
-          <div id="adminUserStatus" class="admin-status">กำลังโหลด...</div>
-          <div id="adminUserList"></div>
-        </div>
+        <div id="adminRequestStatus" class="admin-status">กำลังโหลด...</div>
+        <div id="adminRequestList"></div>
       </div>
 
       <div id="registrationBox" class="registration-box">
@@ -780,7 +778,7 @@
           showRegistrationBox(false);
           const isAdmin = String(info.user_role || "").toLowerCase() === "admin";
           showAdminBox(isAdmin);
-          if (isAdmin) await refreshAdminData();
+          if (isAdmin) await loadAdminRequests();
           return true;
         }
 
@@ -858,77 +856,6 @@
       }
     }
 
-    async function loadAdminUsers() {
-      const status = document.getElementById("adminUserStatus");
-      const list = document.getElementById("adminUserList");
-      if (!status || !list) return;
-      status.textContent = "กำลังโหลดรายชื่อพนักงาน...";
-      list.innerHTML = "";
-
-      try {
-        const data = await qcApi("admin-users");
-        const users = Array.isArray(data?.users) ? data.users : [];
-
-        if (!users.length) {
-          status.textContent = "ยังไม่มีพนักงานที่ได้รับสิทธิ์ QC";
-          return;
-        }
-
-        status.textContent = `ได้รับสิทธิ์แล้ว ${users.length} ราย`;
-        list.innerHTML = users.map(u => {
-          const id = Number(u.id);
-          const name = escapeHtml(u.requested_name || u.line_display_name || "ไม่ระบุชื่อ");
-          const lineName = escapeHtml(u.line_display_name || "");
-          const approvedAt = u.reviewed_at
-            ? new Date(u.reviewed_at).toLocaleString("th-TH")
-            : "";
-          const approvedBy = escapeHtml(u.reviewed_by || "");
-
-          return `<div class="admin-user" id="adminUser-${id}">
-            <div class="admin-user-name">${name}</div>
-            <div class="admin-user-meta">
-              LINE: ${lineName || "-"}
-              ${approvedAt ? " · อนุมัติ " + escapeHtml(approvedAt) : ""}
-              ${approvedBy ? " · โดย " + approvedBy : ""}
-            </div>
-            <div class="admin-actions">
-              <button class="admin-revoke" onclick="revokeAdminUser(${id})">ถอนสิทธิ์ QC</button>
-            </div>
-          </div>`;
-        }).join("");
-      } catch (error) {
-        status.textContent = "โหลดรายชื่อพนักงานไม่สำเร็จ: " + (error.message || error);
-      }
-    }
-
-    async function refreshAdminData() {
-      await Promise.all([
-        loadAdminRequests(),
-        loadAdminUsers()
-      ]);
-    }
-
-    async function revokeAdminUser(requestId) {
-      if (!confirm("ยืนยันถอนสิทธิ์ QC ของพนักงานรายนี้หรือไม่?")) return;
-
-      const note = prompt(
-        "หมายเหตุการถอนสิทธิ์ (ไม่บังคับ)",
-        "สิทธิ์เข้าใช้งาน QC ถูกถอนโดยผู้ดูแล"
-      ) || "";
-
-      const card = document.getElementById(`adminUser-${requestId}`);
-      if (card) card.querySelectorAll("button").forEach(b => b.disabled = true);
-
-      try {
-        await qcApi("admin-revoke", { requestId, note });
-        await refreshAdminData();
-        alert("ถอนสิทธิ์ QC เรียบร้อย ✓");
-      } catch (error) {
-        if (card) card.querySelectorAll("button").forEach(b => b.disabled = false);
-        alert("ถอนสิทธิ์ไม่สำเร็จ\n" + (error.message || error));
-      }
-    }
-
     async function reviewAdminRequest(requestId, decision) {
       const isApprove = decision === "approve";
       const verb = isApprove ? "อนุมัติ" : "ปฏิเสธ";
@@ -939,7 +866,7 @@
       if (card) card.querySelectorAll("button").forEach(b => b.disabled = true);
       try {
         await qcApi(isApprove ? "admin-approve" : "admin-reject", { requestId, note });
-        await refreshAdminData();
+        await loadAdminRequests();
         alert(`${verb}เรียบร้อย ✓`);
       } catch (error) {
         if (card) card.querySelectorAll("button").forEach(b => b.disabled = false);
@@ -1184,51 +1111,64 @@
         let loadedCount = 0;
         let failedCount = 0;
 
-        // โหลดทุกภาพพร้อมกัน
-        await Promise.allSettled(
-          allImages.map(async img => {
-            const slot = document.getElementById(img.slotId);
+        // โหลดแบบจำกัดจำนวนพร้อมกัน ป้องกัน Browser หนักเมื่อมี 300+ รูป
+        let nextIndex = 0;
+        const concurrency = 10;
 
-            try {
-              const objectUrl = await fetchPrivateImage(
-                img.objectPath
-              );
+        async function loadOneImage(img) {
+          const slot = document.getElementById(img.slotId);
 
-              if (slot) {
-                const reviewData = encodeURIComponent(JSON.stringify({
-                  src: objectUrl,
-                  ca: img.ca,
-                  name: img.name
-                }));
+          try {
+            const objectUrl = await fetchPrivateImage(img.objectPath);
 
-                slot.outerHTML = `
-                  <img
-                    src="${objectUrl}"
-                    alt="${escapeHtml(img.name)}"
-                    title="เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ"
-                    data-review="${reviewData}"
-                    onclick="openImageReview(this)"
-                  />
-                `;
-              }
+            if (slot) {
+              const reviewData = encodeURIComponent(JSON.stringify({
+                src: objectUrl,
+                ca: img.ca,
+                name: img.name
+              }));
 
-              loadedCount++;
-            } catch (e) {
-              failedCount++;
-
-              if (slot) {
-                slot.className = "image-error";
-                slot.textContent = "เปิดรูปไม่ได้";
-              }
+              slot.outerHTML = `
+                <img
+                  src="${objectUrl}"
+                  alt="${escapeHtml(img.name)}"
+                  title="เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ"
+                  loading="lazy"
+                  decoding="async"
+                  data-review="${reviewData}"
+                  onclick="openImageReview(this)"
+                />
+              `;
             }
 
-            detailStatus.textContent =
-              "โหลดแล้ว " +
-              (loadedCount + failedCount) +
-              "/" +
-              files.length +
-              " รูป";
-          })
+            loadedCount++;
+          } catch (e) {
+            failedCount++;
+
+            if (slot) {
+              slot.className = "image-error";
+              slot.textContent = "เปิดรูปไม่ได้";
+            }
+          }
+
+          detailStatus.textContent =
+            "โหลดแล้ว " +
+            (loadedCount + failedCount) +
+            "/" +
+            files.length +
+            " รูป";
+        }
+
+        async function worker() {
+          while (true) {
+            const index = nextIndex++;
+            if (index >= allImages.length) return;
+            await loadOneImage(allImages[index]);
+          }
+        }
+
+        await Promise.all(
+          Array.from({ length: Math.min(concurrency, allImages.length) }, () => worker())
         );
 
         detailStatus.textContent =
@@ -1395,5 +1335,6 @@
     setQcEnabled(false);
     initLiff();
   </script>
+  <div class="app-version">Version 1.0.1</div>
 </body>
 </html>
