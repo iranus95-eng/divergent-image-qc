@@ -524,6 +524,8 @@
     .dual-missing{color:#8b819d;font-size:14px;padding:8px 0}
     @media(max-width:850px){.dual-coord-grid{grid-template-columns:1fr}.dual-distance{align-items:flex-start;flex-direction:column}}
 
+
+.qc-driving-distance{margin-top:7px;padding:8px 7px;border-radius:10px;background:#fbebff;border:1px solid #efd9fb;text-align:center;min-height:45px;display:flex;flex-direction:column;justify-content:center;line-height:1.15}.qc-driving-label{font-size:11px;font-weight:800;color:#6430a7;white-space:nowrap}.qc-driving-value{font-size:18px;font-weight:950;color:#2d087e;margin-top:4px}.qc-driving-wait{font-size:12px;font-weight:700;color:#8c7b9f;margin-top:4px}
 </style>
 
 <style id="divergent-theme-v120">
@@ -2047,6 +2049,10 @@
       return URL.createObjectURL(blob);
     }
 
+    const ROUTE_DISTANCE_API_URL="https://neauzvqroaszvqffahkv.functions.supabase.co/route-distance";
+    function qcFormatDrivingDistance(m){m=Number(m);if(!Number.isFinite(m))return "-";return m<1000?Math.round(m).toLocaleString("th-TH")+" เมตร":(m/1000).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+" กม.";}
+    async function loadQcDrivingDistances(images){const token=await getLineAccessToken();const cas=[...new Set(images.map(x=>String(x.ca||"")).filter(x=>/^\d{12}$/.test(x)))];const pairs=[];const pairByCa={};await Promise.all(cas.map(async ca=>{try{const loc=await fetchDualCoordinate(ca),n=loc?.notice,m=loc?.meter;const a={lat:Number(n?.actual_latitude),lng:Number(n?.actual_longitude)},b={lat:Number(m?.latitude),lng:Number(m?.longitude)};if(Object.values(a).every(Number.isFinite)&&Object.values(b).every(Number.isFinite)){const p={id:ca,from:a,to:b};pairs.push(p);pairByCa[ca]=p;}}catch(_){}}));let routes={};if(pairs.length){try{const r=await fetch(ROUTE_DISTANCE_API_URL,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({pairs})});const d=await r.json();if(r.ok)for(const x of(d.results||[]))routes[String(x.id||"")]=x;}catch(_){}}for(const img of images){const box=document.getElementById("distance-"+img.slotId);if(!box)continue;const ca=String(img.ca||""),route=routes[ca];if(!pairByCa[ca])box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>';else if(route&&Number.isFinite(Number(route.distance_m)))box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-value">'+qcFormatDrivingDistance(route.distance_m)+'</div>';else box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">วัดเส้นทางไม่ได้</div>';}}
+
     async function openBatchDetail(index) {
       const batch = (window.currentBatches || [])[index];
       if (!batch) return;
@@ -2138,6 +2144,7 @@
                   <div class="thumbnail-hint">
                     เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ
                   </div>
+                  <div class="qc-driving-distance" id="distance-${img.slotId}"><div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">กำลังวัดเส้นทางขับรถ...</div></div>
                 </div>
               `).join("")}
             </div>
@@ -2145,6 +2152,7 @@
         `;
 
         const allImages = overviewImages;
+        loadQcDrivingDistances(overviewImages).catch(() => {});
         let loadedCount = 0;
         let failedCount = 0;
 
@@ -2440,6 +2448,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.2</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.3</div>
 </body>
 </html>
