@@ -1547,12 +1547,17 @@
       loadDualCoordinatePanel(ca);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
-      // V1.6.5: โหลดพิกัดแยกจากระบบรูป
+        // V1.6.6: พิกัดทั้ง Batch ใช้ request เดียว และหน่วงไว้ให้ระบบรูปเริ่มก่อน
         setTimeout(() => {
-          loadQcDrivingDistancesV165(overviewImages).catch((e) => {
-            console.error("V1.6.5 coordinate/distance load failed", e);
-          });
-        }, 50);
+          loadBatchDataV166(batch.site_code || batch.siteCode, batch.raw_date || batch.rawDate, batch.batch_id || batch.batchId, overviewImages)
+            .catch((e) => {
+              console.error("V1.6.6 batch coordinate load failed",e);
+              for(const img of overviewImages){
+                const box=document.getElementById("distance-"+img.slotId);
+                if(box) box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">โหลดข้อมูลพิกัดไม่สำเร็จ</div>';
+              }
+            });
+        }, 1500);
 
         // Load signed images with a small concurrency window.
       let cursor = 0;
@@ -2209,6 +2214,58 @@
       }
     }
 
+
+    const QC_BATCH_DATA_API_V166 =
+      "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-batch-data";
+
+    function formatDriveV166(m){
+      m=Number(m);
+      if(!Number.isFinite(m)) return null;
+      return m<1000
+        ? Math.round(m).toLocaleString("th-TH")+" เมตร"
+        : (m/1000).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+" กม.";
+    }
+
+    function coordV166(a,b){
+      a=Number(a); b=Number(b);
+      return Number.isFinite(a)&&Number.isFinite(b)
+        ? a.toFixed(6)+", "+b.toFixed(6) : "ไม่มี";
+    }
+
+    async function loadBatchDataV166(siteCode,rawDate,batchId,images){
+      const token=await getLineAccessToken();
+      const r=await fetch(QC_BATCH_DATA_API_V166,{
+        method:"POST",
+        headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+        body:JSON.stringify({siteCode,rawDate,batchId})
+      });
+      const d=await r.json();
+      if(!r.ok) throw new Error(d?.error||("HTTP "+r.status));
+
+      const byCa={};
+      for(const x of (d.coordinates||[])) byCa[String(x.ca||"")]=x;
+
+      for(const img of images){
+        const box=document.getElementById("distance-"+img.slotId);
+        if(!box) continue;
+        const x=byCa[String(img.ca||"")]||{};
+        const n=x.notice||{},m=x.meter||{};
+        const nText=coordV166(n.actual_latitude,n.actual_longitude);
+        const mText=coordV166(m.latitude,m.longitude);
+        const drive=formatDriveV166(x?.route?.distance_m);
+        const haveN=nText!=="ไม่มี",haveM=mText!=="ไม่มี";
+        box.innerHTML=
+          '<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>'+
+          '<div class="qc-coordinate-line">🏠 บ้าน: '+nText+'</div>'+
+          '<div class="qc-coordinate-line">📟 มิเตอร์: '+mText+'</div>'+
+          (haveN&&haveM
+            ? (drive
+                ? '<div class="qc-driving-value">'+drive+'</div>'
+                : '<div class="qc-driving-wait">วัดเส้นทางขับรถไม่ได้</div>')
+            : '<div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>');
+      }
+    }
+
     async function openBatchDetail(index) {
       const batch = (window.currentBatches || [])[index];
       if (!batch) return;
@@ -2302,7 +2359,7 @@
                   </div>
                   <div class="qc-driving-distance" id="distance-${img.slotId}">
                     <div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>
-                    <div class="qc-driving-wait">กำลังดึงพิกัด...</div>
+                    <div class="qc-driving-wait">กำลังโหลดข้อมูล...</div>
                   </div>
                 </div>
               `).join("")}
@@ -2606,6 +2663,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.5</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.6</div>
 </body>
 </html>
