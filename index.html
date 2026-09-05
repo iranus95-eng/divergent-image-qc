@@ -1361,7 +1361,7 @@
       const expiry=document.getElementById("userFormExpiry").value; return {username:document.getElementById("userFormUsername").value.trim(),password:document.getElementById("userFormPassword").value,role:document.getElementById("userFormRole").value,expires_at:expiry?new Date(expiry).toISOString():null,is_active:document.getElementById("permActive").checked,can_access_qc:document.getElementById("permQc").checked,can_upload_data:document.getElementById("permUpload").checked,can_create_users:document.getElementById("permCreate").checked,can_edit_users:document.getElementById("permEdit").checked,can_set_expiry:document.getElementById("permExpiry").checked,can_toggle_users:document.getElementById("permToggle").checked,can_delete_users:document.getElementById("permDelete").checked,can_disconnect_users:document.getElementById("permDisconnect").checked,can_manage_permissions:document.getElementById("permManage").checked,can_access_user_management:document.getElementById("permUserMgmt").checked};
     }
     function userAdminErrorText(code){
-      const m={INVALID_USERNAME:"ชื่อผู้ใช้ต้องมี 3–60 ตัว และใช้ a-z, 0-9, จุด, ขีดกลาง หรือ _ เท่านั้น",PASSWORD_TOO_SHORT:"รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",PERMISSION_DENIED:"บัญชีนี้ไม่มีสิทธิ์ดำเนินการ",ADMIN_ACCESS_DENIED:"เฉพาะผู้ดูแลระบบเท่านั้น",USER_MANAGEMENT_ACCESS_DENIED:"คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน",CANNOT_DISABLE_SELF:"ไม่สามารถระงับบัญชีของตัวเองได้",CANNOT_DELETE_SELF:"ไม่สามารถลบบัญชีของตัวเองได้",USER_NOT_FOUND:"ไม่พบบัญชีผู้ใช้งาน",SERVER_ERROR:"เซิร์ฟเวอร์ไม่สามารถบันทึกข้อมูลได้"};
+      const m={INVALID_USERNAME:"ชื่อผู้ใช้ต้องมี 3–60 ตัว และใช้ a-z, 0-9, จุด, ขีดกลาง หรือ _ เท่านั้น",PASSWORD_TOO_SHORT:"รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",USERNAME_EXISTS:"Username นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น",CREATE_NOT_PERSISTED:"สร้างบัญชีไม่สำเร็จ ข้อมูลไม่ถูกบันทึกในฐานข้อมูล",PERMISSION_DENIED:"บัญชีนี้ไม่มีสิทธิ์ดำเนินการ",ADMIN_ACCESS_DENIED:"เฉพาะผู้ดูแลระบบเท่านั้น",USER_MANAGEMENT_ACCESS_DENIED:"คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน",CANNOT_DISABLE_SELF:"ไม่สามารถระงับบัญชีของตัวเองได้",CANNOT_DELETE_SELF:"ไม่สามารถลบบัญชีของตัวเองได้",USER_NOT_FOUND:"ไม่พบบัญชีผู้ใช้งาน",SERVER_ERROR:"เซิร์ฟเวอร์ไม่สามารถบันทึกข้อมูลได้"};
       return m[code]||code;
     }
     async function saveUserForm(){
@@ -1371,7 +1371,30 @@
       if(!id && p.password.length<6){err.textContent="รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";return;}
       if(p.password!==confirmPassword){err.textContent="รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน";return;}
       btn.disabled=true; err.textContent="กำลังบันทึก...";
-      try{if(id){p.id=Number(id); await userAdminApi("update",p);}else{await userAdminApi("create",p);} closeUserModal(); await loadAdminUsers(); const st=document.getElementById("userAdminStatus"); if(st){st.textContent=id?"บันทึกการแก้ไขผู้ใช้งานสำเร็จ ✓":"เพิ่มผู้ใช้งานสำเร็จ ✓"; setTimeout(()=>{if(st.textContent.includes("สำเร็จ"))st.textContent=""},3500);}}
+      try{
+        let result;
+        if(id){
+          p.id=Number(id);
+          result=await userAdminApi("update",p);
+          if(!result?.ok || !result?.user?.id) throw new Error("UPDATE_NOT_CONFIRMED");
+        }else{
+          result=await userAdminApi("create",p);
+          if(!result?.ok || !result?.verified || !result?.user?.id || String(result.user.username||"").toLowerCase()!==String(p.username||"").toLowerCase()){
+            throw new Error("CREATE_NOT_PERSISTED");
+          }
+        }
+        await loadAdminUsers();
+        if(!id){
+          const saved=adminUsers.find(u=>String(u.username||"").toLowerCase()===String(p.username||"").toLowerCase());
+          if(!saved) throw new Error("CREATE_NOT_PERSISTED");
+        }
+        closeUserModal();
+        const st=document.getElementById("userAdminStatus");
+        if(st){
+          st.textContent=id?"บันทึกการแก้ไขผู้ใช้งานสำเร็จ ✓":"เพิ่มผู้ใช้งานสำเร็จและตรวจสอบฐานข้อมูลแล้ว ✓";
+          setTimeout(()=>{if(st.textContent.includes("สำเร็จ"))st.textContent=""},4500);
+        }
+      }
       catch(e){err.textContent="บันทึกไม่สำเร็จ: "+userAdminErrorText(e.message||String(e));}
       finally{btn.disabled=false;}
     }
@@ -2706,6 +2729,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.0</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.1</div>
 </body>
 </html>
