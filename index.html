@@ -1537,7 +1537,7 @@
         });
       document.getElementById("payrollCount").textContent=rows.length;document.getElementById("payrollBound").textContent=rows.filter(x=>x.app_user_id).length;
       const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="9">ไม่พบรายการ</td></tr>';return}
-      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.national_id||"-")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td>${x.profile_id?`<button class="payroll-edit" onclick="openPayrollEmployee(${x.profile_id})">${payrollCanManage?"แก้ไข":"ดู"}</button>`:"-"}</td></tr>`).join("");
+      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.national_id||"-")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
     }
     async function openPayrollEmployee(id=null){
       document.getElementById("payrollModal").classList.add("show");document.getElementById("peStatus").textContent="";
@@ -1554,10 +1554,10 @@
       const st=document.getElementById("peStatus");try{st.textContent="กำลังบันทึก...";if(id)await payrollApi("update_employee",{id:Number(id),...p});else await payrollApi("create_employee",p);st.textContent="บันทึกสำเร็จ ✓";await loadPayrollEmployees();if(!id)setTimeout(closePayrollModal,500)}catch(e){st.textContent="บันทึกไม่สำเร็จ: "+e.message}
     }
     async function addPayrollRate(){
-      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_rate",{payroll_profile_id:id,site_name:newRateSite.value.trim(),rate_amount:Number(newRateAmount.value)});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มเรตไม่สำเร็จ: "+e.message}
+      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_rate",{id:id,site_name:newRateSite.value.trim(),rate_amount:Number(newRateAmount.value)});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มเรตไม่สำเร็จ: "+e.message}
     }
     async function addPayrollAdjustment(){
-      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_adjustment",{payroll_profile_id:id,adjustment_type:adjType.value,amount:Number(adjAmount.value),period_start:adjStart.value,period_end:adjEnd.value,note:adjNote.value.trim()});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มรายการไม่สำเร็จ: "+e.message}
+      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_adjustment",{id:id,adjustment_type:adjType.value,amount:Number(adjAmount.value),period_start:adjStart.value,period_end:adjEnd.value,note:adjNote.value.trim()});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มรายการไม่สำเร็จ: "+e.message}
     }
 
     async function qcSearchApi(action, payload = {}) {
@@ -2095,7 +2095,7 @@
           setQcEnabled(false);
           switchWorkspace("home");
 
-          // V1.8.7: ถ้าเปิดเว็บจาก Chrome/Safari แล้ว LINE ยังไม่ login
+          // V1.8.8: ถ้าเปิดเว็บจาก Chrome/Safari แล้ว LINE ยังไม่ login
           // ให้เปิด LINE Login อัตโนมัติ 1 ครั้ง แทนการรอผู้ใช้กดปุ่มเอง
           const autoKey = "divergent_line_auto_login_attempted";
           const alreadyAttempted = sessionStorage.getItem(autoKey) === "1";
@@ -2490,7 +2490,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.7: use Supabase signed URL directly.
+      // V1.8.8: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
