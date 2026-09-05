@@ -1102,6 +1102,8 @@
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api";
     const USER_BIND_LINE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-bind-line";
+    const QC_BATCH_DATA_API_URL =
+      "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-batch-data";
     const QC_SEARCH_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-search";
     const USER_ADMIN_API_URL =
@@ -2316,6 +2318,8 @@
     }
 
     async function fetchPrivateImage(objectPath) {
+      // V1.7.4: use Supabase signed URL directly.
+      // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
       const response = await fetch(signedUrl, {
@@ -2332,10 +2336,48 @@
         );
       }
 
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
+      const contentType=(response.headers.get("content-type")||"").toLowerCase();
+      if(contentType && !contentType.startsWith("image/")){
+        throw new Error("ไฟล์ที่ Server คืนมาไม่ใช่รูปภาพ");
+      }
+
+      return signedUrl;
     }
 
+
+
+    window._qcBatchCoordinateMap = new Map();
+
+    async function loadBatchDataV174(batch){
+      const token=await getLineAccessToken();
+      const r=await fetch(QC_BATCH_DATA_API_URL,{
+        method:"POST",
+        headers:{
+          "Authorization":"Bearer "+token,
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          siteCode:batch.site_code,
+          rawDate:batch.raw_date,
+          batchId:batch.batch_id
+        })
+      });
+      const text=await r.text();
+      let d={};
+      try{d=text?JSON.parse(text):{};}catch(_){}
+      if(!r.ok) throw new Error(d?.error||("HTTP "+r.status));
+      const map=new Map();
+      for(const x of (d.coordinates||[])){
+        map.set(String(x.ca||""),x);
+      }
+      window._qcBatchCoordinateMap=map;
+      return d;
+    }
+
+    function validCoordV174(lat,lng){
+      lat=Number(lat);lng=Number(lng);
+      return Number.isFinite(lat)&&Number.isFinite(lng)&&!(lat===0&&lng===0)&&Math.abs(lat)<=90&&Math.abs(lng)<=180;
+    }
 
     function formatDistanceV167(m){
       m=Number(m);
@@ -2367,17 +2409,22 @@
       const box=document.getElementById("distance-"+img.slotId);
       if(!box) return;
       try{
-        const d=await fetchDualCoordinate(img.ca);
+        let d=window._qcBatchCoordinateMap?.get(String(img.ca||""))||null;
+        if(!d){
+          d=await fetchDualCoordinate(img.ca);
+        }
         const n=d?.notice||null,m=d?.meter||null;
         const nlat=Number(n?.actual_latitude),nlng=Number(n?.actual_longitude);
         const mlat=Number(m?.latitude),mlng=Number(m?.longitude);
-        const nok=Number.isFinite(nlat)&&Number.isFinite(nlng);
-        const mok=Number.isFinite(mlat)&&Number.isFinite(mlng);
+        const nok=validCoordV174(nlat,nlng);
+        const mok=validCoordV174(mlat,mlng);
         let html='<div class="batch-distance-title">📍 ระยะห่างระหว่างพิกัด</div>'+
           '<div class="batch-distance-coord">🏠 บ้าน/ใบแจ้งเตือน: '+(nok ? coordTextV167(nlat,nlng) : 'ยังไม่มีข้อมูลในระบบ')+'</div>'+
-          '<div class="batch-distance-coord">📟 มิเตอร์: '+coordTextV167(mlat,mlng)+'</div>';
+          '<div class="batch-distance-coord">📟 มิเตอร์: '+(mok ? coordTextV167(mlat,mlng) : 'ยังไม่มีข้อมูลในระบบ')+'</div>';
         if(nok&&mok){
-          const dist=await routeDistanceV167({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});
+          const cached=Number(d?.route?.distance_m);
+          const dist=Number.isFinite(cached) ? cached
+            : await routeDistanceV167({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});
           html += dist!=null
             ? '<div class="batch-distance-value">'+formatDistanceV167(dist)+'</div>'
             : '<div class="batch-distance-note">วัดระยะทางขับรถไม่ได้</div>';
@@ -2394,6 +2441,7 @@
           '<div class="batch-distance-note">โหลดพิกัดไม่สำเร็จ</div>';
       }
     }
+
     async function loadAllDistanceCardsV167(images){
       let cursor=0;
       const workers=Array.from({length:Math.min(3,images.length)},async()=>{
@@ -2442,6 +2490,12 @@
       });
 
       try {
+        const batchDataPromise = loadBatchDataV174(batch).catch((e)=>{
+          console.warn("batch coordinate data",e);
+          window._qcBatchCoordinateMap=new Map();
+          return null;
+        });
+
         const result = await qcApi("images", {
           siteCode: batch.site_code,
           rawDate: batch.raw_date,
@@ -2507,6 +2561,9 @@
         `;
 
         const allImages = overviewImages;
+        batchDataPromise.then(()=>{
+          loadAllDistanceCardsV167(overviewImages).catch((e)=>console.error("distance cards",e));
+        });
         let loadedCount = 0;
         let failedCount = 0;
 
@@ -2569,10 +2626,6 @@
         await Promise.all(
           Array.from({ length: Math.min(concurrency, allImages.length) }, () => worker())
         );
-
-        // V1.6.7: preserve V1.6.2 image loading exactly.
-        // Coordinates/routing begin only after every image request has completed.
-        loadAllDistanceCardsV167(overviewImages).catch((e)=>console.error("distance cards",e));
 
         detailStatus.textContent =
           failedCount === 0
@@ -2806,6 +2859,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.2</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.4</div>
 </body>
 </html>
