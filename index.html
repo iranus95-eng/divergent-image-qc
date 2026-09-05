@@ -1547,7 +1547,14 @@
       loadDualCoordinatePanel(ca);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
-      // Load signed images with a small concurrency window.
+      // V1.6.5: โหลดพิกัดแยกจากระบบรูป
+        setTimeout(() => {
+          loadQcDrivingDistancesV165(overviewImages).catch((e) => {
+            console.error("V1.6.5 coordinate/distance load failed", e);
+          });
+        }, 50);
+
+        // Load signed images with a small concurrency window.
       let cursor = 0;
       const workers = Array.from({length: Math.min(6, matches.length)}, async () => {
         while (cursor < matches.length) {
@@ -2087,10 +2094,10 @@
     }
 
 
-    const ROUTE_DISTANCE_API_URL_V164 =
+    const ROUTE_DISTANCE_API_URL_V165 =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/route-distance";
 
-    function qcFormatDrivingDistanceV164(m) {
+    function qcFormatDrivingDistanceV165(m) {
       m = Number(m);
       if (!Number.isFinite(m)) return "-";
       return m < 1000
@@ -2101,13 +2108,13 @@
           }) + " กม.";
     }
 
-    function qcCoordTextV164(lat, lng) {
+    function qcCoordTextV165(lat, lng) {
       lat = Number(lat); lng = Number(lng);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "-";
       return lat.toFixed(6) + ", " + lng.toFixed(6);
     }
 
-    async function loadQcDrivingDistancesV164(images) {
+    async function loadQcDrivingDistancesV165(images) {
       let token = "";
       try { token = await getLineAccessToken(); } catch (_) {}
 
@@ -2122,7 +2129,12 @@
       // with the private-image loading requests.
       for (const ca of cas) {
         try {
-          const loc = await fetchDualCoordinate(ca);
+          const loc = await Promise.race([
+            fetchDualCoordinate(ca),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("COORD_TIMEOUT")), 10000)
+            )
+          ]);
           const n = loc?.notice;
           const m = loc?.meter;
           const notice = {
@@ -2142,14 +2154,14 @@
             pairs.push({ id: ca, from: notice, to: meter });
           }
         } catch (_) {
-          coordByCa[ca] = { noticeOk:false, meterOk:false };
+          coordByCa[ca] = { noticeOk:false, meterOk:false, loadError:true };
         }
       }
 
       let routes = {};
       if (pairs.length && token) {
         try {
-          const r = await fetch(ROUTE_DISTANCE_API_URL_V164, {
+          const r = await fetch(ROUTE_DISTANCE_API_URL_V165, {
             method: "POST",
             headers: {
               Authorization: "Bearer " + token,
@@ -2173,18 +2185,20 @@
         const route = routes[ca];
 
         const noticeText = c.noticeOk
-          ? qcCoordTextV164(c.notice.lat, c.notice.lng) : "ไม่มี";
+          ? qcCoordTextV165(c.notice.lat, c.notice.lng) : "ไม่มี";
         const meterText = c.meterOk
-          ? qcCoordTextV164(c.meter.lat, c.meter.lng) : "ไม่มี";
+          ? qcCoordTextV165(c.meter.lat, c.meter.lng) : "ไม่มี";
 
         let distanceHtml = "";
         if (c.noticeOk && c.meterOk) {
           distanceHtml = route && Number.isFinite(Number(route.distance_m))
             ? '<div class="qc-driving-value">' +
-                qcFormatDrivingDistanceV164(route.distance_m) + '</div>'
+                qcFormatDrivingDistanceV165(route.distance_m) + '</div>'
             : '<div class="qc-driving-wait">วัดเส้นทางขับรถไม่ได้</div>';
         } else {
-          distanceHtml = '<div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>';
+          distanceHtml = c.loadError
+            ? '<div class="qc-driving-wait">ดึงข้อมูลพิกัดไม่สำเร็จ</div>'
+            : '<div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>';
         }
 
         box.innerHTML =
@@ -2288,7 +2302,7 @@
                   </div>
                   <div class="qc-driving-distance" id="distance-${img.slotId}">
                     <div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>
-                    <div class="qc-driving-wait">รอโหลดรูปให้เสร็จก่อน...</div>
+                    <div class="qc-driving-wait">กำลังดึงพิกัด...</div>
                   </div>
                 </div>
               `).join("")}
@@ -2365,9 +2379,6 @@
             ? "พบ " + files.length + " รูป · " + caKeys.length + " CA ✓"
             : "พบ " + files.length + " รูป · " + caKeys.length +
               " CA · เปิดรูปไม่ได้ " + failedCount + " รูป";
-
-        // V1.6.4: โหลดพิกัด/ระยะทางหลังรูปทั้งหมด เพื่อไม่ให้กระทบการโหลดรูป
-        loadQcDrivingDistancesV164(overviewImages).catch(() => {});
 
       } catch (error) {
         detailStatus.className = "status-box status-error";
@@ -2595,6 +2606,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.4</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.5</div>
 </body>
 </html>
