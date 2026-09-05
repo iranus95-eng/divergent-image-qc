@@ -1479,9 +1479,30 @@
     async function openPayrollManagement(){
       try{
         const p=await payrollApi("permissions"); payrollCanManage=!!p.can_manage;
+        window.payrollLinkPending=false;
         switchWorkspace("payroll"); document.getElementById("payrollAddBtn").style.display=payrollCanManage?"":"none";
         await loadPayrollEmployees();
-      }catch(e){alert((e.message==="PAYROLL_ACCESS_DENIED")?"คุณไม่มีสิทธิ์เข้าเมนูเงินเดือน":"เปิดระบบเงินเดือนไม่สำเร็จ: "+e.message)}
+      }catch(e){
+        const code=String(e?.message||e);
+        if(code==="LINE_NOT_LINKED"){
+          window.payrollLinkPending=true;
+          switchWorkspace("home");
+          showRegistrationBox(true);
+          const r=document.getElementById("employeeBindResult");
+          if(r){
+            r.className="registration-result registration-pending";
+            r.textContent="บัญชีนี้ได้รับสิทธิ์เงินเดือนได้ แต่ LINE ยังไม่เชื่อมกับบัญชีพนักงาน กรุณากรอก Username / Password ด้านล่างเพื่อเชื่อมครั้งเดียว";
+          }
+          const box=document.getElementById("employeeBindBox");
+          if(box) setTimeout(()=>box.scrollIntoView({behavior:"smooth",block:"center"}),150);
+          return;
+        }
+        if(code==="PAYROLL_ACCESS_DENIED"){
+          alert("บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าเมนูเงินเดือน กรุณาให้ผู้ดูแลเปิดสิทธิ์ “เข้าเมนูจัดการเงินเดือน”");
+          return;
+        }
+        alert("เปิดระบบเงินเดือนไม่สำเร็จ: "+code);
+      }
     }
     async function loadPayrollEmployees(){
       const st=document.getElementById("payrollStatus"); st.textContent="กำลังโหลดข้อมูล...";
@@ -2297,7 +2318,10 @@
         }
         await new Promise(r=>setTimeout(r,400));
         await checkQcAccess();
-        if(window.qcAccessAllowed){
+        if(window.payrollLinkPending===true){
+          window.payrollLinkPending=false;
+          await openPayrollManagement();
+        }else if(window.qcAccessAllowed){
           switchWorkspace("home");
         }
       }catch(e){
@@ -2427,7 +2451,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.5: use Supabase signed URL directly.
+      // V1.8.6: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
