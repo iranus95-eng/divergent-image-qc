@@ -800,6 +800,16 @@
 @media(max-width:980px){.user-stats{grid-template-columns:1fr 1fr}.user-tools{grid-template-columns:1fr}.user-form-grid{grid-template-columns:1fr}.permission-grid{grid-template-columns:1fr 1fr}}
 
 </style>
+
+<style id="payroll-v180">
+.payroll-workspace{display:none;background:rgba(255,255,255,.94);border:1px solid #e6dcf4;border-radius:20px;padding:22px;box-shadow:0 18px 50px rgba(74,37,116,.10)}
+.payroll-head{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:18px}.payroll-head h2{margin:0;color:#35135e;font-size:25px}.payroll-head p{margin:5px 0 0;color:#78698d;font-size:13px}
+.payroll-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.payroll-kpi{padding:16px;border:1px solid #eadff7;border-radius:15px;background:linear-gradient(145deg,#fff,#faf7ff)}.payroll-kpi span{font-size:12px;color:#806e94}.payroll-kpi b{display:block;margin-top:5px;font-size:25px;color:#3b176b}
+.payroll-tools{display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:14px}.payroll-tools input,.payroll-field input,.payroll-field select,.payroll-field textarea{width:100%;border:1px solid #ded1ee;border-radius:11px;padding:11px 12px;background:#fff;box-sizing:border-box}.payroll-table-wrap{overflow:auto;border:1px solid #e9def5;border-radius:14px}.payroll-table{width:100%;border-collapse:collapse;min-width:900px}.payroll-table th{background:#f7f2fc;color:#4d3568;text-align:left;font-size:12px;padding:11px}.payroll-table td{padding:11px;border-top:1px solid #f0e8f8;font-size:13px}.payroll-table tr:hover td{background:#fcf9ff}.payroll-name{font-weight:900;color:#42206f}.payroll-edit{padding:7px 11px;font-size:12px}
+.payroll-modal{position:fixed;inset:0;background:rgba(32,14,52,.52);display:none;align-items:center;justify-content:center;z-index:10040;padding:18px}.payroll-modal.show{display:flex}.payroll-card{width:min(900px,97vw);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 24px 70px rgba(34,12,58,.35)}.payroll-modal-head{display:flex;justify-content:space-between;align-items:center}.payroll-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.payroll-field label{font-size:12px;margin-bottom:5px}.payroll-wide{grid-column:1/-1}.payroll-section{grid-column:1/-1;margin-top:8px;padding-top:14px;border-top:1px solid #eee5f7}.payroll-section h4{margin:0 0 10px;color:#4a267b}.payroll-rate-row,.payroll-adjust-row{display:grid;grid-template-columns:1fr 120px auto;gap:8px;align-items:center;margin-top:8px}.payroll-adjust-row{grid-template-columns:130px 120px 130px 130px 1fr auto}.payroll-status{font-size:12px;color:#765c91;margin-top:10px}
+@media(max-width:760px){.payroll-kpis{grid-template-columns:1fr}.payroll-tools,.payroll-form{grid-template-columns:1fr}.payroll-wide,.payroll-section{grid-column:1}.payroll-rate-row,.payroll-adjust-row{grid-template-columns:1fr}}
+</style>
+
 </head>
 
 <body>
@@ -819,6 +829,7 @@
         <div class="nav-item" id="navSearch" onclick="switchWorkspace('search')"><span class="nav-ico">⌕</span><span>ค้นหาข้อมูล</span></div>
         <div class="nav-item muted"><span class="nav-ico">▤</span><span>รายงาน</span></div>
         <div class="nav-item" id="navUsers" onclick="openUserManagement()"><span class="nav-ico">👥</span><span>จัดการผู้ใช้งาน</span></div>
+        <div class="nav-item" id="navPayroll" onclick="openPayrollManagement()"><span class="nav-ico">฿</span><span>จัดการเงินเดือน</span></div>
         <div class="nav-item muted"><span class="nav-ico">⚙</span><span>ตั้งค่าระบบ</span></div>
       </nav>
       <div class="side-spacer"></div>
@@ -1007,6 +1018,42 @@
       <div class="ca-search-panel"><label for="locationCaInput">หมายเลข CA</label><div class="ca-search-row"><input id="locationCaInput" type="text" placeholder="กรอก CA 1 หรือ 2 หมายเลข เช่น 020013270461, 020013270643"><button onclick="searchWorkLocation()">ค้นหาพิกัด</button></div><div class="search-help">รองรับ InsUploadPic และ DEVICE_LIVE · ใส่ CA 2 หมายเลขคั่นด้วยเว้นวรรคหรือเครื่องหมายจุลภาคเพื่อเปรียบเทียบ</div></div>
       <div id="locationStatus" class="status-box"></div><div id="locationResults" class="ca-detail-grid"></div><div id="locationDistance"></div>
     </section>
+
+    <section class="payroll-workspace" id="payrollWorkspace">
+      <div class="payroll-head">
+        <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • บัญชีธนาคาร • พื้นที่/เรต • ค่าตอบแทนพิเศษ</p></div>
+        <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
+      </div>
+      <div class="payroll-kpis">
+        <div class="payroll-kpi"><span>พนักงานที่แสดง</span><b id="payrollCount">0</b></div>
+        <div class="payroll-kpi"><span>ผูกบัญชีผู้ใช้แล้ว</span><b id="payrollBound">0</b></div>
+        <div class="payroll-kpi"><span>สถานะระบบ</span><b style="font-size:18px;color:#18884a">พร้อมใช้งาน</b></div>
+      </div>
+      <div class="payroll-tools"><input id="payrollSearch" placeholder="ค้นหาชื่อ / พื้นที่ / เลขบัตร 4 ตัวท้าย" oninput="filterPayrollEmployees()"><button onclick="loadPayrollEmployees()">รีเฟรช</button></div>
+      <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ชื่อพนักงาน</th><th>พื้นที่หลัก</th><th>เรต</th><th>ธนาคาร</th><th>บัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="7">กำลังโหลด...</td></tr></tbody></table></div>
+      <div class="payroll-status" id="payrollStatus"></div>
+    </section>
+
+    <div class="payroll-modal" id="payrollModal">
+      <div class="payroll-card">
+        <div class="payroll-modal-head"><h3 id="payrollModalTitle">ข้อมูลพนักงาน</h3><button class="modal-close-btn" onclick="closePayrollModal()">✕</button></div>
+        <input type="hidden" id="payrollEmployeeId">
+        <div class="payroll-form">
+          <div class="payroll-field"><label>ชื่อพนักงาน</label><input id="peName"></div>
+          <div class="payroll-field"><label>พื้นที่หลัก</label><input id="peSite"></div>
+          <div class="payroll-field"><label>ธนาคาร</label><input id="peBank"></div>
+          <div class="payroll-field"><label>เลขบัญชี</label><input id="peAccount"></div>
+          <div class="payroll-field"><label>เบอร์โทร</label><input id="pePhone"></div>
+          <div class="payroll-field"><label>เรตหลัก/ราย</label><input id="peRate" type="number" step="0.01"></div>
+          <div class="payroll-field payroll-wide"><label>หมายเหตุ</label><textarea id="peNotes" rows="2"></textarea></div>
+          <div class="payroll-wide" style="display:flex;justify-content:flex-end"><button id="peSaveBtn" onclick="savePayrollEmployee()">บันทึกข้อมูลพนักงาน</button></div>
+          <div class="payroll-section" id="rateSection"><h4>พื้นที่และค่าจ้าง</h4><div id="peRates"></div><div class="payroll-rate-row"><input id="newRateSite" placeholder="พื้นที่"><input id="newRateAmount" type="number" step="0.01" placeholder="บาท/ราย"><button onclick="addPayrollRate()">+ เพิ่มเรต</button></div></div>
+          <div class="payroll-section" id="adjustSection"><h4>ค่าตอบแทนพิเศษ / รายการหัก</h4><div id="peAdjustments"></div><div class="payroll-adjust-row"><select id="adjType"><option value="BONUS">เงินพิเศษ</option><option value="DEDUCTION">รายการหัก</option><option value="OTHER">อื่นๆ</option></select><input id="adjAmount" type="number" step="0.01" placeholder="จำนวนเงิน"><input id="adjStart" type="date"><input id="adjEnd" type="date"><input id="adjNote" placeholder="หมายเหตุ"><button onclick="addPayrollAdjustment()">+ เพิ่ม</button></div></div>
+          <div class="payroll-status payroll-wide" id="peStatus"></div>
+        </div>
+      </div>
+    </div>
+
     <section class="user-workspace" id="userWorkspace">
       <div class="user-head">
         <div class="user-title-wrap">
@@ -1110,6 +1157,8 @@
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-admin";
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
+    const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
+    let payrollEmployees=[]; let payrollCanManage=false;
 
 
     let caSearchPayload = null;
@@ -1119,7 +1168,7 @@
     let currentUserManagementPermissions = {};
 
     function setNavActive(activeId) {
-      ["navHome","navQc","navSearch","navUsers"].forEach(id => {
+      ["navHome","navQc","navSearch","navUsers","navPayroll"].forEach(id => {
         const el=document.getElementById(id); if(!el) return;
         el.classList.toggle("active", id===activeId);
         el.classList.toggle("muted", id!==activeId);
@@ -1135,13 +1184,15 @@
       const qc=document.getElementById("qcWorkspace");
       const search=document.getElementById("searchWorkspace");
       const users=document.getElementById("userWorkspace");
+      const payroll=document.getElementById("payrollWorkspace");
       const location=document.getElementById("locationWorkspace");
       home.style.display=name==="home"?"block":"none";
       qc.style.display=name==="qc"?"block":"none";
       search.style.display=name==="search"?"block":"none";
       if(location) location.style.display=name==="location"?"block":"none";
       if(users) users.style.display=name==="users"?"block":"none";
-      setNavActive(name==="home"?"navHome":name==="search"||name==="location"?"navSearch":name==="users"?"navUsers":"navQc");
+      if(payroll) payroll.style.display=name==="payroll"?"block":"none";
+      setNavActive(name==="home"?"navHome":name==="search"||name==="location"?"navSearch":name==="users"?"navUsers":name==="payroll"?"navPayroll":"navQc");
       if(name==="search") setTimeout(()=>document.getElementById("caSearchInput")?.focus(),30);
       if(name==="location") setTimeout(()=>document.getElementById("locationCaInput")?.focus(),30);
       if(name==="users") applyUserManagementPermissions();
@@ -1415,6 +1466,53 @@
     }
     async function toggleAdminUser(id){const u=adminUsers.find(x=>Number(x.id)===Number(id)); if(!u)return; if(!confirm(`${u.is_active?"ระงับ":"เปิดใช้งาน"}บัญชี ${u.username} ?`))return; try{await userAdminApi("toggle",{id}); await loadAdminUsers();}catch(e){alert("ดำเนินการไม่สำเร็จ: "+(e.message||e));}}
     async function deleteAdminUser(id){const u=adminUsers.find(x=>Number(x.id)===Number(id)); if(!u)return; if(!confirm(`ลบบัญชี ${u.username} ถาวร?`))return; try{await userAdminApi("delete",{id}); await loadAdminUsers();}catch(e){alert("ลบไม่สำเร็จ: "+(e.message||e));}}
+
+
+    async function payrollApi(action,payload={}){
+      const accessToken=await getLineAccessToken();
+      const r=await fetch(PAYROLL_WEB_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
+      const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PAYROLL_INVALID_RESPONSE")}
+      if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d;
+    }
+    async function openPayrollManagement(){
+      try{
+        const p=await payrollApi("permissions"); payrollCanManage=!!p.can_manage;
+        switchWorkspace("payroll"); document.getElementById("payrollAddBtn").style.display=payrollCanManage?"":"none";
+        await loadPayrollEmployees();
+      }catch(e){alert((e.message==="PAYROLL_ACCESS_DENIED")?"คุณไม่มีสิทธิ์เข้าเมนูเงินเดือน":"เปิดระบบเงินเดือนไม่สำเร็จ: "+e.message)}
+    }
+    async function loadPayrollEmployees(){
+      const st=document.getElementById("payrollStatus"); st.textContent="กำลังโหลดข้อมูล...";
+      try{const d=await payrollApi("list_employees",{active_only:false});payrollEmployees=d.employees||[];payrollCanManage=!!d.can_manage;filterPayrollEmployees();st.textContent=`โหลดข้อมูล ${payrollEmployees.length} คนแล้ว`;}catch(e){st.textContent="โหลดไม่สำเร็จ: "+e.message}
+    }
+    function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
+    function filterPayrollEmployees(){
+      const q=String(document.getElementById("payrollSearch")?.value||"").toLowerCase().trim();
+      const rows=payrollEmployees.filter(x=>!q||[x.employee_name,x.site_name,x.national_id_last4].some(v=>String(v||"").toLowerCase().includes(q)));
+      document.getElementById("payrollCount").textContent=rows.length;document.getElementById("payrollBound").textContent=rows.filter(x=>x.app_user_id).length;
+      const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="7">ไม่พบพนักงาน</td></tr>';return}
+      b.innerHTML=rows.map(x=>`<tr><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(maskBank(x.bank_account))}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
+    }
+    async function openPayrollEmployee(id=null){
+      document.getElementById("payrollModal").classList.add("show");document.getElementById("peStatus").textContent="";
+      let e={rates:[],adjustments:[]};if(id){const d=await payrollApi("get_employee",{id});e=d.employee;payrollCanManage=!!d.can_manage}
+      document.getElementById("payrollEmployeeId").value=e.id||"";document.getElementById("payrollModalTitle").textContent=id?"ข้อมูลพนักงาน":"เพิ่มพนักงานใหม่";
+      for(const [k,v] of [["peName",e.employee_name],["peSite",e.site_name],["peBank",e.bank_name],["peAccount",e.bank_account],["pePhone",e.phone],["peRate",e.rate_per_unit],["peNotes",e.notes]])document.getElementById(k).value=v??"";
+      document.getElementById("rateSection").style.display=id?"":"none";document.getElementById("adjustSection").style.display=id?"":"none";document.getElementById("peSaveBtn").style.display=payrollCanManage?"":"none";
+      document.getElementById("peRates").innerHTML=(e.rates||[]).map(r=>`<div class="payroll-rate-row"><div>${escapeHtml(r.site_name)}</div><b>${Number(r.rate_amount).toFixed(2)}</b><span>${r.is_active?"ใช้งาน":"ปิด"}</span></div>`).join("")||"ยังไม่มีเรต";
+      document.getElementById("peAdjustments").innerHTML=(e.adjustments||[]).map(a=>`<div style="padding:8px 0;border-bottom:1px solid #eee">${a.adjustment_type==="BONUS"?"เงินพิเศษ":a.adjustment_type==="DEDUCTION"?"รายการหัก":"อื่นๆ"} <b>${Number(a.amount).toFixed(2)} บาท</b> • ${a.period_start} ถึง ${a.period_end} ${a.note?"• "+escapeHtml(a.note):""}</div>`).join("")||"ยังไม่มีรายการ";
+    }
+    function closePayrollModal(){document.getElementById("payrollModal").classList.remove("show")}
+    async function savePayrollEmployee(){
+      const id=document.getElementById("payrollEmployeeId").value,p={employee_name:peName.value.trim(),site_name:peSite.value.trim(),bank_name:peBank.value.trim(),bank_account:peAccount.value.trim(),phone:pePhone.value.trim(),rate_per_unit:peRate.value,notes:peNotes.value.trim()};
+      const st=document.getElementById("peStatus");try{st.textContent="กำลังบันทึก...";if(id)await payrollApi("update_employee",{id:Number(id),...p});else await payrollApi("create_employee",p);st.textContent="บันทึกสำเร็จ ✓";await loadPayrollEmployees();if(!id)setTimeout(closePayrollModal,500)}catch(e){st.textContent="บันทึกไม่สำเร็จ: "+e.message}
+    }
+    async function addPayrollRate(){
+      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_rate",{payroll_profile_id:id,site_name:newRateSite.value.trim(),rate_amount:Number(newRateAmount.value)});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มเรตไม่สำเร็จ: "+e.message}
+    }
+    async function addPayrollAdjustment(){
+      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_adjustment",{payroll_profile_id:id,adjustment_type:adjType.value,amount:Number(adjAmount.value),period_start:adjStart.value,period_end:adjEnd.value,note:adjNote.value.trim()});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มรายการไม่สำเร็จ: "+e.message}
+    }
 
     async function qcSearchApi(action, payload = {}) {
       const accessToken = await getLineAccessToken();
@@ -2318,7 +2416,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.7.4: use Supabase signed URL directly.
+      // V1.8.0: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
