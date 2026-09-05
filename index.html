@@ -553,6 +553,11 @@
 @media(max-width:850px){.overview-grid{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
 @media(max-width:620px){.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
 
+
+.status-online{background:#e4f8eb;color:#118444}
+.status-offline{background:#eef0f4;color:#606977}
+.online-lastseen{font-size:10px;color:#8a7d93;margin-top:4px;white-space:nowrap}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -1008,7 +1013,7 @@
       <div class="user-tools">
         <input id="userSearchInput" placeholder="ค้นหาชื่อผู้ใช้ หรือชื่อ LINE..." oninput="renderUserTable()" />
         <select id="userRoleFilter" onchange="renderUserTable()"><option value="">ทุกบทบาท</option><option value="admin">ผู้ดูแลระบบ</option><option value="user_creator">ผู้สร้างผู้ใช้</option><option value="staff">พนักงาน</option></select>
-        <select id="userStatusFilter" onchange="renderUserTable()"><option value="">ทุกสถานะ</option><option value="active">ใช้งาน</option><option value="inactive">ระงับ</option><option value="expired">หมดอายุ</option></select>
+        <select id="userStatusFilter" onchange="renderUserTable()"><option value="">ทุกสถานะ</option><option value="online">Online</option><option value="offline">Offline</option><option value="inactive">ระงับ</option><option value="expired">หมดอายุ</option></select>
       </div>
       <div class="user-table-wrap">
         <table class="user-table">
@@ -1088,6 +1093,8 @@
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-search";
     const USER_ADMIN_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-admin";
+    const USER_PRESENCE_API_URL =
+      "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
 
 
     let caSearchPayload = null;
@@ -1133,6 +1140,64 @@
       if(typeof liff!=="undefined" && liff.login) liff.login({redirectUri:window.location.href});
     }
 
+
+
+    let presenceTimer = null;
+    let onlineRefreshTimer = null;
+
+    async function sendPresenceHeartbeat(){
+      try{
+        if(typeof liff==="undefined" || !liff.isLoggedIn || !liff.isLoggedIn()) return;
+        const accessToken=await getLineAccessToken();
+        await fetch(USER_PRESENCE_API_URL,{
+          method:"POST",
+          headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
+          body:"{}"
+        });
+      }catch(e){
+        console.warn("presence heartbeat",e);
+      }
+    }
+
+    function startPresenceHeartbeat(){
+      if(presenceTimer) clearInterval(presenceTimer);
+      sendPresenceHeartbeat();
+      presenceTimer=setInterval(sendPresenceHeartbeat,60000);
+      if(onlineRefreshTimer) clearInterval(onlineRefreshTimer);
+      onlineRefreshTimer=setInterval(async()=>{
+        const ws=document.getElementById("userWorkspace");
+        if(!ws || ws.style.display!=="block") return;
+        try{
+          const data=await userAdminApi("list");
+          adminUsers=data.users||[];
+          currentAdminId=data.current_user_id||data.current_admin_id||null;
+          currentUserManagementPermissions=data.current_permissions||{};
+          renderUserStats();
+          renderUserTable();
+        }catch(_){}
+      },30000);
+    }
+
+    function lastSeenText(v){
+      if(!v) return "ยังไม่พบการใช้งาน";
+      const t=new Date(v).getTime();
+      if(!Number.isFinite(t)) return "-";
+      const sec=Math.max(0,Math.floor((Date.now()-t)/1000));
+      if(sec<60) return "ล่าสุด เมื่อสักครู่";
+      const min=Math.floor(sec/60);
+      if(min<60) return "ล่าสุด "+min+" นาทีที่แล้ว";
+      const hr=Math.floor(min/60);
+      if(hr<24) return "ล่าสุด "+hr+" ชม.ที่แล้ว";
+      return "ล่าสุด "+new Date(v).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"});
+    }
+
+    function userOnlineStatusHtml(u){
+      const exp=userExpired(u);
+      if(exp) return '<span class="status-pill status-expired">หมดอายุ</span>';
+      if(!u.is_active) return '<span class="status-pill status-off">● ระงับ</span>';
+      if(u.is_online) return '<span class="status-pill status-online">● Online</span><div class="online-lastseen">กำลังใช้งาน</div>';
+      return '<span class="status-pill status-offline">○ Offline</span><div class="online-lastseen">'+escapeHtml(lastSeenText(u.last_seen_at))+'</div>';
+    }
 
     async function userAdminApi(action, payload = {}) {
       const accessToken = await getLineAccessToken();
@@ -1207,13 +1272,44 @@
     }
     function renderUserTable(){
       const body=document.getElementById("userTableBody"); if(!body)return;
-      const q=String(document.getElementById("userSearchInput")?.value||"").trim().toLowerCase(); const rf=document.getElementById("userRoleFilter")?.value||""; const sf=document.getElementById("userStatusFilter")?.value||"";
-      let rows=adminUsers.filter(u=>{const hay=((u.username||"")+" "+(u.line_display_name||"")).toLowerCase(); if(q&&!hay.includes(q))return false; if(rf&&u.role!==rf)return false; const exp=userExpired(u); if(sf==="active"&&(!u.is_active||exp))return false; if(sf==="inactive"&&u.is_active)return false; if(sf==="expired"&&!exp)return false; return true;});
-      if(!rows.length){body.innerHTML='<tr><td colspan="8" class="user-empty">ไม่พบผู้ใช้งานตามเงื่อนไข</td></tr>';return;}
-      body.innerHTML=rows.map((u,i)=>{const exp=userExpired(u); const status=exp?'<span class="status-pill status-expired">หมดอายุ</span>':u.is_active?'<span class="status-pill status-on">● ใช้งาน</span>':'<span class="status-pill status-off">● ระงับ</span>'; const self=Number(u.id)===Number(currentAdminId);
-        return `<tr><td>${i+1}</td><td><b>${escapeHtml(u.username||"")}</b>${self?' <span style="color:#7d46c1;font-size:10px">(คุณ)</span>':''}</td><td>${escapeHtml(u.line_display_name||"-")}</td><td><span class="role-pill ${roleClass(u.role)}">${roleLabel(u.role)}</span></td><td>${status}</td><td>${formatDateTime(u.expires_at)}</td><td>${u.can_access_qc?'✓':'—'}</td><td><div class="user-actions"><button class="icon-admin-btn edit-user-btn" onclick="openUserModal(${u.id})" ${!(currentUserManagementPermissions.can_edit_users||currentUserManagementPermissions.can_set_expiry||currentUserManagementPermissions.can_toggle_users||currentUserManagementPermissions.can_manage_permissions)?'disabled title="ไม่มีสิทธิ์แก้ไข"':''}>แก้ไข</button><button class="icon-admin-btn toggle-user-btn" onclick="toggleAdminUser(${u.id})" ${(self||!currentUserManagementPermissions.can_toggle_users)?'disabled title="ไม่มีสิทธิ์หรือเป็นบัญชีของคุณ"':''}>${u.is_active?'ระงับ':'เปิด'}</button><button class="icon-admin-btn delete-user-btn" onclick="deleteAdminUser(${u.id})" ${(self||!currentUserManagementPermissions.can_delete_users)?'disabled title="ไม่มีสิทธิ์หรือเป็นบัญชีของคุณ"':''}>ลบ</button></div></td></tr>`;
+      const q=String(document.getElementById("userSearchInput")?.value||"").trim().toLowerCase();
+      const rf=document.getElementById("userRoleFilter")?.value||"";
+      const sf=document.getElementById("userStatusFilter")?.value||"";
+      let rows=adminUsers.filter(u=>{
+        const hay=((u.username||"")+" "+(u.line_display_name||"")).toLowerCase();
+        if(q&&!hay.includes(q))return false;
+        if(rf&&u.role!==rf)return false;
+        const exp=userExpired(u);
+        if(sf==="online"&&(!u.is_online||!u.is_active||exp))return false;
+        if(sf==="offline"&&(u.is_online||!u.is_active||exp))return false;
+        if(sf==="inactive"&&u.is_active)return false;
+        if(sf==="expired"&&!exp)return false;
+        return true;
+      });
+      if(!rows.length){
+        body.innerHTML='<tr><td colspan="8" class="user-empty">ไม่พบผู้ใช้งานตามเงื่อนไข</td></tr>';
+        return;
+      }
+      body.innerHTML=rows.map((u,i)=>{
+        const self=Number(u.id)===Number(currentAdminId);
+        const status=userOnlineStatusHtml(u);
+        return `<tr>
+          <td>${i+1}</td>
+          <td><b>${escapeHtml(u.username||"")}</b>${self?' <span style="color:#7d46c1;font-size:10px">(คุณ)</span>':''}</td>
+          <td>${escapeHtml(u.line_display_name||"-")}</td>
+          <td><span class="role-pill ${roleClass(u.role)}">${roleLabel(u.role)}</span></td>
+          <td>${status}</td>
+          <td>${formatDateTime(u.expires_at)}</td>
+          <td>${u.can_access_qc?'✓':'—'}</td>
+          <td><div class="user-actions">
+            <button class="icon-admin-btn edit-user-btn" onclick="openUserModal(${u.id})" ${!(currentUserManagementPermissions.can_edit_users||currentUserManagementPermissions.can_set_expiry||currentUserManagementPermissions.can_toggle_users||currentUserManagementPermissions.can_manage_permissions)?'disabled title="ไม่มีสิทธิ์แก้ไข"':''}>แก้ไข</button>
+            <button class="icon-admin-btn toggle-user-btn" onclick="toggleAdminUser(${u.id})" ${(self||!currentUserManagementPermissions.can_toggle_users)?'disabled title="ไม่มีสิทธิ์หรือเป็นบัญชีของคุณ"':''}>${u.is_active?'ระงับ':'เปิด'}</button>
+            <button class="icon-admin-btn delete-user-btn" onclick="deleteAdminUser(${u.id})" ${(self||!currentUserManagementPermissions.can_delete_users)?'disabled title="ไม่มีสิทธิ์หรือเป็นบัญชีของคุณ"':''}>ลบ</button>
+          </div></td>
+        </tr>`;
       }).join("");
     }
+
     function openUserModal(id=null){
       const u=id?adminUsers.find(x=>Number(x.id)===Number(id)):null;
       const self=!!u && Number(u.id)===Number(currentAdminId);
@@ -1786,6 +1882,12 @@
     }
 
 
+
+
+    document.addEventListener("visibilitychange",()=>{
+      if(document.visibilityState==="visible") sendPresenceHeartbeat();
+    });
+
     async function initLiff() {
       const status = document.getElementById("lineUserStatus");
 
@@ -1810,6 +1912,9 @@
 
         const profile = await liff.getProfile();
         window.lineProfile = profile;
+
+        // V1.7.0: บันทึกสถานะออนไลน์ทันที และต่ออายุทุก 60 วินาที
+        startPresenceHeartbeat();
 
         status.textContent =
           "เข้าสู่ระบบ LINE แล้ว ✓ " +
@@ -2601,6 +2706,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.9</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.0</div>
 </body>
 </html>
