@@ -1025,12 +1025,12 @@
         <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
       </div>
       <div class="payroll-kpis">
-        <div class="payroll-kpi"><span>พนักงานที่แสดง</span><b id="payrollCount">0</b></div>
+        <div class="payroll-kpi"><span>รายการเดือนล่าสุดที่แสดง</span><b id="payrollCount">0</b></div>
         <div class="payroll-kpi"><span>ผูกบัญชีผู้ใช้แล้ว</span><b id="payrollBound">0</b></div>
         <div class="payroll-kpi"><span>สถานะระบบ</span><b style="font-size:18px;color:#18884a">พร้อมใช้งาน</b></div>
       </div>
       <div class="payroll-tools"><input id="payrollSearch" placeholder="ค้นหาชื่อ / พื้นที่ / เลขบัตร 4 ตัวท้าย" oninput="filterPayrollEmployees()"><button onclick="loadPayrollEmployees()">รีเฟรช</button></div>
-      <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ชื่อพนักงาน</th><th>พื้นที่หลัก</th><th>เรต</th><th>ธนาคาร</th><th>บัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="7">กำลังโหลด...</td></tr></tbody></table></div>
+      <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>ไซด์งาน</th><th>เรต</th><th>ธนาคาร</th><th>บัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="8">กำลังโหลด...</td></tr></tbody></table></div>
       <div class="payroll-status" id="payrollStatus"></div>
     </section>
 
@@ -1483,15 +1483,15 @@
     }
     async function loadPayrollEmployees(){
       const st=document.getElementById("payrollStatus"); st.textContent="กำลังโหลดข้อมูล...";
-      try{const d=await payrollApi("list_employees",{active_only:false});payrollEmployees=d.employees||[];payrollCanManage=!!d.can_manage;filterPayrollEmployees();st.textContent=`โหลดข้อมูล ${payrollEmployees.length} คนแล้ว`;}catch(e){st.textContent="โหลดไม่สำเร็จ: "+e.message}
+      try{const d=await payrollApi("list_employees",{active_only:false});payrollEmployees=d.employees||[];payrollCanManage=!!d.can_manage;filterPayrollEmployees();st.textContent=`โหลดข้อมูลเดือนล่าสุด ${payrollEmployees.length} รายการแล้ว`;}catch(e){st.textContent="โหลดไม่สำเร็จ: "+e.message}
     }
     function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
     function filterPayrollEmployees(){
       const q=String(document.getElementById("payrollSearch")?.value||"").toLowerCase().trim();
       const rows=payrollEmployees.filter(x=>!q||[x.employee_name,x.site_name,x.national_id_last4].some(v=>String(v||"").toLowerCase().includes(q)));
       document.getElementById("payrollCount").textContent=rows.length;document.getElementById("payrollBound").textContent=rows.filter(x=>x.app_user_id).length;
-      const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="7">ไม่พบพนักงาน</td></tr>';return}
-      b.innerHTML=rows.map(x=>`<tr><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(maskBank(x.bank_account))}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
+      const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="8">ไม่พบรายการ</td></tr>';return}
+      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(maskBank(x.bank_account))}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
     }
     async function openPayrollEmployee(id=null){
       document.getElementById("payrollModal").classList.add("show");document.getElementById("peStatus").textContent="";
@@ -2416,7 +2416,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.0: use Supabase signed URL directly.
+      // V1.8.1: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
