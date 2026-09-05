@@ -502,6 +502,28 @@
     .location-actions .share-primary{background:#7339d8;color:white;border:0}
     @media(max-width:800px){.location-distance-card{grid-template-columns:1fr}.location-distance-card .distance-value{font-size:28px}}
 
+
+    .dual-coord-wrap{margin:0 0 18px 0;padding:18px;border:1px solid #ded4fb;border-radius:18px;background:linear-gradient(135deg,#ffffff,#f8f4ff)}
+    .dual-coord-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .dual-coord-title h3{margin:0;color:#2d176c}
+    .dual-coord-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .dual-coord-card{border:1px solid #e4dcf8;border-radius:15px;padding:16px;background:#fff}
+    .dual-coord-card.notice{border-left:5px solid #e44b63}
+    .dual-coord-card.meter{border-left:5px solid #2d78d4}
+    .dual-coord-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}
+    .dual-coord-name{font-weight:900;color:#28125f}
+    .dual-coord-badge{font-size:12px;font-weight:800;padding:4px 9px;border-radius:999px;background:#ecf8ef;color:#18723d}
+    .dual-coord-latlng{font-size:18px;font-weight:800;color:#302061;line-height:1.6}
+    .dual-coord-meta{font-size:13px;color:#756691;margin-top:5px}
+    .dual-coord-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .dual-share-btn{border:0;background:#7138d5;color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer}
+    .dual-map-btn{display:inline-block;text-decoration:none;background:#f4efff;color:#4b2295;padding:10px 14px;border-radius:10px;font-weight:800;border:1px solid #ded2fb}
+    .dual-distance{margin-top:14px;border-radius:15px;padding:16px;background:linear-gradient(135deg,#eef8ff,#f7f1ff);display:flex;justify-content:space-between;align-items:center;gap:14px}
+    .dual-distance-value{font-size:30px;font-weight:900;color:#37127e}
+    .dual-distance-note{font-size:12px;color:#756691;margin-top:4px}
+    .dual-missing{color:#8b819d;font-size:14px;padding:8px 0}
+    @media(max-width:850px){.dual-coord-grid{grid-template-columns:1fr}.dual-distance{align-items:flex-start;flex-direction:column}}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -929,6 +951,7 @@
           </div>
           <button class="soft-button" onclick="backToCandidates()">← กลับผลการค้นหา</button>
         </div>
+        <div id="dualCoordinatePanel"></div>
         <div id="caDetailGrid" class="ca-detail-grid"></div>
       </div>
     </section>
@@ -1203,6 +1226,197 @@
       return escapeHtml(String(s ?? "")).replace(/`/g, "&#96;");
     }
 
+
+    function dualHaversineMeters(lat1,lng1,lat2,lng2){
+      const R=6371000,toRad=v=>v*Math.PI/180;
+      const dLat=toRad(lat2-lat1),dLng=toRad(lng2-lng1);
+      const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+      return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    }
+
+    function dualFormatDistance(m){
+      if(!Number.isFinite(m)) return "-";
+      if(m<1000) return m.toLocaleString("th-TH",{maximumFractionDigits:m<100?1:0})+" เมตร";
+      return (m/1000).toLocaleString("th-TH",{maximumFractionDigits:2})+" กิโลเมตร";
+    }
+
+    async function fetchDualCoordinate(ca){
+      const token=await getLineAccessToken();
+      const response=await fetch(
+        "https://neauzvqroaszvqffahkv.functions.supabase.co/image-location-search",
+        {
+          method:"POST",
+          headers:{
+            Authorization:"Bearer "+token,
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({ca})
+        }
+      );
+      const data=await response.json();
+      if(!response.ok) throw new Error(data?.error||("HTTP "+response.status));
+      return data;
+    }
+
+    async function shareCoordinatePoint(label,ca,lat,lng,source){
+      const mapUrl="https://www.google.com/maps?q="+lat+","+lng;
+      const text=
+        "Divergent Image Rescue\n"+
+        "CA: "+ca+"\n"+
+        label+"\n"+
+        "แหล่งพิกัด: "+(source||"-")+"\n"+
+        "พิกัด: "+lat+", "+lng+"\n"+
+        mapUrl;
+      try{
+        if(window.liff&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker")){
+          await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});
+        }else{
+          await navigator.clipboard.writeText(text);
+          alert("คัดลอกพิกัดแล้ว");
+        }
+      }catch(e){
+        alert("แชร์พิกัดไม่สำเร็จ: "+(e?.message||e));
+      }
+    }
+
+    async function shareBothCoordinates(){
+      const d=window._dualCoordinateData;
+      if(!d) return;
+      const parts=["Divergent Image Rescue","CA: "+d.ca];
+      if(d.notice){
+        parts.push(
+          "",
+          "🏠 พิกัดใบแจ้งเตือน / บ้านลูกค้า",
+          d.notice.lat+", "+d.notice.lng,
+          "https://www.google.com/maps?q="+d.notice.lat+","+d.notice.lng
+        );
+      }
+      if(d.meter){
+        parts.push(
+          "",
+          "📟 พิกัดจดหน่วย / มิเตอร์",
+          d.meter.lat+", "+d.meter.lng,
+          "https://www.google.com/maps?q="+d.meter.lat+","+d.meter.lng
+        );
+      }
+      if(Number.isFinite(d.distance)){
+        parts.push("","ระยะห่างระหว่าง 2 พิกัด: "+dualFormatDistance(d.distance));
+      }
+      const text=parts.join("\n");
+      try{
+        if(window.liff&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker")){
+          await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});
+        }else{
+          await navigator.clipboard.writeText(text);
+          alert("คัดลอกพิกัดทั้งคู่แล้ว");
+        }
+      }catch(e){
+        alert("แชร์พิกัดไม่สำเร็จ: "+(e?.message||e));
+      }
+    }
+
+    function coordinateCard(kind,title,row,ca){
+      const isNotice=kind==="notice";
+      if(!row){
+        return `<div class="dual-coord-card ${kind}">
+          <div class="dual-coord-head">
+            <div class="dual-coord-name">${title}</div>
+          </div>
+          <div class="dual-missing">ยังไม่มีพิกัดประเภทนี้</div>
+        </div>`;
+      }
+      const lat=Number(isNotice?row.actual_latitude:row.latitude);
+      const lng=Number(isNotice?row.actual_longitude:row.longitude);
+      const ok=Number.isFinite(lat)&&Number.isFinite(lng)&&!(lat===0&&lng===0);
+      const source=isNotice?(row.source_file||"IMAGE_RESCUE"):"CUSTOMERS";
+      const meta=isNotice
+        ? [row.event_datetime||row.photo_datetime||"", row.source_photo_name||""].filter(Boolean).join(" · ")
+        : [row.name||"", row.address||""].filter(Boolean).join(" · ");
+      if(!ok){
+        return `<div class="dual-coord-card ${kind}">
+          <div class="dual-coord-head"><div class="dual-coord-name">${title}</div></div>
+          <div class="dual-missing">พบข้อมูล แต่ยังไม่มี Latitude/Longitude</div>
+        </div>`;
+      }
+      const map=`https://www.google.com/maps?q=${lat},${lng}`;
+      return `<div class="dual-coord-card ${kind}">
+        <div class="dual-coord-head">
+          <div class="dual-coord-name">${title}</div>
+          <div class="dual-coord-badge">พร้อมใช้งาน</div>
+        </div>
+        <div class="dual-coord-latlng">${lat.toFixed(7)}, ${lng.toFixed(7)}</div>
+        <div class="dual-coord-meta">${escapeHtml(meta||source)}</div>
+        <div class="dual-coord-actions">
+          <a class="dual-map-btn" href="${map}" target="_blank" rel="noopener">เปิด Google Maps</a>
+          <button class="dual-share-btn" onclick="shareCoordinatePoint('${escapeAttr(title)}','${escapeAttr(ca)}',${lat},${lng},'${escapeAttr(source)}')">แชร์พิกัดนี้</button>
+        </div>
+      </div>`;
+    }
+
+    async function loadDualCoordinatePanel(ca){
+      const panel=document.getElementById("dualCoordinatePanel");
+      if(!panel) return;
+      panel.innerHTML=`<div class="dual-coord-wrap">กำลังโหลดพิกัด 2 ประเภท...</div>`;
+      try{
+        const data=await fetchDualCoordinate(ca);
+        const notice=data?.notice||null;
+        const meter=data?.meter||null;
+
+        const nLat=Number(notice?.actual_latitude),nLng=Number(notice?.actual_longitude);
+        const mLat=Number(meter?.latitude),mLng=Number(meter?.longitude);
+
+        const noticeOk=notice&&Number.isFinite(nLat)&&Number.isFinite(nLng)&&!(nLat===0&&nLng===0);
+        const meterOk=meter&&Number.isFinite(mLat)&&Number.isFinite(mLng)&&!(mLat===0&&mLng===0);
+
+        const distance=(noticeOk&&meterOk)?dualHaversineMeters(nLat,nLng,mLat,mLng):NaN;
+
+        window._dualCoordinateData={
+          ca,
+          notice:noticeOk?{lat:nLat,lng:nLng,raw:notice}:null,
+          meter:meterOk?{lat:mLat,lng:mLng,raw:meter}:null,
+          distance
+        };
+
+        let distanceHtml="";
+        if(noticeOk&&meterOk){
+          distanceHtml=`<div class="dual-distance">
+            <div>
+              <div><b>ระยะห่างระหว่าง 2 พิกัด</b></div>
+              <div class="dual-distance-value">${dualFormatDistance(distance)}</div>
+              <div class="dual-distance-note">คำนวณระยะเส้นตรงด้วย Haversine · บ้านลูกค้า ↔ มิเตอร์</div>
+            </div>
+            <button class="dual-share-btn" onclick="shareBothCoordinates()">แชร์พิกัดทั้งคู่ + ระยะห่าง</button>
+          </div>`;
+        }
+
+        panel.innerHTML=`<div class="dual-coord-wrap">
+          <div class="dual-coord-title">
+            <h3>พิกัดของ CA ${escapeHtml(ca)}</h3>
+            <div>${noticeOk&&meterOk?"พบครบ 2 พิกัด":(noticeOk||meterOk?"พบ 1 พิกัด":"ยังไม่พบพิกัด")}</div>
+          </div>
+          <div class="dual-coord-grid">
+            ${coordinateCard("notice","🏠 พิกัดใบแจ้งเตือน / บ้านลูกค้า",notice,ca)}
+            ${coordinateCard("meter","📟 พิกัดจดหน่วย / มิเตอร์",meter,ca)}
+          </div>
+          ${distanceHtml}
+        </div>`;
+      }catch(e){
+        panel.innerHTML=`<div class="dual-coord-wrap"><div class="dual-missing">โหลดพิกัดไม่สำเร็จ: ${escapeHtml(e?.message||e)}</div></div>`;
+      }
+    }
+
+    async function showCoordinateOnlyDetail(ca){
+      selectedSearchCA=ca;
+      document.getElementById("caCandidateArea").style.display="none";
+      const area=document.getElementById("caDetailArea");
+      document.getElementById("caDetailTitle").textContent="CA "+ca;
+      document.getElementById("caDetailSub").textContent="พบข้อมูลพิกัด แม้ยังไม่พบรูปใน QC Search";
+      document.getElementById("caDetailGrid").innerHTML="";
+      area.style.display="block";
+      await loadDualCoordinatePanel(ca);
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+
     async function searchCA() {
       const input = document.getElementById("caSearchInput");
       const btn = document.getElementById("caSearchButton");
@@ -1219,6 +1433,16 @@
         caSearchPayload = await qcSearchApi("search-ca", { query: q });
         const candidates = caSearchPayload?.candidates || [];
         if (!candidates.length) {
+          if (q.length === 12) {
+            try {
+              const loc = await fetchDualCoordinate(q);
+              if (loc?.notice || loc?.meter) {
+                setCaSearchStatus("ไม่พบรูปใน QC Search แต่พบข้อมูลพิกัดของ CA " + q);
+                await showCoordinateOnlyDetail(q);
+                return;
+              }
+            } catch (_) {}
+          }
           setCaSearchStatus("ไม่พบข้อมูลที่ตรงกับเลข " + q, true);
           return;
         }
@@ -1281,6 +1505,7 @@
           </div>
         </article>`).join("");
       area.style.display = "block";
+      loadDualCoordinatePanel(ca);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
       // Load signed images with a small concurrency window.
@@ -1330,6 +1555,7 @@
 
     function backToCandidates() {
       document.getElementById("caDetailArea").style.display = "none";
+      document.getElementById("dualCoordinatePanel").innerHTML = "";
       document.getElementById("caCandidateArea").style.display = "block";
     }
 
@@ -2214,6 +2440,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.1</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.2</div>
 </body>
 </html>
