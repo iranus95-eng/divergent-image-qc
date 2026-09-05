@@ -933,6 +933,17 @@
           ระบบจะส่งคำขอจากบัญชี LINE ที่กำลังใช้งานอยู่ให้ผู้ดูแลอนุมัติ
         </div>
 
+        <div id="employeeBindBox" style="margin-bottom:14px;padding:14px;border:1px solid #e5d7f7;border-radius:14px;background:#fbf8ff">
+          <div style="font-weight:800;color:#4f2780;margin-bottom:8px">เข้าสู่ระบบด้วยบัญชีพนักงาน</div>
+          <div style="font-size:12px;color:#756585;margin-bottom:10px">กรอก Username / Password ที่ผู้ดูแลสร้างไว้ ระบบจะผูก LINE นี้กับบัญชีพนักงานให้อัตโนมัติ</div>
+          <input id="employeeBindUsername" type="text" maxlength="60" placeholder="Username" autocomplete="username" style="margin-bottom:8px" />
+          <input id="employeeBindPassword" type="password" maxlength="120" placeholder="Password" autocomplete="current-password" style="margin-bottom:8px" />
+          <button id="employeeBindButton" onclick="bindEmployeeAccount()" style="width:100%">เข้าสู่ระบบและเชื่อม LINE</button>
+          <div id="employeeBindResult" class="registration-result" style="margin-top:8px"></div>
+        </div>
+
+        <div style="text-align:center;color:#9a8cab;font-size:12px;margin:6px 0 12px">หรือส่งคำขอเข้าใช้งานแบบเดิม</div>
+
         <input
           id="requestedName"
           type="text"
@@ -1089,6 +1100,8 @@
     const LIFF_ID = "2011407195-ZXPgFEKe";
     const QC_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api";
+    const USER_BIND_LINE_API_URL =
+      "https://neauzvqroaszvqffahkv.functions.supabase.co/user-bind-line";
     const QC_SEARCH_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-search";
     const USER_ADMIN_API_URL =
@@ -1824,6 +1837,12 @@
       if (ev.key === "Enter" && document.activeElement?.id === "caSearchInput") searchCA();
     });
 
+    document.addEventListener("keydown",(ev)=>{
+      if(ev.key==="Enter" && ["employeeBindUsername","employeeBindPassword"].includes(document.activeElement?.id)){
+        bindEmployeeAccount();
+      }
+    });
+
     async function getLineAccessToken() {
       if (!window.liff || !liff.isLoggedIn()) {
         throw new Error("LINE_NOT_LOGGED_IN");
@@ -2034,7 +2053,7 @@
           info?.registration_status || "not_registered";
 
         status.textContent =
-          "บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า QC";
+          "LINE นี้ยังไม่ได้เชื่อมกับบัญชีพนักงาน";
 
         const nameInput = document.getElementById("requestedName");
         if (nameInput && !nameInput.value) {
@@ -2119,6 +2138,64 @@
       } catch (error) {
         if (card) card.querySelectorAll("button").forEach(b => b.disabled = false);
         alert(`${verb}ไม่สำเร็จ\n` + (error.message || error));
+      }
+    }
+
+
+    async function bindEmployeeAccount(){
+      const username=(document.getElementById("employeeBindUsername")?.value||"").trim();
+      const password=document.getElementById("employeeBindPassword")?.value||"";
+      const result=document.getElementById("employeeBindResult");
+      const btn=document.getElementById("employeeBindButton");
+
+      if(result){ result.className="registration-result"; result.textContent=""; }
+      if(!username || !password){
+        if(result){ result.classList.add("registration-rejected"); result.textContent="กรอก Username และ Password ให้ครบ"; }
+        return;
+      }
+
+      try{
+        if(btn){btn.disabled=true;btn.textContent="กำลังตรวจสอบ...";}
+        const accessToken=await getLineAccessToken();
+        const response=await fetch(USER_BIND_LINE_API_URL,{
+          method:"POST",
+          headers:{
+            "Authorization":"Bearer "+accessToken,
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({username,password})
+        });
+        const text=await response.text();
+        let data={};
+        try{data=text?JSON.parse(text):{};}catch(_){}
+        if(!response.ok){
+          const map={
+            INVALID_CREDENTIALS:"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
+            USER_DISABLED:"บัญชีถูกระงับ",
+            USER_EXPIRED:"บัญชีหมดอายุ",
+            LINE_ALREADY_LINKED:"LINE นี้ถูกเชื่อมกับบัญชีอื่นแล้ว",
+            USER_ALREADY_LINKED:"บัญชีนี้ถูกเชื่อมกับ LINE อื่นแล้ว",
+            LINE_AUTH_FAILED:"ยืนยันบัญชี LINE ไม่สำเร็จ"
+          };
+          throw new Error(map[data?.error]||data?.error||("HTTP "+response.status));
+        }
+
+        if(result){
+          result.classList.add("registration-approved");
+          result.textContent="เชื่อมบัญชีสำเร็จ ✓ กำลังเข้าสู่ระบบ...";
+        }
+        await new Promise(r=>setTimeout(r,400));
+        await checkQcAccess();
+        if(window.qcAccessAllowed){
+          switchWorkspace("home");
+        }
+      }catch(e){
+        if(result){
+          result.classList.add("registration-rejected");
+          result.textContent="เข้าสู่ระบบไม่สำเร็จ: "+(e.message||e);
+        }
+      }finally{
+        if(btn){btn.disabled=false;btn.textContent="เข้าสู่ระบบและเชื่อม LINE";}
       }
     }
 
@@ -2729,6 +2806,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.1</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.2</div>
 </body>
 </html>
