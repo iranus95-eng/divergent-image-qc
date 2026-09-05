@@ -1021,7 +1021,7 @@
 
     <section class="payroll-workspace" id="payrollWorkspace">
       <div class="payroll-head">
-        <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • บัญชีธนาคาร • พื้นที่/เรต • ค่าตอบแทนพิเศษ</p></div>
+        <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • บัญชีธนาคาร • พื้นที่/เรต • ค่าตอบแทนพิเศษ • เรียงตามไซด์งาน</p></div>
         <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
       </div>
       <div class="payroll-kpis">
@@ -1490,7 +1490,16 @@
     function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
     function filterPayrollEmployees(){
       const q=String(document.getElementById("payrollSearch")?.value||"").toLowerCase().trim();
-      const rows=payrollEmployees.filter(x=>!q||[x.employee_name,x.site_name,x.national_id_last4].some(v=>String(v||"").toLowerCase().includes(q)));
+      const rows=payrollEmployees
+        .filter(x=>!q||[x.employee_name,x.site_name,x.national_id_last4].some(v=>String(v||"").toLowerCase().includes(q)))
+        .sort((a,b)=>{
+          const sa=String(a.site_name||"").trim(), sb=String(b.site_name||"").trim();
+          const siteCmp=sa.localeCompare(sb,"th");
+          if(siteCmp!==0) return siteCmp;
+          const ra=Number(a.source_row||999999), rb=Number(b.source_row||999999);
+          if(ra!==rb) return ra-rb;
+          return String(a.employee_name||"").localeCompare(String(b.employee_name||""),"th");
+        });
       document.getElementById("payrollCount").textContent=rows.length;document.getElementById("payrollBound").textContent=rows.filter(x=>x.app_user_id).length;
       const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="8">ไม่พบรายการ</td></tr>';return}
       b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(maskBank(x.bank_account))}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
@@ -2418,7 +2427,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.2: use Supabase signed URL directly.
+      // V1.8.4: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
