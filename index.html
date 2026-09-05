@@ -525,40 +525,30 @@
     @media(max-width:850px){.dual-coord-grid{grid-template-columns:1fr}.dual-distance{align-items:flex-start;flex-direction:column}}
 
 
-/* ===== V1.6.4 QC 5-COLUMN + DUAL COORDINATE FIX ===== */
+/* ===== V1.6.7: stable V1.6.2 gallery + 5 columns + post-load coordinate row ===== */
 .overview-grid{
   display:grid !important;
   grid-template-columns:repeat(5,minmax(0,1fr)) !important;
   gap:12px !important;
   align-items:start !important;
 }
-.overview-grid .image-card{
-  width:100% !important;
-  min-width:0 !important;
-  padding:8px !important;
-}
+.overview-grid .image-card{width:100% !important;min-width:0 !important;padding:8px !important;}
 .overview-grid .image-card img,
 .overview-grid .image-loading,
 .overview-grid .image-error{
   width:100% !important;
   height:132px !important;
   object-fit:contain !important;
-  background:#f2f2f2 !important;
+  background:#f4f4f4 !important;
 }
-.qc-driving-distance{
-  margin-top:8px;
-  padding:9px 8px;
-  border-radius:10px;
-  background:#fbebff;
-  border:1px solid #efd9fb;
-  text-align:left;
-  line-height:1.25;
-  min-height:82px;
+.batch-distance-v167{
+  margin-top:8px;padding:8px;border-radius:10px;
+  background:#fbeaff;border:1px solid #ecd5f7;min-height:76px;
 }
-.qc-driving-label{font-size:12px;font-weight:800;color:#6430a7;}
-.qc-coordinate-line{font-size:11px;font-weight:700;color:#4d3d60;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.qc-driving-value{font-size:19px;font-weight:950;color:#2d087e;margin-top:5px;text-align:center;}
-.qc-driving-wait{font-size:12px;font-weight:700;color:#8c7b9f;margin-top:5px;text-align:center;}
+.batch-distance-title{font-size:12px;font-weight:900;color:#6d2ba5;}
+.batch-distance-coord{font-size:10px;font-weight:700;color:#574762;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.batch-distance-value{font-size:18px;font-weight:950;color:#32107b;text-align:center;margin-top:5px;}
+.batch-distance-note{font-size:11px;font-weight:700;color:#7c6c87;text-align:center;margin-top:5px;}
 @media(max-width:1100px){.overview-grid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;}}
 @media(max-width:850px){.overview-grid{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
 @media(max-width:620px){.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
@@ -1547,19 +1537,7 @@
       loadDualCoordinatePanel(ca);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
-        // V1.6.6: พิกัดทั้ง Batch ใช้ request เดียว และหน่วงไว้ให้ระบบรูปเริ่มก่อน
-        setTimeout(() => {
-          loadBatchDataV166(batch.site_code || batch.siteCode, batch.raw_date || batch.rawDate, batch.batch_id || batch.batchId, overviewImages)
-            .catch((e) => {
-              console.error("V1.6.6 batch coordinate load failed",e);
-              for(const img of overviewImages){
-                const box=document.getElementById("distance-"+img.slotId);
-                if(box) box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">โหลดข้อมูลพิกัดไม่สำเร็จ</div>';
-              }
-            });
-        }, 1500);
-
-        // Load signed images with a small concurrency window.
+      // Load signed images with a small concurrency window.
       let cursor = 0;
       const workers = Array.from({length: Math.min(6, matches.length)}, async () => {
         while (cursor < matches.length) {
@@ -2099,171 +2077,68 @@
     }
 
 
-    const ROUTE_DISTANCE_API_URL_V165 =
-      "https://neauzvqroaszvqffahkv.functions.supabase.co/route-distance";
-
-    function qcFormatDrivingDistanceV165(m) {
-      m = Number(m);
-      if (!Number.isFinite(m)) return "-";
-      return m < 1000
-        ? Math.round(m).toLocaleString("th-TH") + " เมตร"
-        : (m / 1000).toLocaleString("th-TH", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-          }) + " กม.";
-    }
-
-    function qcCoordTextV165(lat, lng) {
-      lat = Number(lat); lng = Number(lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "-";
-      return lat.toFixed(6) + ", " + lng.toFixed(6);
-    }
-
-    async function loadQcDrivingDistancesV165(images) {
-      let token = "";
-      try { token = await getLineAccessToken(); } catch (_) {}
-
-      const cas = [...new Set(
-        images.map(x => String(x.ca || "")).filter(x => /^\d{12}$/.test(x))
-      )];
-
-      const coordByCa = {};
-      const pairs = [];
-
-      // Fetch coordinates after images are already loaded, so it cannot compete
-      // with the private-image loading requests.
-      for (const ca of cas) {
-        try {
-          const loc = await Promise.race([
-            fetchDualCoordinate(ca),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("COORD_TIMEOUT")), 10000)
-            )
-          ]);
-          const n = loc?.notice;
-          const m = loc?.meter;
-          const notice = {
-            lat: Number(n?.actual_latitude),
-            lng: Number(n?.actual_longitude)
-          };
-          const meter = {
-            lat: Number(m?.latitude),
-            lng: Number(m?.longitude)
-          };
-          const noticeOk = Number.isFinite(notice.lat) && Number.isFinite(notice.lng);
-          const meterOk = Number.isFinite(meter.lat) && Number.isFinite(meter.lng);
-
-          coordByCa[ca] = { notice, meter, noticeOk, meterOk };
-
-          if (noticeOk && meterOk) {
-            pairs.push({ id: ca, from: notice, to: meter });
-          }
-        } catch (_) {
-          coordByCa[ca] = { noticeOk:false, meterOk:false, loadError:true };
-        }
-      }
-
-      let routes = {};
-      if (pairs.length && token) {
-        try {
-          const r = await fetch(ROUTE_DISTANCE_API_URL_V165, {
-            method: "POST",
-            headers: {
-              Authorization: "Bearer " + token,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ pairs })
-          });
-          const d = await r.json();
-          if (r.ok) {
-            for (const x of (d.results || [])) routes[String(x.id || "")] = x;
-          }
-        } catch (_) {}
-      }
-
-      for (const img of images) {
-        const box = document.getElementById("distance-" + img.slotId);
-        if (!box) continue;
-
-        const ca = String(img.ca || "");
-        const c = coordByCa[ca] || {};
-        const route = routes[ca];
-
-        const noticeText = c.noticeOk
-          ? qcCoordTextV165(c.notice.lat, c.notice.lng) : "ไม่มี";
-        const meterText = c.meterOk
-          ? qcCoordTextV165(c.meter.lat, c.meter.lng) : "ไม่มี";
-
-        let distanceHtml = "";
-        if (c.noticeOk && c.meterOk) {
-          distanceHtml = route && Number.isFinite(Number(route.distance_m))
-            ? '<div class="qc-driving-value">' +
-                qcFormatDrivingDistanceV165(route.distance_m) + '</div>'
-            : '<div class="qc-driving-wait">วัดเส้นทางขับรถไม่ได้</div>';
-        } else {
-          distanceHtml = c.loadError
-            ? '<div class="qc-driving-wait">ดึงข้อมูลพิกัดไม่สำเร็จ</div>'
-            : '<div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>';
-        }
-
-        box.innerHTML =
-          '<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>' +
-          '<div class="qc-coordinate-line">🏠 บ้าน: ' + noticeText + '</div>' +
-          '<div class="qc-coordinate-line">📟 มิเตอร์: ' + meterText + '</div>' +
-          distanceHtml;
-      }
-    }
-
-
-    const QC_BATCH_DATA_API_V166 =
-      "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-batch-data";
-
-    function formatDriveV166(m){
+    function formatDistanceV167(m){
       m=Number(m);
       if(!Number.isFinite(m)) return null;
-      return m<1000
-        ? Math.round(m).toLocaleString("th-TH")+" เมตร"
+      return m<1000 ? Math.round(m).toLocaleString("th-TH")+" เมตร"
         : (m/1000).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+" กม.";
     }
-
-    function coordV166(a,b){
-      a=Number(a); b=Number(b);
-      return Number.isFinite(a)&&Number.isFinite(b)
-        ? a.toFixed(6)+", "+b.toFixed(6) : "ไม่มี";
+    function coordTextV167(lat,lng){
+      lat=Number(lat);lng=Number(lng);
+      return Number.isFinite(lat)&&Number.isFinite(lng)
+        ? lat.toFixed(6)+", "+lng.toFixed(6) : "ไม่มี";
     }
-
-    async function loadBatchDataV166(siteCode,rawDate,batchId,images){
-      const token=await getLineAccessToken();
-      const r=await fetch(QC_BATCH_DATA_API_V166,{
-        method:"POST",
-        headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
-        body:JSON.stringify({siteCode,rawDate,batchId})
-      });
-      const d=await r.json();
-      if(!r.ok) throw new Error(d?.error||("HTTP "+r.status));
-
-      const byCa={};
-      for(const x of (d.coordinates||[])) byCa[String(x.ca||"")]=x;
-
-      for(const img of images){
-        const box=document.getElementById("distance-"+img.slotId);
-        if(!box) continue;
-        const x=byCa[String(img.ca||"")]||{};
-        const n=x.notice||{},m=x.meter||{};
-        const nText=coordV166(n.actual_latitude,n.actual_longitude);
-        const mText=coordV166(m.latitude,m.longitude);
-        const drive=formatDriveV166(x?.route?.distance_m);
-        const haveN=nText!=="ไม่มี",haveM=mText!=="ไม่มี";
-        box.innerHTML=
-          '<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>'+
-          '<div class="qc-coordinate-line">🏠 บ้าน: '+nText+'</div>'+
-          '<div class="qc-coordinate-line">📟 มิเตอร์: '+mText+'</div>'+
-          (haveN&&haveM
-            ? (drive
-                ? '<div class="qc-driving-value">'+drive+'</div>'
-                : '<div class="qc-driving-wait">วัดเส้นทางขับรถไม่ได้</div>')
-            : '<div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>');
+    async function routeDistanceV167(a,b){
+      // Routing is best-effort and runs only after every image has finished.
+      const url="https://router.project-osrm.org/route/v1/driving/"+
+        a.lng+","+a.lat+";"+b.lng+","+b.lat+
+        "?overview=false&alternatives=false&steps=false";
+      const ctl=new AbortController();
+      const timer=setTimeout(()=>ctl.abort(),8000);
+      try{
+        const r=await fetch(url,{signal:ctl.signal});
+        const d=await r.json();
+        if(r.ok&&d?.routes?.[0]) return Number(d.routes[0].distance);
+      }catch(_){}
+      finally{clearTimeout(timer);}
+      return null;
+    }
+    async function loadDistanceCardV167(img){
+      const box=document.getElementById("distance-"+img.slotId);
+      if(!box) return;
+      try{
+        const d=await fetchDualCoordinate(img.ca);
+        const n=d?.notice||null,m=d?.meter||null;
+        const nlat=Number(n?.actual_latitude),nlng=Number(n?.actual_longitude);
+        const mlat=Number(m?.latitude),mlng=Number(m?.longitude);
+        const nok=Number.isFinite(nlat)&&Number.isFinite(nlng);
+        const mok=Number.isFinite(mlat)&&Number.isFinite(mlng);
+        let html='<div class="batch-distance-title">📍 ระยะห่างระหว่างพิกัด</div>'+
+          '<div class="batch-distance-coord">🏠 บ้าน: '+coordTextV167(nlat,nlng)+'</div>'+
+          '<div class="batch-distance-coord">📟 มิเตอร์: '+coordTextV167(mlat,mlng)+'</div>';
+        if(nok&&mok){
+          const dist=await routeDistanceV167({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});
+          html += dist!=null
+            ? '<div class="batch-distance-value">'+formatDistanceV167(dist)+'</div>'
+            : '<div class="batch-distance-note">วัดระยะทางขับรถไม่ได้</div>';
+        }else{
+          html += '<div class="batch-distance-note">ไม่มีพิกัดครบ 2 จุด</div>';
+        }
+        box.innerHTML=html;
+      }catch(e){
+        box.innerHTML='<div class="batch-distance-title">📍 ระยะห่างระหว่างพิกัด</div>'+
+          '<div class="batch-distance-note">โหลดพิกัดไม่สำเร็จ</div>';
       }
+    }
+    async function loadAllDistanceCardsV167(images){
+      let cursor=0;
+      const workers=Array.from({length:Math.min(3,images.length)},async()=>{
+        while(cursor<images.length){
+          const i=cursor++;
+          await loadDistanceCardV167(images[i]);
+        }
+      });
+      await Promise.all(workers);
     }
 
     async function openBatchDetail(index) {
@@ -2357,9 +2232,9 @@
                   <div class="thumbnail-hint">
                     เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ
                   </div>
-                  <div class="qc-driving-distance" id="distance-${img.slotId}">
-                    <div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>
-                    <div class="qc-driving-wait">กำลังโหลดข้อมูล...</div>
+                  <div class="batch-distance-v167" id="distance-${img.slotId}">
+                    <div class="batch-distance-title">📍 ระยะห่างระหว่างพิกัด</div>
+                    <div class="batch-distance-note">รอรูปโหลดเสร็จ...</div>
                   </div>
                 </div>
               `).join("")}
@@ -2430,6 +2305,10 @@
         await Promise.all(
           Array.from({ length: Math.min(concurrency, allImages.length) }, () => worker())
         );
+
+        // V1.6.7: preserve V1.6.2 image loading exactly.
+        // Coordinates/routing begin only after every image request has completed.
+        loadAllDistanceCardsV167(overviewImages).catch((e)=>console.error("distance cards",e));
 
         detailStatus.textContent =
           failedCount === 0
@@ -2663,6 +2542,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.6</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.7</div>
 </body>
 </html>
