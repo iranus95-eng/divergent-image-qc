@@ -525,7 +525,44 @@
     @media(max-width:850px){.dual-coord-grid{grid-template-columns:1fr}.dual-distance{align-items:flex-start;flex-direction:column}}
 
 
-.qc-driving-distance{margin-top:7px;padding:8px 7px;border-radius:10px;background:#fbebff;border:1px solid #efd9fb;text-align:center;min-height:45px;display:flex;flex-direction:column;justify-content:center;line-height:1.15}.qc-driving-label{font-size:11px;font-weight:800;color:#6430a7;white-space:nowrap}.qc-driving-value{font-size:18px;font-weight:950;color:#2d087e;margin-top:4px}.qc-driving-wait{font-size:12px;font-weight:700;color:#8c7b9f;margin-top:4px}
+/* ===== V1.6.4 QC 5-COLUMN + DUAL COORDINATE FIX ===== */
+.overview-grid{
+  display:grid !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:12px !important;
+  align-items:start !important;
+}
+.overview-grid .image-card{
+  width:100% !important;
+  min-width:0 !important;
+  padding:8px !important;
+}
+.overview-grid .image-card img,
+.overview-grid .image-loading,
+.overview-grid .image-error{
+  width:100% !important;
+  height:132px !important;
+  object-fit:contain !important;
+  background:#f2f2f2 !important;
+}
+.qc-driving-distance{
+  margin-top:8px;
+  padding:9px 8px;
+  border-radius:10px;
+  background:#fbebff;
+  border:1px solid #efd9fb;
+  text-align:left;
+  line-height:1.25;
+  min-height:82px;
+}
+.qc-driving-label{font-size:12px;font-weight:800;color:#6430a7;}
+.qc-coordinate-line{font-size:11px;font-weight:700;color:#4d3d60;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qc-driving-value{font-size:19px;font-weight:950;color:#2d087e;margin-top:5px;text-align:center;}
+.qc-driving-wait{font-size:12px;font-weight:700;color:#8c7b9f;margin-top:5px;text-align:center;}
+@media(max-width:1100px){.overview-grid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;}}
+@media(max-width:850px){.overview-grid{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
+@media(max-width:620px){.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -2049,9 +2086,114 @@
       return URL.createObjectURL(blob);
     }
 
-    const ROUTE_DISTANCE_API_URL="https://neauzvqroaszvqffahkv.functions.supabase.co/route-distance";
-    function qcFormatDrivingDistance(m){m=Number(m);if(!Number.isFinite(m))return "-";return m<1000?Math.round(m).toLocaleString("th-TH")+" เมตร":(m/1000).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+" กม.";}
-    async function loadQcDrivingDistances(images){const token=await getLineAccessToken();const cas=[...new Set(images.map(x=>String(x.ca||"")).filter(x=>/^\d{12}$/.test(x)))];const pairs=[];const pairByCa={};await Promise.all(cas.map(async ca=>{try{const loc=await fetchDualCoordinate(ca),n=loc?.notice,m=loc?.meter;const a={lat:Number(n?.actual_latitude),lng:Number(n?.actual_longitude)},b={lat:Number(m?.latitude),lng:Number(m?.longitude)};if(Object.values(a).every(Number.isFinite)&&Object.values(b).every(Number.isFinite)){const p={id:ca,from:a,to:b};pairs.push(p);pairByCa[ca]=p;}}catch(_){}}));let routes={};if(pairs.length){try{const r=await fetch(ROUTE_DISTANCE_API_URL,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({pairs})});const d=await r.json();if(r.ok)for(const x of(d.results||[]))routes[String(x.id||"")]=x;}catch(_){}}for(const img of images){const box=document.getElementById("distance-"+img.slotId);if(!box)continue;const ca=String(img.ca||""),route=routes[ca];if(!pairByCa[ca])box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>';else if(route&&Number.isFinite(Number(route.distance_m)))box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-value">'+qcFormatDrivingDistance(route.distance_m)+'</div>';else box.innerHTML='<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">วัดเส้นทางไม่ได้</div>';}}
+
+    const ROUTE_DISTANCE_API_URL_V164 =
+      "https://neauzvqroaszvqffahkv.functions.supabase.co/route-distance";
+
+    function qcFormatDrivingDistanceV164(m) {
+      m = Number(m);
+      if (!Number.isFinite(m)) return "-";
+      return m < 1000
+        ? Math.round(m).toLocaleString("th-TH") + " เมตร"
+        : (m / 1000).toLocaleString("th-TH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          }) + " กม.";
+    }
+
+    function qcCoordTextV164(lat, lng) {
+      lat = Number(lat); lng = Number(lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "-";
+      return lat.toFixed(6) + ", " + lng.toFixed(6);
+    }
+
+    async function loadQcDrivingDistancesV164(images) {
+      let token = "";
+      try { token = await getLineAccessToken(); } catch (_) {}
+
+      const cas = [...new Set(
+        images.map(x => String(x.ca || "")).filter(x => /^\d{12}$/.test(x))
+      )];
+
+      const coordByCa = {};
+      const pairs = [];
+
+      // Fetch coordinates after images are already loaded, so it cannot compete
+      // with the private-image loading requests.
+      for (const ca of cas) {
+        try {
+          const loc = await fetchDualCoordinate(ca);
+          const n = loc?.notice;
+          const m = loc?.meter;
+          const notice = {
+            lat: Number(n?.actual_latitude),
+            lng: Number(n?.actual_longitude)
+          };
+          const meter = {
+            lat: Number(m?.latitude),
+            lng: Number(m?.longitude)
+          };
+          const noticeOk = Number.isFinite(notice.lat) && Number.isFinite(notice.lng);
+          const meterOk = Number.isFinite(meter.lat) && Number.isFinite(meter.lng);
+
+          coordByCa[ca] = { notice, meter, noticeOk, meterOk };
+
+          if (noticeOk && meterOk) {
+            pairs.push({ id: ca, from: notice, to: meter });
+          }
+        } catch (_) {
+          coordByCa[ca] = { noticeOk:false, meterOk:false };
+        }
+      }
+
+      let routes = {};
+      if (pairs.length && token) {
+        try {
+          const r = await fetch(ROUTE_DISTANCE_API_URL_V164, {
+            method: "POST",
+            headers: {
+              Authorization: "Bearer " + token,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ pairs })
+          });
+          const d = await r.json();
+          if (r.ok) {
+            for (const x of (d.results || [])) routes[String(x.id || "")] = x;
+          }
+        } catch (_) {}
+      }
+
+      for (const img of images) {
+        const box = document.getElementById("distance-" + img.slotId);
+        if (!box) continue;
+
+        const ca = String(img.ca || "");
+        const c = coordByCa[ca] || {};
+        const route = routes[ca];
+
+        const noticeText = c.noticeOk
+          ? qcCoordTextV164(c.notice.lat, c.notice.lng) : "ไม่มี";
+        const meterText = c.meterOk
+          ? qcCoordTextV164(c.meter.lat, c.meter.lng) : "ไม่มี";
+
+        let distanceHtml = "";
+        if (c.noticeOk && c.meterOk) {
+          distanceHtml = route && Number.isFinite(Number(route.distance_m))
+            ? '<div class="qc-driving-value">' +
+                qcFormatDrivingDistanceV164(route.distance_m) + '</div>'
+            : '<div class="qc-driving-wait">วัดเส้นทางขับรถไม่ได้</div>';
+        } else {
+          distanceHtml = '<div class="qc-driving-wait">ไม่มีพิกัดครบ 2 จุด</div>';
+        }
+
+        box.innerHTML =
+          '<div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>' +
+          '<div class="qc-coordinate-line">🏠 บ้าน: ' + noticeText + '</div>' +
+          '<div class="qc-coordinate-line">📟 มิเตอร์: ' + meterText + '</div>' +
+          distanceHtml;
+      }
+    }
 
     async function openBatchDetail(index) {
       const batch = (window.currentBatches || [])[index];
@@ -2144,7 +2286,10 @@
                   <div class="thumbnail-hint">
                     เลื่อนเมาส์เพื่อซูม · คลิกเพื่อตรวจ
                   </div>
-                  <div class="qc-driving-distance" id="distance-${img.slotId}"><div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div><div class="qc-driving-wait">กำลังวัดเส้นทางขับรถ...</div></div>
+                  <div class="qc-driving-distance" id="distance-${img.slotId}">
+                    <div class="qc-driving-label">📍 ระยะห่างระหว่างพิกัด</div>
+                    <div class="qc-driving-wait">รอโหลดรูปให้เสร็จก่อน...</div>
+                  </div>
                 </div>
               `).join("")}
             </div>
@@ -2152,7 +2297,6 @@
         `;
 
         const allImages = overviewImages;
-        loadQcDrivingDistances(overviewImages).catch(() => {});
         let loadedCount = 0;
         let failedCount = 0;
 
@@ -2221,6 +2365,9 @@
             ? "พบ " + files.length + " รูป · " + caKeys.length + " CA ✓"
             : "พบ " + files.length + " รูป · " + caKeys.length +
               " CA · เปิดรูปไม่ได้ " + failedCount + " รูป";
+
+        // V1.6.4: โหลดพิกัด/ระยะทางหลังรูปทั้งหมด เพื่อไม่ให้กระทบการโหลดรูป
+        loadQcDrivingDistancesV164(overviewImages).catch(() => {});
 
       } catch (error) {
         detailStatus.className = "status-box status-error";
@@ -2448,6 +2595,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.3</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.4</div>
 </body>
 </html>
