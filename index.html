@@ -2114,7 +2114,7 @@
         const nok=Number.isFinite(nlat)&&Number.isFinite(nlng);
         const mok=Number.isFinite(mlat)&&Number.isFinite(mlng);
         let html='<div class="batch-distance-title">📍 ระยะห่างระหว่างพิกัด</div>'+
-          '<div class="batch-distance-coord">🏠 บ้าน: '+coordTextV167(nlat,nlng)+'</div>'+
+          '<div class="batch-distance-coord">🏠 บ้าน/ใบแจ้งเตือน: '+(nok ? coordTextV167(nlat,nlng) : 'ยังไม่มีข้อมูลในระบบ')+'</div>'+
           '<div class="batch-distance-coord">📟 มิเตอร์: '+coordTextV167(mlat,mlng)+'</div>';
         if(nok&&mok){
           const dist=await routeDistanceV167({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});
@@ -2122,7 +2122,11 @@
             ? '<div class="batch-distance-value">'+formatDistanceV167(dist)+'</div>'
             : '<div class="batch-distance-note">วัดระยะทางขับรถไม่ได้</div>';
         }else{
-          html += '<div class="batch-distance-note">ไม่มีพิกัดครบ 2 จุด</div>';
+          html += '<div class="batch-distance-note">'+
+            (!nok && mok ? 'ยังไม่มีพิกัดใบแจ้งเตือนของ CA นี้' :
+             nok && !mok ? 'ยังไม่มีพิกัดมิเตอร์ของ CA นี้' :
+             'ยังไม่มีพิกัดครบ 2 จุด')+
+            '</div>';
         }
         box.innerHTML=html;
       }catch(e){
@@ -2542,6 +2546,6 @@
       await shareTextLocation(text);
     }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.7</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.8</div>
 </body>
 </html>
