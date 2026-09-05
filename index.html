@@ -1201,11 +1201,25 @@
       window.scrollTo({top:0,behavior:"smooth"});
     }
 
-    function manualLineLogin(){
-      if(typeof liff!=="undefined" && liff.isLoggedIn && liff.isLoggedIn()){
-        switchWorkspace("home"); return;
+    async function manualLineLogin(){
+      const status=document.getElementById("lineUserStatus");
+      try{
+        if(typeof liff==="undefined"){
+          if(status) status.textContent="กำลังโหลด LINE Login กรุณารอสักครู่...";
+          return;
+        }
+        if(liff.isLoggedIn && liff.isLoggedIn()){
+          switchWorkspace("home");
+          return;
+        }
+        sessionStorage.removeItem("divergent_line_auto_login_attempted");
+        const cleanRedirect =
+          window.location.origin + window.location.pathname + window.location.search;
+        liff.login({redirectUri:cleanRedirect});
+      }catch(e){
+        if(status) status.textContent="เปิด LINE Login ไม่สำเร็จ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่";
+        console.error("manual LINE login",e);
       }
-      if(typeof liff!=="undefined" && liff.login) liff.login({redirectUri:window.location.href});
     }
 
 
@@ -2074,13 +2088,38 @@
         });
 
         if (!liff.isLoggedIn()) {
-          status.textContent = "ยังไม่ได้เข้าสู่ระบบ LINE";
+          status.textContent = "กำลังเปิดหน้าเข้าสู่ระบบ LINE...";
           const loginBtn = document.getElementById("topLoginButton");
-          if (loginBtn) loginBtn.textContent = "เข้าสู่ระบบ · Log in";
+          if (loginBtn) loginBtn.textContent = "เข้าสู่ระบบ LINE";
+
           setQcEnabled(false);
           switchWorkspace("home");
+
+          // V1.8.7: ถ้าเปิดเว็บจาก Chrome/Safari แล้ว LINE ยังไม่ login
+          // ให้เปิด LINE Login อัตโนมัติ 1 ครั้ง แทนการรอผู้ใช้กดปุ่มเอง
+          const autoKey = "divergent_line_auto_login_attempted";
+          const alreadyAttempted = sessionStorage.getItem(autoKey) === "1";
+
+          if (!alreadyAttempted) {
+            sessionStorage.setItem(autoKey, "1");
+            const cleanRedirect =
+              window.location.origin + window.location.pathname + window.location.search;
+            setTimeout(() => {
+              try {
+                liff.login({ redirectUri: cleanRedirect });
+              } catch (e) {
+                console.warn("auto LINE login failed", e);
+                status.textContent = "กรุณากด “เข้าสู่ระบบ LINE” ด้านบน";
+              }
+            }, 250);
+          } else {
+            status.textContent = "ยังไม่ได้เข้าสู่ระบบ LINE • กรุณากด “เข้าสู่ระบบ LINE”";
+          }
           return;
         }
+
+        // login สำเร็จแล้ว ล้าง flag เพื่อให้รอบใหม่สามารถ auto-login ได้อีก
+        sessionStorage.removeItem("divergent_line_auto_login_attempted");
 
         status.textContent = "กำลังอ่านบัญชี LINE...";
 
@@ -2451,7 +2490,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.6: use Supabase signed URL directly.
+      // V1.8.7: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
