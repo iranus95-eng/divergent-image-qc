@@ -1029,8 +1029,8 @@
         <div class="payroll-kpi"><span>ผูกบัญชีผู้ใช้แล้ว</span><b id="payrollBound">0</b></div>
         <div class="payroll-kpi"><span>สถานะระบบ</span><b style="font-size:18px;color:#18884a">พร้อมใช้งาน</b></div>
       </div>
-      <div class="payroll-tools"><input id="payrollSearch" placeholder="ค้นหาชื่อ / พื้นที่ / เลขบัตร 4 ตัวท้าย" oninput="filterPayrollEmployees()"><button onclick="loadPayrollEmployees()">รีเฟรช</button></div>
-      <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>ไซด์งาน</th><th>เรต</th><th>ธนาคาร</th><th>บัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="8">กำลังโหลด...</td></tr></tbody></table></div>
+      <div class="payroll-tools"><input id="payrollSearch" placeholder="ค้นหาชื่อ / ไซด์งาน / เลขบัตร / ธนาคาร / เลขบัญชี" oninput="filterPayrollEmployees()"><button onclick="loadPayrollEmployees()">รีเฟรช</button></div>
+      <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>เลขบัตรประชาชน</th><th>ไซด์งาน</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="9">กำลังโหลด...</td></tr></tbody></table></div>
       <div class="payroll-status" id="payrollStatus"></div>
     </section>
 
@@ -1491,7 +1491,7 @@
     function filterPayrollEmployees(){
       const q=String(document.getElementById("payrollSearch")?.value||"").toLowerCase().trim();
       const rows=payrollEmployees
-        .filter(x=>!q||[x.employee_name,x.site_name,x.national_id_last4].some(v=>String(v||"").toLowerCase().includes(q)))
+        .filter(x=>!q||[x.employee_name,x.site_name,x.national_id,x.national_id_last4,x.bank_name,x.bank_account].some(v=>String(v||"").toLowerCase().includes(q)))
         .sort((a,b)=>{
           const sa=String(a.site_name||"").trim(), sb=String(b.site_name||"").trim();
           const siteCmp=sa.localeCompare(sb,"th");
@@ -1501,8 +1501,8 @@
           return String(a.employee_name||"").localeCompare(String(b.employee_name||""),"th");
         });
       document.getElementById("payrollCount").textContent=rows.length;document.getElementById("payrollBound").textContent=rows.filter(x=>x.app_user_id).length;
-      const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="8">ไม่พบรายการ</td></tr>';return}
-      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(maskBank(x.bank_account))}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
+      const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="9">ไม่พบรายการ</td></tr>';return}
+      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.national_id||"-")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td>${x.profile_id?`<button class="payroll-edit" onclick="openPayrollEmployee(${x.profile_id})">${payrollCanManage?"แก้ไข":"ดู"}</button>`:"-"}</td></tr>`).join("");
     }
     async function openPayrollEmployee(id=null){
       document.getElementById("payrollModal").classList.add("show");document.getElementById("peStatus").textContent="";
@@ -2427,7 +2427,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.4: use Supabase signed URL directly.
+      // V1.8.5: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
