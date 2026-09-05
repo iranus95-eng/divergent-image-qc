@@ -492,7 +492,17 @@
       box-shadow: 0 2px 8px rgba(74,39,117,.08);
       backdrop-filter: blur(4px);
     }
-  </style>
+  
+    .location-distance-card{margin-top:18px;padding:22px;border:1px solid #ddd1ff;border-radius:18px;background:linear-gradient(135deg,#fbf9ff,#f3eeff);display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center}
+    .location-distance-card .distance-value{font-size:34px;font-weight:900;color:#32146f;margin-top:6px}
+    .location-distance-card .distance-sub{color:#705b9b;margin-top:4px}
+    .location-point-tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9f8ef;color:#18723d;font-size:12px;font-weight:800;margin-left:6px}
+    .location-source-tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9f5ff;color:#006a9c;font-size:12px;font-weight:800;margin-left:6px}
+    .location-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    .location-actions .share-primary{background:#7339d8;color:white;border:0}
+    @media(max-width:800px){.location-distance-card{grid-template-columns:1fr}.location-distance-card .distance-value{font-size:28px}}
+
+</style>
 
 <style id="divergent-theme-v120">
   :root {
@@ -925,9 +935,9 @@
 
 
     <section class="card" id="locationWorkspace" style="display:none">
-      <div class="workspace-title"><div class="workspace-copy"><h2>ค้นหาพิกัดตำแหน่ง</h2><p>ค้นหาพิกัดงานรูปจาก Image Rescue เท่านั้น · แยกจากพิกัดมิเตอร์ของ Location Finder</p></div><div class="workspace-badge">Image Rescue · Work GPS</div></div>
-      <div class="ca-search-panel"><label for="locationCaInput">หมายเลข CA</label><div class="ca-search-row"><input id="locationCaInput" type="text" inputmode="numeric" maxlength="12" placeholder="กรอก CA อย่างน้อย 3 หลัก"><button onclick="searchWorkLocation()">ค้นหาพิกัด</button></div><div class="search-help">ระบบจะแสดงเฉพาะข้อมูลพิกัดที่ได้จากไฟล์งานรูป InsUploadPic</div></div>
-      <div id="locationStatus" class="status-box"></div><div id="locationResults" class="ca-detail-grid"></div>
+      <div class="workspace-title"><div class="workspace-copy"><h2>ค้นหาพิกัดตำแหน่ง</h2><p>ค้นหาและเปรียบเทียบพิกัด 2 รายการ · แชร์แต่ละพิกัดได้ · คำนวณระยะห่างอัตโนมัติ</p></div><div class="workspace-badge">Image Rescue · Work GPS</div></div>
+      <div class="ca-search-panel"><label for="locationCaInput">หมายเลข CA</label><div class="ca-search-row"><input id="locationCaInput" type="text" placeholder="กรอก CA 1 หรือ 2 หมายเลข เช่น 020013270461, 020013270643"><button onclick="searchWorkLocation()">ค้นหาพิกัด</button></div><div class="search-help">รองรับ InsUploadPic และ DEVICE_LIVE · ใส่ CA 2 หมายเลขคั่นด้วยเว้นวรรคหรือเครื่องหมายจุลภาคเพื่อเปรียบเทียบ</div></div>
+      <div id="locationStatus" class="status-box"></div><div id="locationResults" class="ca-detail-grid"></div><div id="locationDistance"></div>
     </section>
     <section class="user-workspace" id="userWorkspace">
       <div class="user-head">
@@ -2136,18 +2146,74 @@
     setQcEnabled(false);
     initLiff();
   
+    function haversineMeters(aLat,aLng,bLat,bLng){
+      const R=6371000,toRad=v=>v*Math.PI/180;
+      const dLat=toRad(bLat-aLat),dLng=toRad(bLng-aLng);
+      const q=Math.sin(dLat/2)**2+Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
+      return 2*R*Math.atan2(Math.sqrt(q),Math.sqrt(1-q));
+    }
+    function formatDistance(m){
+      if(m<1000)return m.toLocaleString("th-TH",{maximumFractionDigits:m<100?1:0})+" เมตร";
+      return (m/1000).toLocaleString("th-TH",{maximumFractionDigits:2})+" กิโลเมตร";
+    }
+    function newestPoint(rows,ca){
+      return rows.filter(x=>String(x.ca_number||"")===ca)
+        .sort((a,b)=>new Date(b.event_datetime||b.photo_datetime||b.created_at||0)-new Date(a.event_datetime||a.photo_datetime||a.created_at||0))[0]||null;
+    }
     async function searchWorkLocation(){
-      const input=document.getElementById("locationCaInput"),status=document.getElementById("locationStatus"),out=document.getElementById("locationResults");
-      const q=String(input.value||"").replace(/\D/g,""); input.value=q; out.innerHTML="";
-      if(q.length<3){status.style.display="block";status.textContent="กรุณากรอกหมายเลข CA อย่างน้อย 3 หลัก";status.classList.add("status-error");return;}
-      status.classList.remove("status-error");status.style.display="block";status.textContent="กำลังค้นหาพิกัดงานรูป...";
-      try{const token=await getLineAccessToken();const r=await fetch("https://neauzvqroaszvqffahkv.functions.supabase.co/image-location-search",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({ca:q})});const d=await r.json();if(!r.ok)throw new Error(d?.error||("HTTP "+r.status));const rows=d.results||[];
-        if(!rows.length){status.textContent="ไม่พบพิกัดงานรูปสำหรับ CA "+q;status.classList.add("status-error");return;} status.textContent="พบ "+rows.length+" รายการ";
-        out.innerHTML=rows.map(x=>{const lat=Number(x.actual_latitude),lng=Number(x.actual_longitude),ok=Number.isFinite(lat)&&Number.isFinite(lng)&&!(lat===0&&lng===0),map=ok?`https://www.google.com/maps?q=${lat},${lng}`:"";return `<div class="ca-info-card"><h4>CA ${escapeHtml(x.ca_number||'-')}</h4><div><b>พิกัดงานรูป:</b> ${ok?lat.toFixed(7)+", "+lng.toFixed(7):"ไม่พบพิกัด"}</div><div><b>เวลา:</b> ${escapeHtml(x.event_datetime||x.photo_datetime||'-')}</div><div><b>พื้นที่:</b> ${escapeHtml([x.subdistrict,x.district,x.province].filter(Boolean).join(' ')||'-')}</div><div><b>Site:</b> ${escapeHtml(x.matched_site_code||'-')} · <b>สถานะ:</b> ${escapeHtml(x.match_status||'-')}</div><div><b>รูป:</b> ${escapeHtml(x.source_photo_name||'-')}</div>${ok?`<div style="margin-top:12px"><a class="soft-button" href="${map}" target="_blank" rel="noopener">เปิด Google Maps</a> <button class="soft-button" onclick="shareWorkLocation('${escapeAttr(x.ca_number)}',${lat},${lng})">แชร์พิกัด</button></div>`:""}</div>`}).join("");
+      const input=document.getElementById("locationCaInput"),status=document.getElementById("locationStatus"),
+            out=document.getElementById("locationResults"),distanceBox=document.getElementById("locationDistance");
+      const cas=(String(input.value||"").match(/\d{3,12}/g)||[]).slice(0,2);
+      out.innerHTML="";distanceBox.innerHTML="";
+      if(!cas.length){status.style.display="block";status.textContent="กรุณากรอกหมายเลข CA อย่างน้อย 3 หลัก";status.classList.add("status-error");return;}
+      status.classList.remove("status-error");status.style.display="block";status.textContent="กำลังค้นหาพิกัด "+cas.length+" รายการ...";
+      try{
+        const token=await getLineAccessToken();
+        const all=[];
+        for(const ca of cas){
+          const r=await fetch("https://neauzvqroaszvqffahkv.functions.supabase.co/image-location-search",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({ca})});
+          const d=await r.json();if(!r.ok)throw new Error(d?.error||("HTTP "+r.status));
+          const exact=(d.results||[]).filter(x=>String(x.ca_number||"")===ca);
+          if(exact.length)all.push(newestPoint(exact,ca));
+        }
+        const rows=all.filter(Boolean);
+        if(!rows.length){status.textContent="ไม่พบข้อมูลพิกัดสำหรับ CA ที่ระบุ";status.classList.add("status-error");return;}
+        status.textContent="พบพิกัด "+rows.length+"/"+cas.length+" รายการ";
+        out.innerHTML=rows.map((x,i)=>{
+          const lat=Number(x.actual_latitude),lng=Number(x.actual_longitude),ok=Number.isFinite(lat)&&Number.isFinite(lng)&&!(lat===0&&lng===0);
+          const map=ok?`https://www.google.com/maps?q=${lat},${lng}`:"";
+          const source=x.source_file==="DEVICE_LIVE"?"Device GPS":(x.source_file||"InsUploadPic");
+          return `<div class="ca-info-card"><h4>${i+1}. CA ${escapeHtml(x.ca_number||'-')} <span class="location-point-tag">พบพิกัด</span><span class="location-source-tag">${escapeHtml(source)}</span></h4>
+          <div><b>พิกัด:</b> ${ok?lat.toFixed(7)+", "+lng.toFixed(7):"ไม่พบพิกัด"}</div>
+          <div><b>เวลา:</b> ${escapeHtml(x.event_datetime||x.photo_datetime||x.created_at||'-')}</div>
+          <div><b>Site:</b> ${escapeHtml(x.matched_site_code||x.source_site_code||'-')} · <b>สถานะ:</b> ${escapeHtml(x.match_status||'-')}</div>
+          <div><b>รูป:</b> ${escapeHtml(x.source_photo_name||'-')}</div>
+          ${ok?`<div class="location-actions"><a class="soft-button" href="${map}" target="_blank" rel="noopener">เปิด Google Maps</a><button class="soft-button share-primary" onclick="shareWorkLocation('${escapeAttr(x.ca_number)}',${lat},${lng},'${escapeAttr(source)}')">แชร์พิกัดนี้</button></div>`:""}</div>`;
+        }).join("");
+        if(rows.length===2){
+          const a=rows[0],b=rows[1],m=haversineMeters(Number(a.actual_latitude),Number(a.actual_longitude),Number(b.actual_latitude),Number(b.actual_longitude));
+          distanceBox.innerHTML=`<div class="location-distance-card"><div><b>ระยะห่างระหว่างพิกัด</b><div class="distance-value">${formatDistance(m)}</div><div class="distance-sub">${escapeHtml(a.ca_number)} ↔ ${escapeHtml(b.ca_number)} · คำนวณระยะเส้นตรงด้วย Haversine</div></div><button class="soft-button share-primary" onclick="shareBothLocations()">แชร์พิกัดทั้งคู่ + ระยะห่าง</button></div>`;
+          window._compareLocations={a,b,m};
+        }else window._compareLocations=null;
       }catch(e){status.textContent="ค้นหาพิกัดไม่สำเร็จ: "+(e?.message||e);status.classList.add("status-error");}
     }
-    async function shareWorkLocation(ca,lat,lng){const text=`Divergent Image Rescue\nCA: ${ca}\nพิกัดงานรูป: ${lat}, ${lng}\nhttps://www.google.com/maps?q=${lat},${lng}`;try{if(window.liff&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker")){await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});}else{await navigator.clipboard.writeText(text);alert("คัดลอกพิกัดแล้ว");}}catch(e){alert("แชร์พิกัดไม่สำเร็จ: "+(e?.message||e));}}
+    async function shareTextLocation(text){
+      try{
+        if(window.liff&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker"))await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});
+        else{await navigator.clipboard.writeText(text);alert("คัดลอกพิกัดแล้ว");}
+      }catch(e){alert("แชร์พิกัดไม่สำเร็จ: "+(e?.message||e));}
+    }
+    async function shareWorkLocation(ca,lat,lng,source){
+      const text=`Divergent Image Rescue\nCA: ${ca}\nแหล่งพิกัด: ${source||"-"}\nพิกัด: ${lat}, ${lng}\nhttps://www.google.com/maps?q=${lat},${lng}`;
+      await shareTextLocation(text);
+    }
+    async function shareBothLocations(){
+      const c=window._compareLocations;if(!c)return;
+      const a=c.a,b=c.b;
+      const text=`Divergent Image Rescue\nเปรียบเทียบพิกัด 2 รายการ\n\n1) CA ${a.ca_number}\n${a.actual_latitude}, ${a.actual_longitude}\nhttps://www.google.com/maps?q=${a.actual_latitude},${a.actual_longitude}\n\n2) CA ${b.ca_number}\n${b.actual_latitude}, ${b.actual_longitude}\nhttps://www.google.com/maps?q=${b.actual_latitude},${b.actual_longitude}\n\nระยะห่างเส้นตรง: ${formatDistance(c.m)}`;
+      await shareTextLocation(text);
+    }
 </script>
-  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.0</div>
+  <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.6.1</div>
 </body>
 </html>
