@@ -1133,6 +1133,8 @@
             <label class="perm-item"><input type="checkbox" id="permDisconnect" /> ตัดการเชื่อมต่อ</label>
             <label class="perm-item"><input type="checkbox" id="permManage" /> จัดการสิทธิ์</label>
             <label class="perm-item"><input type="checkbox" id="permUserMgmt" /> เข้าเมนูจัดการผู้ใช้งาน</label>
+            <label class="perm-item"><input type="checkbox" id="permPayrollAccess" /> เข้าเมนูจัดการเงินเดือน</label>
+            <label class="perm-item"><input type="checkbox" id="permPayrollManage" /> แก้ไข/จัดการเงินเดือน</label>
           </div>
         </div>
         <div id="userEditHint" style="grid-column:1/-1;padding:10px 12px;border-radius:12px;background:#f7f2ff;color:#5b2f91;font-size:12px;display:none"></div>
@@ -1395,7 +1397,7 @@
       const role=document.getElementById("userFormRole");
       role.value=u?.role||"staff"; role.disabled=self;
       document.getElementById("userFormExpiry").value=toLocalInput(u?.expires_at);
-      const map={permActive:"is_active",permQc:"can_access_qc",permUpload:"can_upload_data",permCreate:"can_create_users",permEdit:"can_edit_users",permExpiry:"can_set_expiry",permToggle:"can_toggle_users",permDelete:"can_delete_users",permDisconnect:"can_disconnect_users",permManage:"can_manage_permissions",permUserMgmt:"can_access_user_management"};
+      const map={permActive:"is_active",permQc:"can_access_qc",permUpload:"can_upload_data",permCreate:"can_create_users",permEdit:"can_edit_users",permExpiry:"can_set_expiry",permToggle:"can_toggle_users",permDelete:"can_delete_users",permDisconnect:"can_disconnect_users",permManage:"can_manage_permissions",permUserMgmt:"can_access_user_management",permPayrollAccess:"can_access_payroll",permPayrollManage:"can_manage_payroll"};
       for(const [eid,k] of Object.entries(map)){
         const el=document.getElementById(eid); el.checked=u?!!u[k]:(eid==="permActive"); el.disabled=false;
       }
@@ -1424,7 +1426,7 @@
     }
     function closeUserModal(){document.getElementById("userModal")?.classList.remove("show")}
     function collectUserPayload(){
-      const expiry=document.getElementById("userFormExpiry").value; return {username:document.getElementById("userFormUsername").value.trim(),password:document.getElementById("userFormPassword").value,role:document.getElementById("userFormRole").value,expires_at:expiry?new Date(expiry).toISOString():null,is_active:document.getElementById("permActive").checked,can_access_qc:document.getElementById("permQc").checked,can_upload_data:document.getElementById("permUpload").checked,can_create_users:document.getElementById("permCreate").checked,can_edit_users:document.getElementById("permEdit").checked,can_set_expiry:document.getElementById("permExpiry").checked,can_toggle_users:document.getElementById("permToggle").checked,can_delete_users:document.getElementById("permDelete").checked,can_disconnect_users:document.getElementById("permDisconnect").checked,can_manage_permissions:document.getElementById("permManage").checked,can_access_user_management:document.getElementById("permUserMgmt").checked};
+      const expiry=document.getElementById("userFormExpiry").value; return {username:document.getElementById("userFormUsername").value.trim(),password:document.getElementById("userFormPassword").value,role:document.getElementById("userFormRole").value,expires_at:expiry?new Date(expiry).toISOString():null,is_active:document.getElementById("permActive").checked,can_access_qc:document.getElementById("permQc").checked,can_upload_data:document.getElementById("permUpload").checked,can_create_users:document.getElementById("permCreate").checked,can_edit_users:document.getElementById("permEdit").checked,can_set_expiry:document.getElementById("permExpiry").checked,can_toggle_users:document.getElementById("permToggle").checked,can_delete_users:document.getElementById("permDelete").checked,can_disconnect_users:document.getElementById("permDisconnect").checked,can_manage_permissions:document.getElementById("permManage").checked,can_access_user_management:document.getElementById("permUserMgmt").checked,can_access_payroll:document.getElementById("permPayrollAccess").checked,can_manage_payroll:document.getElementById("permPayrollManage").checked};
     }
     function userAdminErrorText(code){
       const m={INVALID_USERNAME:"ชื่อผู้ใช้ต้องมี 3–60 ตัว และใช้ a-z, 0-9, จุด, ขีดกลาง หรือ _ เท่านั้น",PASSWORD_TOO_SHORT:"รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",USERNAME_EXISTS:"Username นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น",CREATE_NOT_PERSISTED:"สร้างบัญชีไม่สำเร็จ ข้อมูลไม่ถูกบันทึกในฐานข้อมูล",PERMISSION_DENIED:"บัญชีนี้ไม่มีสิทธิ์ดำเนินการ",ADMIN_ACCESS_DENIED:"เฉพาะผู้ดูแลระบบเท่านั้น",USER_MANAGEMENT_ACCESS_DENIED:"คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน",CANNOT_DISABLE_SELF:"ไม่สามารถระงับบัญชีของตัวเองได้",CANNOT_DELETE_SELF:"ไม่สามารถลบบัญชีของตัวเองได้",USER_NOT_FOUND:"ไม่พบบัญชีผู้ใช้งาน",SERVER_ERROR:"เซิร์ฟเวอร์ไม่สามารถบันทึกข้อมูลได้"};
@@ -2416,7 +2418,7 @@
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.1: use Supabase signed URL directly.
+      // V1.8.2: use Supabase signed URL directly.
       // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
       const signedUrl = await createSignedImageUrl(objectPath);
 
