@@ -1031,9 +1031,7 @@
 .money-report-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #6d36d9;background:#fff;color:#5c28c8;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer}.money-report-btn.primary{background:linear-gradient(135deg,#6d36d9,#8b4ce5);color:#fff;border-color:transparent}.money-report-modal{position:fixed;inset:0;background:rgba(25,12,45,.56);z-index:10120;display:none;align-items:center;justify-content:center;padding:18px}.money-report-modal.show{display:flex}.money-report-card{width:min(620px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 24px 70px rgba(34,12,58,.35)}.money-report-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.money-report-head h3{margin:0;color:#35135e}.money-report-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.money-report-field{border:1px solid #eadff7;border-radius:14px;padding:13px;background:#fcfaff}.money-report-field label{display:block;font-size:12px;color:#6e5a83;margin-bottom:7px}.money-report-field select,.money-report-field input{width:100%;box-sizing:border-box;border:1px solid #ded1ee;border-radius:10px;padding:10px;background:white}.money-report-preview{margin-top:14px;padding:14px;border-radius:14px;background:#f8f4fd;color:#493461;font-size:13px;line-height:1.65}.money-report-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-end;margin-top:16px}.money-report-note{font-size:11px;color:#806e94;margin-top:10px}@media(max-width:650px){.money-report-grid{grid-template-columns:1fr}.money-report-actions>*{flex:1 1 45%}}
 </style>
 
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
-    setTimeout(()=>refreshBillingAccess(),1200);
-</script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 
 <!-- V50_HOME_LOGOUT -->
@@ -1922,7 +1920,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V58_STABILIZED_PERMISSION_ARCHITECTURE";
+    const PAYROLL_UI_BUILD = "V60_CLEAN_REBUILD";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -4509,7 +4507,7 @@
     }
 
     setQcEnabled(false);
-    initLiff();
+    /* V60 init is owned by the clean kernel below. */
   
     function haversineMeters(aLat,aLng,bLat,bLng){
       const R=6371000,toRad=v=>v*Math.PI/180;
@@ -5821,7 +5819,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.11.0</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.0.0</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
@@ -5835,5 +5833,160 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     <div class="money-report-note">ปุ่ม “ส่ง LINE” จะเปิดตัวเลือกเพื่อน/กลุ่มใน LINE โดยตรง พร้อมระบบวินิจฉัยหากส่งไม่สำเร็จ • ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
   </div>
 </div>
+
+<script>
+/* DIVERGENT V60 CLEAN REBUILD KERNEL
+   One Auth Owner -> One Permission State -> One Sidebar Renderer */
+(() => {
+  'use strict';
+  const ACCESS_CONTROL_API_URL = 'https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
+  const CACHE_KEY = 'divergent_v60_permission_state';
+  const BUILD_KEY = 'divergent_clean_build';
+  const EMPTY = {home:true,claim:false,claim_pending:false,payroll:false,staff_expense:false,qc:false,search:false,user_management:false,invoice:false,billing:false,pnl:false};
+  const NAV = {navHome:'home',navClaim:'claim',navClaimPending:'claim_pending',navPayroll:'payroll',navStaffExpense:'staff_expense',navQc:'qc',navSearch:'search',navUsers:'user_management',navInvoice:'invoice',navBilling:'billing',navPnL:'pnl'};
+  const WORKSPACES=['homeWorkspace','claimWorkspace','claimPendingWorkspace','payrollWorkspace','staffExpenseWorkspace','qcWorkspace','searchWorkspace','userWorkspace','invoiceWorkspace','billingWorkspace','pnlWorkspace','locationWorkspace','staffPayrollWorkspace'];
+  const state=window.DivergentState={build:'V60',authMode:'',user:null,access:{...EMPTY},manage:{},rawPermissions:{},confirmed:false,loading:false,requestId:0};
+
+  try{
+    if(localStorage.getItem(BUILD_KEY)!=='V60'){
+      ['divergent_menu_access_cache','divergent_permission_cache_build','divergent_v57_permission_cache','divergent_v58_permission_cache'].forEach(k=>localStorage.removeItem(k));
+      localStorage.setItem(BUILD_KEY,'V60');
+    }
+  }catch(_){}
+
+  function sessionToken(){try{return localStorage.getItem(FALLBACK_SESSION_KEY)||''}catch(_){return ''}}
+  function syncLegacy(){
+    menuAccess={qc:!!state.access.qc,claim:!!state.access.claim,claim_pending:!!state.access.claim_pending,staff_payroll:false,payroll:!!state.access.payroll,staff_expense:!!state.access.staff_expense,user_management:!!state.access.user_management,invoice:!!state.access.invoice,billing:!!state.access.billing};
+    menuAccessConfirmed=state.confirmed;
+    menuLineLinked=state.authMode==='line';
+    authoritativeAuthMode=state.authMode;
+    authoritativeUserId=state.user?.id??null;
+    window.currentMenuUser=state.user;
+    window.fallbackAuthMode=state.authMode;
+    window.profitLossAccessAllowed=!!state.access.pnl;
+    window.invoiceAccessAllowed=!!state.access.invoice;
+    billingAccess=!!state.access.billing;
+    currentUserManagementPermissions={...currentUserManagementPermissions,...state.rawPermissions};
+    try{setQcEnabled(!!state.access.qc)}catch(_){}
+  }
+  function renderSidebar(){
+    for(const [id,key] of Object.entries(NAV)){
+      const el=document.getElementById(id); if(!el)continue;
+      el.style.setProperty('display',key==='home'||state.access[key]?'flex':'none','important');
+      el.dataset.permissionOwner='V60';
+    }
+    const sp=document.getElementById('navStaffPayroll'); if(sp)sp.style.setProperty('display','none','important');
+  }
+  function cacheWrite(){try{localStorage.setItem(CACHE_KEY,JSON.stringify({at:Date.now(),authMode:state.authMode,user:state.user,access:state.access,manage:state.manage,rawPermissions:state.rawPermissions}))}catch(_){}}
+  function cacheRead(){
+    try{
+      const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+      if(!c?.access||Date.now()-Number(c.at||0)>600000)return false;
+      if(c.authMode==='session'&&!sessionToken())return false;
+      state.authMode=c.authMode||'';state.user=c.user||null;state.access={...EMPTY,...c.access};state.manage=c.manage||{};state.rawPermissions=c.rawPermissions||{};state.confirmed=true;
+      syncLegacy();renderSidebar();return true;
+    }catch(_){return false}
+  }
+
+  window.applyMenuAccess=renderSidebar; applyMenuAccess=renderSidebar;
+  window.showUserAdminNav=()=>renderSidebar(); showUserAdminNav=window.showUserAdminNav;
+  window.showClaimPendingNav=()=>renderSidebar(); showClaimPendingNav=window.showClaimPendingNav;
+  window.commitMenuAccess=()=>{renderSidebar();return false}; commitMenuAccess=window.commitMenuAccess;
+
+  function requireAccess(key,label){
+    if(state.access[key])return true;
+    alert(state.confirmed?`บัญชี ${state.user?.username||''} ยังไม่ได้รับสิทธิ์เข้า ${label}`:`กำลังตรวจสิทธิ์ ${label} กรุณาลองอีกครั้ง`);
+    return false;
+  }
+  window.requireMenuAccess=requireAccess; requireMenuAccess=requireAccess;
+
+  async function accessWithToken(token,timeoutMs){
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),timeoutMs||6000);
+    try{
+      const r=await fetch(ACCESS_CONTROL_API_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}',signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){const e=new Error(j.error||('HTTP_'+r.status));e.payload=j;throw e}
+      return j;
+    }finally{clearTimeout(tm)}
+  }
+  function accept(j){
+    if(!j?.access||!j?.user)return false;
+    state.authMode=j.auth_mode||'';state.user=j.user;state.access={...EMPTY,...j.access};state.manage=j.manage||{};state.rawPermissions=j.raw_permissions||{};state.confirmed=true;
+    syncLegacy();cacheWrite();renderSidebar();
+    const st=document.getElementById('lineUserStatus');if(st)st.textContent=`${state.user.username} · เข้าสู่ระบบแล้ว (${state.authMode==='session'?'บัญชีพนักงาน':'LINE'})`;
+    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${state.user.username} · เข้าสู่ระบบแล้ว`;
+    return true;
+  }
+  async function refreshAccess({force=false}={}){
+    if(state.loading&&!force)return state.confirmed;
+    state.loading=true;const rid=++state.requestId;
+    try{
+      const sess=sessionToken();
+      if(sess){
+        try{const j=await accessWithToken(sess,4500);if(rid===state.requestId&&accept(j))return true}
+        catch(e){if(['AUTH_INVALID','AUTH_REQUIRED'].includes(e.message)){try{localStorage.removeItem(FALLBACK_SESSION_KEY);localStorage.removeItem(AUTH_PREFERENCE_KEY);localStorage.removeItem('divergent_web_session_user')}catch(_){}}}
+      }
+      try{
+        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
+          const t=liff.getAccessToken();if(t){const j=await accessWithToken(t,6500);if(rid===state.requestId&&accept(j))return true}
+        }
+      }catch(e){if(e?.payload?.error==='LINE_NOT_LINKED'){try{showAccountLinkRequired('LINE นี้ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาเข้าสู่ระบบด้วย Username / Password เพื่อใช้งานตามสิทธิ์')}catch(_){}}}
+      renderSidebar();return false;
+    }finally{if(rid===state.requestId)state.loading=false}
+  }
+  window.refreshAllMenuAccess=refreshAccess; refreshAllMenuAccess=refreshAccess;
+  window.refreshInvoiceMenuAccess=async()=>{await refreshAccess();return !!state.access.invoice}; refreshInvoiceMenuAccess=window.refreshInvoiceMenuAccess;
+  window.refreshBillingAccess=async()=>{await refreshAccess();return !!state.access.billing}; refreshBillingAccess=window.refreshBillingAccess;
+  window.refreshProfitLossMenuAccess=async()=>{await refreshAccess();return !!state.access.pnl}; refreshProfitLossMenuAccess=window.refreshProfitLossMenuAccess;
+  window.checkQcAccess=async()=>{await refreshAccess();try{setQcEnabled(!!state.access.qc)}catch(_){}return !!state.access.qc}; checkQcAccess=window.checkQcAccess;
+
+  window.switchWorkspace=function(name){
+    const need=name==='qc'?'qc':(name==='search'||name==='location')?'search':name==='users'?'user_management':name==='payroll'?'payroll':name==='expense'?'staff_expense':null;
+    if(need&&!requireAccess(need,'เมนูนี้'))return;
+    WORKSPACES.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});
+    const map={home:'homeWorkspace',qc:'qcWorkspace',search:'searchWorkspace',location:'locationWorkspace',users:'userWorkspace',payroll:'payrollWorkspace',expense:'staffExpenseWorkspace'};
+    const el=document.getElementById(map[name]||'');if(el)el.style.display='block';
+    const navId=name==='home'?'navHome':name==='qc'?'navQc':(name==='search'||name==='location')?'navSearch':name==='users'?'navUsers':name==='payroll'?'navPayroll':name==='expense'?'navStaffExpense':'';
+    if(navId)setNavActive(navId);window.scrollTo(0,0);
+  }; switchWorkspace=window.switchWorkspace;
+
+  function wrap(name,key,label){const old=window[name];if(typeof old!=='function')return;window[name]=function(){if(!requireAccess(key,label))return;return old.apply(this,arguments)}}
+  wrap('openClaimManagement','claim','ตั้งเบิกค่าตอบแทน');
+  wrap('openClaimPendingManagement','claim_pending','การไฟฟ้าที่ยังเบิกไม่ได้');
+  wrap('openUserManagement','user_management','จัดการผู้ใช้งาน');
+  wrap('openPayrollManagement','payroll','จัดการเงินเดือน');
+  wrap('openStaffExpenseManagement','staff_expense','ค่าใช้จ่าย');
+  wrap('openInvoiceManagement','invoice','จัดทำใบตั้งหนี้');
+  wrap('openBillingManagement','billing','จัดทำใบวางบิล');
+  wrap('openProfitLossManagement','pnl','กำไร–ขาดทุนรายเดือน');
+
+  window.initLiff=async function(){
+    const status=document.getElementById('lineUserStatus');cacheRead();renderSidebar();
+    try{
+      if(typeof liff==='undefined')throw new Error('LIFF_NOT_READY');
+      await liff.init({liffId:LIFF_ID,withLoginOnExternalBrowser:true});
+      if(liff.isLoggedIn()){try{window.lineProfile=await liff.getProfile();startPresenceHeartbeat()}catch(_){}}
+      if(await refreshAccess({force:true})){
+        if(state.access.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){}},700)}
+        return;
+      }
+      if(!sessionToken()&&!liff.isLoggedIn()){if(status)status.textContent='ยังไม่ได้เข้าสู่ระบบ · ใช้ LINE หรือ Username / Password';switchWorkspace('home')}
+    }catch(e){console.warn('V60 auth bootstrap',e);if(status)status.textContent='ระบบเข้าสู่โหมดสำรอง · กรุณาใช้ Username / Password หากเมนูยังไม่แสดง';renderSidebar()}
+  }; initLiff=window.initLiff;
+
+  const oldFallback=window.fallbackLoginAndRepairLine;
+  if(typeof oldFallback==='function'){
+    window.fallbackLoginAndRepairLine=async function(){const r=await oldFallback.apply(this,arguments);await refreshAccess({force:true});return r};
+    fallbackLoginAndRepairLine=window.fallbackLoginAndRepairLine;
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    renderSidebar();
+    const nav=document.querySelector('.side-nav');if(nav)new MutationObserver(()=>renderSidebar()).observe(nav,{subtree:true,attributes:true,attributeFilter:['style']});
+    setTimeout(()=>initLiff(),0);
+  },{once:true});
+})();
+
+</script>
 </body>
 </html>
