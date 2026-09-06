@@ -590,6 +590,10 @@
     .kbank-status.bad{display:block;background:#fff0f0;color:#b3261e}
     @media(max-width:760px){.kbank-setup{grid-template-columns:1fr}}
 
+
+    .kb-amount-input{width:120px;border:1px solid #ded5e8;border-radius:9px;padding:8px 9px;text-align:right;font-weight:700}
+    .kb-amount-input:focus{outline:none;border-color:#8d63b3;box-shadow:0 0 0 2px rgba(141,99,179,.10)}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -1877,7 +1881,7 @@
         <table class="kbank-checks">
           <thead>
             <tr>
-              <th>ลำดับ</th><th>ชื่อพนักงาน</th><th>เลขบัตร</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th>
+              <th>ลำดับ</th><th>ชื่อพนักงาน</th><th>เลขบัตร</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>ยอดจ่าย (บาท)</th><th>สถานะ</th>
             </tr>
           </thead>
           <tbody id="kbankCheckBody"></tbody>
@@ -1885,9 +1889,10 @@
       </div>
 
       <div class="kbank-actions">
-        <button class="payroll-btn" onclick="exportKBankPrecheck()">⬇ ดาวน์โหลดรายการตรวจสอบ</button>
+        <button class="payroll-btn" onclick="exportKBankPayrollPrep()">⬇ สร้างไฟล์เตรียม KBank</button>
         <button class="payroll-btn payroll-btn-secondary" onclick="saveKBankSetup()">💾 บันทึกค่าตั้งต้น</button>
-        <button class="payroll-btn payroll-btn-secondary" onclick="exportKBankDraftTxt()">🧪 สร้าง TXT ทดลอง</button>
+        <button class="payroll-btn payroll-btn-secondary" onclick="saveKBankAmounts()">💾 จำยอดจ่าย</button>
+        <button class="payroll-btn payroll-btn-secondary" onclick="exportKBankDraftTxt()">🧪 TXT ทดลอง</button>
       </div>
 
       <div class="kbank-note">
@@ -3437,6 +3442,7 @@
           <td>${esc(nid)}</td>
           <td>${esc(e.bank_name||"-")}</td>
           <td>${esc(e.bank_account||"-")}</td>
+          <td><input class="kb-amount-input" data-id="${esc(e.id)}" data-row="${esc(e.source_row||"")}" type="number" min="0" step="0.01" placeholder="0.00" oninput="updateKBankTotals()"></td>
           <td class="${s.ok?"kbank-ok":"kbank-bad"}">${s.ok?"พร้อม":"⚠ "+esc(s.missing.join(", "))}</td>
         </tr>`;
       }).join("");
@@ -3446,7 +3452,9 @@
       document.getElementById("kbAmount").textContent="—";
       document.getElementById("kbankPayrollOverlay").classList.add("show");
       loadKBankSetup();
+      loadKBankAmounts();
       validateKBankSetup(false);
+      updateKBankTotals();
     }
     function closeKBankPayroll(){document.getElementById("kbankPayrollOverlay").classList.remove("show")}
     function exportKBankPrecheck(){
@@ -3507,30 +3515,85 @@
       const box=document.getElementById("kbSetupStatus");
       box.className="kbank-status ok"; box.textContent="✓ บันทึกค่าตั้งต้นในอุปกรณ์นี้แล้ว";
     }
+    function getKBankAmounts(){
+      const out={};
+      document.querySelectorAll(".kb-amount-input").forEach(el=>{
+        const v=Math.max(0,Number(el.value||0));
+        if(v>0) out[String(el.dataset.id)]=Math.round(v*100)/100;
+      });
+      return out;
+    }
+    function saveKBankAmounts(){
+      localStorage.setItem("divergent_kbank_amounts",JSON.stringify(getKBankAmounts()));
+      const box=document.getElementById("kbSetupStatus");
+      box.className="kbank-status ok"; box.textContent="✓ บันทึกยอดจ่ายในอุปกรณ์นี้แล้ว";
+      updateKBankTotals();
+    }
+    function loadKBankAmounts(){
+      let saved={};
+      try{saved=JSON.parse(localStorage.getItem("divergent_kbank_amounts")||"{}")}catch(_){}
+      document.querySelectorAll(".kb-amount-input").forEach(el=>{
+        const v=Number(saved[String(el.dataset.id)]||0);
+        el.value=v>0?v.toFixed(2):"";
+      });
+    }
+    function updateKBankTotals(){
+      const amounts=getKBankAmounts();
+      const total=Object.values(amounts).reduce((a,b)=>a+Number(b||0),0);
+      document.getElementById("kbAmount").textContent=total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function exportKBankPayrollPrep(){
+      const setup=validateKBankSetup(true); if(!setup.ok) return;
+      const rows=(payrollEmployees||[]).filter(x=>x.is_active!==false).slice()
+        .sort((a,b)=>Number(a.source_row||999999)-Number(b.source_row||999999));
+      const amounts=getKBankAmounts();
+      const selected=rows.filter(e=>Number(amounts[String(e.id)]||0)>0);
+      if(!selected.length){alert("กรุณาระบุยอดจ่ายอย่างน้อย 1 รายการ");return}
+      const invalid=selected.filter(e=>!kbankRowStatus(e).ok);
+      if(invalid.length){alert(`พนักงานที่มียอดจ่ายยังมีข้อมูลไม่ครบ ${invalid.length} รายการ กรุณาแก้ข้อมูลก่อน`);return}
+      const lines=[["source_row","employee_name","national_id","bank_name","bank_account","amount","payer_account","transaction_date","pay_date","status"]];
+      selected.forEach(e=>{
+        const s=kbankRowStatus(e), amount=Number(amounts[String(e.id)]||0);
+        lines.push([e.source_row||"",e.employee_name||"",s.nid,e.bank_name||"",s.acct,amount.toFixed(2),setup.payer,setup.txn,setup.pay,"READY"]);
+      });
+      const csv="\ufeff"+lines.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=`KBank_Payroll_PREP_${setup.pay}_${Date.now()}.csv`;
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+      localStorage.setItem("divergent_kbank_amounts",JSON.stringify(amounts));
+    }
+
     function exportKBankDraftTxt(){
       const s=validateKBankSetup(true); if(!s.ok) return;
       const rows=(payrollEmployees||[]).filter(x=>x.is_active!==false).slice()
         .sort((a,b)=>Number(a.source_row||999999)-Number(b.source_row||999999));
-      const bad=rows.filter(e=>!kbankRowStatus(e).ok);
+      const amounts=getKBankAmounts();
+      const selected=rows.filter(e=>Number(amounts[String(e.id)]||0)>0);
+      if(!selected.length){alert("กรุณาระบุยอดจ่ายอย่างน้อย 1 รายการ");return}
+      const bad=selected.filter(e=>!kbankRowStatus(e).ok);
       if(bad.length){
-        alert(`ยังมีข้อมูลพนักงานไม่ครบ ${bad.length} รายการ กรุณาแก้ให้พร้อมก่อน`);
+        alert(`พนักงานที่มียอดจ่ายยังมีข้อมูลไม่ครบ ${bad.length} รายการ กรุณาแก้ให้พร้อมก่อน`);
         return;
       }
       // Diagnostic/interchange draft only. This is intentionally NOT a bank PCT layout.
       const out=[];
       out.push(["DRAFT","KBANK_PAYROLL_PREP","PAYER",s.payer,"TXN",s.txn,"PAY",s.pay].join("|"));
-      for(const e of rows){
-        const st=kbankRowStatus(e);
+      let total=0;
+      for(const e of selected){
+        const st=kbankRowStatus(e), amount=Number(amounts[String(e.id)]||0); total+=amount;
         out.push([
           "DETAIL",
           e.source_row||"",
           String(e.employee_name||"").replace(/\|/g," "),
           st.nid,
           String(e.bank_name||"").replace(/\|/g," "),
-          st.acct
+          st.acct,
+          amount.toFixed(2)
         ].join("|"));
       }
-      out.push(["TRAILER","COUNT",rows.length].join("|"));
+      out.push(["TRAILER","COUNT",selected.length,"TOTAL",total.toFixed(2)].join("|"));
       const blob=new Blob(["\ufeff"+out.join("\r\n")],{type:"text/plain;charset=utf-8"});
       const a=document.createElement("a");
       a.href=URL.createObjectURL(blob);
