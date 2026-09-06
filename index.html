@@ -1355,20 +1355,6 @@
             <input id="pnlHospitality" type="number" min="0" step="0.01" value="3000" oninput="renderPnL()">
             <span>บาท</span>
           </div>
-
-          <div class="pnl-cost-row">
-            <div><b>ค่าเครื่องพิมพ์</b><div class="formula">3,500 × จำนวนคน × 110%</div></div>
-            <input id="pnlPrinterPeople" type="number" min="0" step="1" value="103" oninput="renderPnL()">
-            <span id="pnlPrinterCostText">0.00 บาท</span>
-          </div>
-
-          <div class="pnl-cost-row">
-            <div><b>ค่าเสื้อพนักงาน</b><div class="formula">250 × จำนวนคน</div></div>
-            <input id="pnlShirtPeople" type="number" min="0" step="1" value="103" oninput="renderPnL()">
-            <span id="pnlShirtCostText">0.00 บาท</span>
-          </div>
-
-          <div class="pnl-note">ค่าเครื่องพิมพ์และเสื้อยังนับเต็มในเดือนนี้ตามข้อมูลเบื้องต้น สามารถปรับเป็น “ซื้อจริงเฉพาะเดือน” หรือค่าเสื่อมภายหลังได้</div>
         </div>
 
         <div class="pnl-box">
@@ -4170,17 +4156,11 @@
       const accounting=pnlValue("pnlAccounting");
       const office=pnlValue("pnlOffice");
       const hospitality=pnlValue("pnlHospitality");
-      const printerPeople=Math.floor(pnlValue("pnlPrinterPeople"));
-      const shirtPeople=Math.floor(pnlValue("pnlShirtPeople"));
-      const printerCost=printerPeople*3500*1.10;
-      const shirtCost=shirtPeople*250;
-      const totalCost=employeePayroll+staffPayroll+staffSocialSecurity+paperCost+staffExpense+accounting+office+hospitality+printerCost+shirtCost;
+      const totalCost=employeePayroll+staffPayroll+staffSocialSecurity+paperCost+staffExpense+accounting+office+hospitality;
       const profit=d.received-totalCost;
       const margin=d.received>0?(profit/d.received*100):0;
 
       pnlPaperCost.value=paperCost.toFixed(2);
-      pnlPrinterCostText.textContent=claimMoney(printerCost)+" บาท";
-      pnlShirtCostText.textContent=claimMoney(shirtCost)+" บาท";
       pnlPaperFormula.textContent=`${d.actual.toLocaleString("th-TH")} งาน × 102% = ${paperSheets.toLocaleString("th-TH")} ใบ × 0.25 บาท`;
 
       pnlRevenue.textContent=claimMoney(d.received);
@@ -4230,9 +4210,7 @@
         ["ค่าใช้จ่ายสตาฟ",pnlValue("pnlStaffExpense")],
         ["ค่าทำบัญชี",pnlValue("pnlAccounting")],
         ["ค่าอุปกรณ์สำนักงาน",pnlValue("pnlOffice")],
-        ["ค่ารับรอง",pnlValue("pnlHospitality")],
-        ["ค่าเครื่องพิมพ์",Math.floor(pnlValue("pnlPrinterPeople"))*3500*1.10],
-        ["ค่าเสื้อพนักงาน",Math.floor(pnlValue("pnlShirtPeople"))*250]
+        ["ค่ารับรอง",pnlValue("pnlHospitality")]
       ];
       const totalCost=costs.reduce((s,x)=>s+Number(x[1]||0),0);
       const profit=d.received-totalCost;
