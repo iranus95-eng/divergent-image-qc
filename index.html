@@ -1045,6 +1045,12 @@
 .home-logout-btn:active{transform:translateY(0)}
 @media(max-width:720px){.home-logout-row{justify-content:stretch}.home-logout-btn{width:100%}}
 </style>
+<style id="sidebar-session-lock-v4">
+body.session-sidebar-lock #navHome{display:flex!important}
+body.session-sidebar-lock #navStaffPayroll{display:none!important}
+body.session-sidebar-lock.perm-claim #navClaim,body.session-sidebar-lock.perm-claim-pending #navClaimPending,body.session-sidebar-lock.perm-payroll #navPayroll,body.session-sidebar-lock.perm-expense #navStaffExpense,body.session-sidebar-lock.perm-qc #navQc,body.session-sidebar-lock.perm-qc #navSearch,body.session-sidebar-lock.perm-users #navUsers,body.session-sidebar-lock.perm-invoice #navInvoice,body.session-sidebar-lock.perm-billing #navBilling{display:flex!important}
+body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:not(.perm-claim-pending) #navClaimPending,body.session-sidebar-lock:not(.perm-payroll) #navPayroll,body.session-sidebar-lock:not(.perm-expense) #navStaffExpense,body.session-sidebar-lock:not(.perm-qc) #navQc,body.session-sidebar-lock:not(.perm-qc) #navSearch,body.session-sidebar-lock:not(.perm-users) #navUsers,body.session-sidebar-lock:not(.perm-invoice) #navInvoice,body.session-sidebar-lock:not(.perm-billing) #navBilling{display:none!important}
+</style>
 </head>
 
 <body>
@@ -1900,6 +1906,12 @@
       menuAccessConfirmed=true;
       try{localStorage.setItem("divergent_menu_access_cache_v3",JSON.stringify({access:clean,user:window.currentMenuUser||null,auth_mode:authoritativeAuthMode,at:Date.now()}))}catch(_){ }
       applyMenuAccess();
+      if(authoritativeAuthMode==="session"){
+        const b=document.body,c=authoritativeMenuAccess;
+        b.classList.add("session-sidebar-lock");
+        const m={"perm-claim":c.claim,"perm-claim-pending":c.claim_pending,"perm-payroll":c.payroll,"perm-expense":c.staff_expense,"perm-qc":c.qc,"perm-users":c.user_management,"perm-invoice":c.invoice,"perm-billing":c.billing};
+        for(const [k,v] of Object.entries(m)) b.classList.toggle(k,!!v);
+      }
       return true;
     }
     const LIFF_ID = "2011407195-ZXPgFEKe";
@@ -1916,7 +1928,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "SIDEBAR_V3_IMMUTABLE_SESSION";
+    const PAYROLL_UI_BUILD = "SIDEBAR_V4_CSS_SESSION_LOCK";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -5751,7 +5763,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.2.0 SIDEBAR REBUILD</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.3.0 SIDEBAR LOCK</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
