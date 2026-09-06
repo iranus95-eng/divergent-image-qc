@@ -1727,6 +1727,37 @@
    </div></div></div>
   </div>
  </section>
+    <section class="billing-workspace" id="billingWorkspace">
+      <div class="workspace-title"><div><h2>จัดทำใบวางบิล</h2><p>กรอกข้อมูลครั้งเดียว แล้วสร้างเอกสารต้นฉบับ/สำเนาได้พร้อมกัน</p></div></div>
+      <div class="invoice-grid">
+        <div class="invoice-form-card">
+          <div class="invoice-section"><h3>ข้อมูลลูกค้า</h3>
+            <div class="invoice-full"><label>ชื่อลูกค้า</label><input id="billCustomer" value="การไฟฟ้าส่วนภูมิภาคอำเภอสนามชัยเขต สาขาที่ 00380" oninput="renderBilling()"></div>
+            <div class="invoice-full"><label>เลขประจำตัวผู้เสียภาษี</label><input id="billTaxId" value="0994000165503" oninput="renderBilling()"></div>
+            <div class="invoice-full"><label>ที่อยู่</label><textarea id="billAddress" rows="2" oninput="renderBilling()">1/25 หมู่ 4 ตำบลคู้ยายหมี อำเภอสนามชัยเขต จังหวัดฉะเชิงเทรา 24160</textarea></div>
+          </div>
+          <div class="invoice-section"><h3>ข้อมูลเอกสาร</h3>
+            <div class="invoice-field"><div><label>เลขที่เอกสาร</label><input id="billDocNo" value="INV68/0012" oninput="renderBilling()"></div><div><label>วันที่</label><input id="billDocDate" type="date" value="2025-01-30" onchange="renderBilling()"></div></div>
+            <div class="invoice-full" style="margin-top:9px"><label>เดือนรอบบิล</label><input id="billMonth" type="month" value="2024-11" onchange="renderBilling()"></div>
+            <div class="invoice-field" style="margin-top:9px"><div><label>เริ่มรอบบิล</label><input id="billStart" type="date" value="2024-11-30" onchange="renderBilling()"></div><div><label>สิ้นสุดรอบบิล</label><input id="billEnd" type="date" value="2024-12-31" onchange="renderBilling()"></div></div>
+          </div>
+          <div class="invoice-section"><h3>รายการ</h3>
+            <div class="invoice-field"><div><label>จำนวนงาน (ฉบับ)</label><input id="billQty" type="number" value="2541" step="1" oninput="renderBilling()"></div><div><label>ราคาต่อหน่วย (บาท)</label><input id="billPrice" type="number" value="6.00" step="0.01" oninput="renderBilling()"></div></div>
+          </div>
+          <div class="invoice-section"><h3>สรุปยอดอัตโนมัติ</h3><div id="billTotals"></div></div>
+          <div class="invoice-section"><h3>เลือกเอกสารที่ต้องการสร้าง</h3>
+            <div class="billing-doc-select">
+              <label class="perm-item"><input class="billDocCheck" type="checkbox" value="tax" checked onchange="renderBilling()"> ใบกำกับภาษี</label>
+              <label class="perm-item"><input class="billDocCheck" type="checkbox" value="taxcopy" checked onchange="renderBilling()"> กำกับ สำเนา</label>
+              <label class="perm-item"><input class="billDocCheck" type="checkbox" value="invoice" checked onchange="renderBilling()"> ใบแจ้งหนี้/ใบวางบิล</label>
+              <label class="perm-item"><input class="billDocCheck" type="checkbox" value="invoicecopy" checked onchange="renderBilling()"> แจ้งหนี้ สำเนา</label>
+            </div>
+          </div>
+          <div class="invoice-actions"><button class="invoice-small-btn print-btn" onclick="printBillingA4()">พิมพ์</button><button class="inv-pdf" onclick="downloadBillingPdf()">บันทึก PDF</button></div>
+        </div>
+        <div class="invoice-preview-card"><div class="invoice-preview-toolbar"><b>ตัวอย่างเอกสาร</b><span>TH Sarabun • A4</span></div><div id="billingTabs" class="billing-tabs"></div><div class="invoice-preview-wrap"><div id="billingPreview"></div></div></div>
+      </div>
+    </section>
     <section class="user-workspace" id="userWorkspace">
       <div class="user-head">
         <div class="user-title-wrap">
@@ -5565,7 +5596,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.3</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.4</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
