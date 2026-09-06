@@ -1783,7 +1783,6 @@
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
-    const REPORT_PDF_SHARE_API_URL="https://neauzvqroaszvqffahkv.functions.supabase.co/report-pdf-share";
     const LIFF_ID = "2011407195-ZXPgFEKe";
     const QC_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api";
@@ -1798,7 +1797,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V29_LINE_RECIPIENT_PICKER_PDF_LINK";
+    const PAYROLL_UI_BUILD = "V30_LOCAL_PDF_DEVICE_SHARE";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -5107,97 +5106,46 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
       }
     }
 
-    async function blobToBase64(blob){
-      return await new Promise((resolve,reject)=>{
-        const r=new FileReader();
-        r.onload=()=>resolve(String(r.result||"").split(",")[1]||"");
-        r.onerror=()=>reject(r.error||new Error("READ_PDF_FAILED"));
-        r.readAsDataURL(blob);
-      });
-    }
-
     function reportLineTitle(type){
       if(type==="pnl")return "รายงานกำไร–ขาดทุน";
       if(type==="claim")return "รายงานตั้งเบิกค่าตอบแทน";
       return "รายงานการไฟฟ้าที่ยังเบิกไม่ได้";
     }
 
-    async function uploadReportPdfForLine(type,out){
-      const token=await getLineAccessToken();
-      if(!token)throw new Error("LINE_LOGIN_REQUIRED");
-      const pdf_base64=await blobToBase64(out.blob);
-      const r=await fetch(REPORT_PDF_SHARE_API_URL,{
-        method:"POST",
-        headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
-        body:JSON.stringify({report_type:type,file_name:out.fileName,pdf_base64})
-      });
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok||!j?.url)throw new Error(j?.error||"PDF_UPLOAD_FAILED");
-      return j;
-    }
-
     async function shareReportPdfToLine(type){
+      let objectUrl=null;
       try{
-        pnlPdfProgress(true,"กำลังเตรียม LINE","กำลังสร้าง PDF...");
+        pnlPdfProgress(true,"กำลังเตรียม LINE","กำลังสร้าง PDF ในเครื่อง...");
         const out=await createReportPdf(type);
-
-        if(!(window.liff && liff.isLoggedIn && liff.isLoggedIn())){
-          throw new Error("LINE_LOGIN_REQUIRED");
-        }
-        if(!(liff.isApiAvailable && liff.isApiAvailable("shareTargetPicker"))){
-          throw new Error("LINE_PICKER_NOT_AVAILABLE");
-        }
-
-        pnlPdfProgress(true,"กำลังเตรียม LINE","กำลังอัปโหลด PDF ชั่วคราว...");
-        const uploaded=await uploadReportPdfForLine(type,out);
+        const file=new File([out.blob],out.fileName,{type:"application/pdf"});
         const title=reportLineTitle(type);
-        const subtitle=String(out.label||"");
-        const flex={
-          type:"flex",
-          altText:`${title} ${subtitle}`,
-          contents:{
-            type:"bubble",
-            size:"kilo",
-            header:{
-              type:"box",layout:"vertical",
-              backgroundColor:"#4A1D68",
-              contents:[
-                {type:"text",text:"DIVERGENT CORPORATION",color:"#FFFFFF",size:"xs",weight:"bold"},
-                {type:"text",text:title,color:"#FFFFFF",size:"lg",weight:"bold",margin:"sm",wrap:true},
-                {type:"text",text:subtitle,color:"#E8DDF0",size:"sm",margin:"xs",wrap:true}
-              ]
-            },
-            body:{
-              type:"box",layout:"vertical",spacing:"md",
-              contents:[
-                {type:"text",text:"ไฟล์รายงาน PDF พร้อมเปิดดูและดาวน์โหลด",wrap:true,size:"sm",color:"#555555"},
-                {type:"button",style:"primary",color:"#06C755",
-                 action:{type:"uri",label:"เปิดไฟล์ PDF",uri:uploaded.url}}
-              ]
-            },
-            footer:{
-              type:"box",layout:"vertical",
-              contents:[{type:"text",text:"ลิงก์ไฟล์มีอายุ 7 วัน",size:"xxs",color:"#999999",align:"center"}]
-            }
-          }
+        const shareData={
+          title:`${title} ${String(out.label||"")}`.trim(),
+          text:String(out.summary||`${title} ${String(out.label||"")}`).trim(),
+          files:[file]
         };
 
-        pnlPdfProgress(false);
-        await liff.shareTargetPicker([flex],{isMultiple:true});
+        // ใช้ Web Share ของอุปกรณ์โดยตรง: Windows/Android/iOS จะเปิด Share Sheet ของเครื่อง
+        if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+          pnlPdfProgress(false);
+          await navigator.share(shareData);
+          return;
+        }
+
+        // Browser ที่แชร์ไฟล์ไม่ได้: บันทึก PDF ลงเครื่องให้ทันที แล้วให้ผู้ใช้แนบใน LINE เอง
+        objectUrl=URL.createObjectURL(out.blob);
+        const a=document.createElement("a");
+        a.href=objectUrl;
+        a.download=out.fileName;
+        document.body.appendChild(a);a.click();a.remove();
+        alert("เบราว์เซอร์นี้ยังแชร์ไฟล์ PDF โดยตรงไม่ได้ ระบบบันทึก PDF ลงเครื่องให้แล้ว กรุณาเปิด LINE แล้วแนบไฟล์ที่ดาวน์โหลด");
       }catch(e){
-        pnlPdfProgress(false);
         if(e?.name==="AbortError")return;
         console.error(e);
-        const msg=String(e?.message||e);
-        if(msg==="LINE_PICKER_NOT_AVAILABLE"){
-          alert("ยังเปิดหน้ารายชื่อผู้รับ LINE ไม่ได้ กรุณาเปิดใช้ shareTargetPicker ใน LINE Developers Console สำหรับ LIFF นี้ แล้วลองใหม่");
-          return;
-        }
-        if(msg==="LINE_LOGIN_REQUIRED"){
-          alert("กรุณาเข้าสู่ระบบ LINE ก่อน แล้วกดปุ่ม LINE อีกครั้ง");
-          return;
-        }
-        alert("ส่งผ่าน LINE ไม่สำเร็จ: "+msg);
+        alert("แชร์ PDF ไม่สำเร็จ: "+(e?.message||e));
+      }finally{
+        pnlPdfProgress(false);
+        if(objectUrl)setTimeout(()=>URL.revokeObjectURL(objectUrl),2500);
       }
     }
 
@@ -5282,7 +5230,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.7</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.8</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
