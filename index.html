@@ -1901,7 +1901,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V54_PERMISSION_IDENTITY_PRIORITY_FIXED";
+    const PAYROLL_UI_BUILD = "V55_PERMISSIONS_ALL_USERS_FIXED";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -1927,7 +1927,7 @@
     let currentUserManagementPermissions = {};
     let userAdminLoadedAt = 0;
     let userAdminLoadPromise = null;
-    const USER_ADMIN_CACHE_KEY = "divergent_user_admin_cache_v1";
+    const USER_ADMIN_CACHE_KEY = "divergent_user_admin_cache_v2";
     const USER_ADMIN_CACHE_MS = 120000;
 
     function hydrateUserAdminCache(){
@@ -2293,10 +2293,21 @@
 
     async function userAdminApi(action, payload = {}) {
       if(action==="list")return await webListApi("users");
-      const accessToken = await getLineAccessToken();
+      // V55: Use the same selected identity for permission writes as for menu reads.
+      // Username/Password session is authoritative when the user explicitly chose it.
+      let token="";
+      let pref="";
+      try{pref=localStorage.getItem(AUTH_PREFERENCE_KEY)||""}catch(_){}
+      const session=getFallbackSessionToken();
+      if(session && pref==="session") token=session;
+      if(!token){
+        try{ if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()) token=await getLineAccessToken(); }catch(_){}
+      }
+      if(!token && session) token=session;
+      if(!token) throw new Error("AUTH_REQUIRED");
       const response = await fetch(USER_ADMIN_API_URL, {
         method: "POST",
-        headers: {"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
+        headers: {"Authorization":"Bearer "+token,"Content-Type":"application/json"},
         body: JSON.stringify({action, ...payload})
       });
       const t = await response.text(); let data={};
@@ -5759,7 +5770,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.1</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.2</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
