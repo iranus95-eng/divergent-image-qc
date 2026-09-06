@@ -1783,6 +1783,7 @@
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
+    const REPORT_PDF_SHARE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/report-pdf-share";
     const LIFF_ID = "2011407195-ZXPgFEKe";
     const QC_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api";
@@ -1797,7 +1798,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V31_PC_DOWNLOAD_LINE_READY";
+    const PAYROLL_UI_BUILD = "V32_LINE_TARGET_PICKER_PDF_LINK_FIXED";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -5106,6 +5107,38 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
       }
     }
 
+    function blobToBase64(blob){
+      return new Promise((resolve,reject)=>{
+        const r=new FileReader();
+        r.onload=()=>{
+          const v=String(r.result||"");
+          resolve(v.includes(",")?v.split(",").pop():v);
+        };
+        r.onerror=()=>reject(r.error||new Error("PDF_BASE64_FAILED"));
+        r.readAsDataURL(blob);
+      });
+    }
+
+    async function uploadReportPdfForLine(type,out){
+      const accessToken=await getLineAccessToken();
+      if(!accessToken)throw new Error("LINE_LOGIN_REQUIRED");
+      const pdfBase64=await blobToBase64(out.blob);
+      const res=await fetch(REPORT_PDF_SHARE_API_URL,{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":"Bearer "+accessToken
+        },
+        body:JSON.stringify({report_type:type,file_name:out.fileName,pdf_base64:pdfBase64})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data?.ok){
+        const msg=data?.detail||data?.error||("HTTP_"+res.status);
+        throw new Error(msg);
+      }
+      return data;
+    }
+
     function reportLineTitle(type){
       if(type==="pnl")return "รายงานกำไร–ขาดทุน";
       if(type==="claim")return "รายงานตั้งเบิกค่าตอบแทน";
@@ -5162,38 +5195,62 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 
     async function shareReportPdfToLine(type){
       try{
-        pnlPdfProgress(true,"กำลังเตรียม LINE","กำลังสร้าง PDF ในเครื่อง...");
+        pnlPdfProgress(true,"กำลังเตรียม LINE","กำลังสร้าง PDF ชั่วคราว...");
         const out=await createReportPdf(type);
-        const file=new File([out.blob],out.fileName,{type:"application/pdf"});
+
+        if(!(window.liff&&liff.isLoggedIn&&liff.isLoggedIn())){
+          throw new Error("LINE_LOGIN_REQUIRED");
+        }
+        if(!(liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker"))){
+          throw new Error("SHARE_TARGET_PICKER_NOT_AVAILABLE");
+        }
+
+        pnlPdfProgress(true,"กำลังเตรียม LINE","กำลังเตรียมลิงก์ PDF ชั่วคราว...");
+        const uploaded=await uploadReportPdfForLine(type,out);
         const title=reportLineTitle(type);
-
-        // คอมพิวเตอร์: ดาวน์โหลด PDF ตรงลงเครื่อง แล้วแนะนำการส่งผ่าน LINE Desktop
-        if(isDesktopComputer()){
-          downloadLocalPdfBlob(out);
-          pnlPdfProgress(false);
-          showLineDesktopReady(out);
-          return;
-        }
-
-        // มือถือ/แท็บเล็ต: ใช้ Share Sheet ของอุปกรณ์เพื่อเลือก LINE และส่งไฟล์ได้ทันที
-        const shareData={
-          title:`${title} ${String(out.label||"")}`.trim(),
-          text:String(out.summary||`${title} ${String(out.label||"")}`).trim(),
-          files:[file]
+        const period=String(out.label||"");
+        const flex={
+          type:"flex",
+          altText:`${title}${period?" - "+period:""}`,
+          contents:{
+            type:"bubble",
+            header:{
+              type:"box",layout:"vertical",backgroundColor:"#5B2A86",paddingAll:"18px",
+              contents:[
+                {type:"text",text:"DIVERGENT CORPORATION",color:"#FFFFFF",size:"xs",weight:"bold"},
+                {type:"text",text:title,color:"#FFFFFF",size:"xl",weight:"bold",margin:"md",wrap:true},
+                ...(period?[{type:"text",text:period,color:"#E8DDF2",size:"sm",margin:"sm",wrap:true}]:[])
+              ]
+            },
+            body:{
+              type:"box",layout:"vertical",spacing:"md",paddingAll:"18px",
+              contents:[
+                {type:"text",text:"ไฟล์รายงาน PDF พร้อมเปิดดูและดาวน์โหลด",size:"md",weight:"bold",wrap:true,color:"#2D1745"},
+                {type:"text",text:"เลือกปุ่มด้านล่างเพื่อเปิดไฟล์ PDF",size:"sm",wrap:true,color:"#756681"}
+              ]
+            },
+            footer:{
+              type:"box",layout:"vertical",spacing:"sm",paddingAll:"18px",
+              contents:[
+                {type:"button",style:"primary",color:"#06C755",height:"sm",action:{type:"uri",label:"เปิดไฟล์ PDF",uri:uploaded.url}},
+                {type:"text",text:"ลิงก์ไฟล์มีอายุ 7 วัน",size:"xs",align:"center",color:"#9A8EA4",margin:"md"}
+              ]
+            }
+          }
         };
-        if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
-          pnlPdfProgress(false);
-          await navigator.share(shareData);
-          return;
-        }
 
-        // อุปกรณ์ที่แชร์ไฟล์ไม่ได้: ดาวน์โหลด PDF ให้ทันที
-        downloadLocalPdfBlob(out);
-        alert("บันทึก PDF ลงเครื่องให้แล้ว กรุณาเปิด LINE แล้วแนบไฟล์จากโฟลเดอร์ Downloads");
+        pnlPdfProgress(false);
+        const result=await liff.shareTargetPicker([flex],{isMultiple:true});
+        if(result===undefined){
+          console.log("shareTargetPicker closed without result");
+        }
       }catch(e){
         if(e?.name==="AbortError")return;
         console.error(e);
-        alert("เตรียม PDF สำหรับ LINE ไม่สำเร็จ: "+(e?.message||e));
+        const m=String(e?.message||e||"");
+        if(m==="LINE_LOGIN_REQUIRED") alert("กรุณาเข้าสู่ระบบ LINE ก่อน แล้วกดปุ่ม LINE อีกครั้ง");
+        else if(m==="SHARE_TARGET_PICKER_NOT_AVAILABLE") alert("อุปกรณ์/เบราว์เซอร์นี้ยังเปิดหน้ารายชื่อผู้รับ LINE ไม่ได้ กรุณาเปิดผ่าน LIFF หรือ LINE แล้วลองใหม่");
+        else alert("ส่งผ่าน LINE ไม่สำเร็จ: "+m);
       }finally{
         pnlPdfProgress(false);
       }
