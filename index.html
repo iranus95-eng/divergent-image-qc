@@ -1872,6 +1872,15 @@
     const FALLBACK_SESSION_KEY = "divergent_web_session_token_v1";
     const AUTH_PREFERENCE_KEY = "divergent_auth_preference_v1";
     let billingAccess=false;
+    // V56: purge only stale permission caches from older builds; keep the authenticated web session.
+    try{
+      const k="divergent_permission_cache_build";
+      if(localStorage.getItem(k)!=="V56"){
+        localStorage.removeItem("divergent_menu_access_cache");
+        localStorage.removeItem(USER_ADMIN_CACHE_KEY);
+        localStorage.setItem(k,"V56");
+      }
+    }catch(_){ }
     let menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
     let menuLineLinked=false;
     let menuAccessConfirmed=false;
@@ -1901,7 +1910,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V55_PERMISSIONS_ALL_USERS_FIXED";
+    const PAYROLL_UI_BUILD = "V56_SESSION_AUTHORITATIVE";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -2099,8 +2108,11 @@
       let pref="";
       try{pref=localStorage.getItem(AUTH_PREFERENCE_KEY)||""}catch(_){ }
 
-      // If the user explicitly logged in with Username/Password, validate that account first.
-      if(sessionToken && pref==="session"){
+      // V56: If a valid Username/Password session exists on this browser, that selected account is authoritative.
+      // Do not let an unrelated LINE identity on the same PC overwrite its menu permissions.
+      let storedSessionUser=null;
+      try{storedSessionUser=JSON.parse(localStorage.getItem("divergent_web_session_user")||"null")}catch(_){storedSessionUser=null;}
+      if(sessionToken && storedSessionUser?.username){
         try{sessionResult=await fetchMenuAccessWithToken(sessionToken);}catch(e){console.warn("menu session check",e);}
         if(sessionResult?.r?.ok && sessionResult?.j?.access){
           const j=sessionResult.j;
@@ -2299,7 +2311,9 @@
       let pref="";
       try{pref=localStorage.getItem(AUTH_PREFERENCE_KEY)||""}catch(_){}
       const session=getFallbackSessionToken();
-      if(session && pref==="session") token=session;
+      let storedSessionUser=null;
+      try{storedSessionUser=JSON.parse(localStorage.getItem("divergent_web_session_user")||"null")}catch(_){storedSessionUser=null;}
+      if(session && storedSessionUser?.username) token=session;
       if(!token){
         try{ if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()) token=await getLineAccessToken(); }catch(_){}
       }
@@ -5770,7 +5784,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.2</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.3</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
