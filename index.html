@@ -1436,7 +1436,7 @@
             <option value="กค">กรกฎาคม 2569</option>
             <option value="สค" selected>สิงหาคม 2569</option>
           </select>
-          <input id="claimPendingSearch" placeholder="ค้นหาการไฟฟ้า / ผู้ติดต่อ" oninput="renderClaimPendingWorkspace()"
+          <input id="claimPendingSearch" placeholder="ค้นหารายการ / การไฟฟ้า" oninput="renderClaimPendingWorkspace()"
                  style="min-width:260px;border:1px solid #ded1ee;border-radius:10px;padding:10px 12px">
           <button class="expense-soft" onclick="renderClaimPendingWorkspace()">รีเฟรช</button>
           <div class="report-two-actions">
@@ -1458,17 +1458,11 @@
           <thead>
             <tr>
               <th>เดือน</th>
-              <th>ลำดับ</th>
-              <th>การไฟฟ้า</th>
-              <th>ผู้ติดต่อ</th>
-              <th>เบอร์โทร</th>
-              <th>(จน.ราย) ตั้งเบิกตามใบเสร็จ</th>
-              <th>จำนวนเงินตั้งเบิก</th>
-              <th>ข้อมูลที่ขาด</th>
+              <th>รายการค่าตอบแทนที่ยังเบิกไม่ได้</th>
               <th>สถานะ</th>
             </tr>
           </thead>
-          <tbody id="claimPendingBody"><tr><td colspan="9">กำลังตรวจสอบ...</td></tr></tbody>
+          <tbody id="claimPendingBody"><tr><td colspan="3">กำลังตรวจสอบ...</td></tr></tbody>
         </table>
       </div>
       <div class="pending-note">
@@ -2359,19 +2353,16 @@
 
       const body=document.getElementById("claimPendingBody");
       if(!rows.length){
-        body.innerHTML='<tr><td colspan="9" style="padding:24px;text-align:center;color:#6f617c">ข้อมูลครบ ไม่มีการไฟฟ้าที่ติดเงื่อนไข “ยังเบิกไม่ได้” ในเดือนที่เลือก</td></tr>';
+        body.innerHTML='<tr><td colspan="3" style="padding:24px;text-align:center;color:#6f617c">ข้อมูลครบ ไม่มีรายการค่าตอบแทนที่ยังเบิกไม่ได้ในเดือนที่เลือก</td></tr>';
       }else{
         body.innerHTML=rows.map(r=>{
-          const miss=r.missing.map(x=>`<span class="pending-missing">ขาด: ${escapeHtml(x)}</span>`).join("");
+          const miss=r.missing.map(x=>`<span class="pending-missing">ขาด: ${escapeHtml(x)}</span>`).join(" ");
           return `<tr>
             <td>${escapeHtml(r.month_label||r.month_key)}</td>
-            <td>${Number(r.seq||0)||"-"}</td>
-            <td><b>${escapeHtml(r.branch||"-")}</b></td>
-            <td>${escapeHtml(r.contact||"-")}</td>
-            <td>${escapeHtml(r.phone||"-")}</td>
-            <td class="num">${claimRequiredValuePresent(r.bill_count)?Number(r.bill_count).toLocaleString("th-TH"):"-"}</td>
-            <td class="num">${claimRequiredValuePresent(r.claim_amount)?claimMoney(r.claim_amount):"-"}</td>
-            <td>${miss}</td>
+            <td>
+              <div style="font-weight:800;color:#352245">${escapeHtml(r.branch||"-")}</div>
+              <div style="margin-top:5px">${miss}</div>
+            </td>
             <td><span class="pending-bad">ยังเบิกไม่ได้</span></td>
           </tr>`;
         }).join("");
@@ -5528,7 +5519,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.7</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.8</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
