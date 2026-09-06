@@ -1686,9 +1686,8 @@
     function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
     function formatNationalId(v){
       const d=String(v||"").replace(/\D/g,"");
-      if(d.length===13) return "*********"+d.slice(-4);
-      if(d.length===4) return "*********"+d;
-      return d ? "ข้อมูลไม่ครบ" : "-";
+      if(d.length>=4) return "*********"+d.slice(-4);
+      return "-";
     }
 
     function filterPayrollEmployees(){
@@ -1702,7 +1701,7 @@
         });
       document.getElementById("payrollCount").textContent=rows.length;document.getElementById("payrollBound").textContent=rows.filter(x=>x.app_user_id).length;
       const b=document.getElementById("payrollBody");if(!rows.length){b.innerHTML='<tr><td colspan="9">ไม่พบรายการ</td></tr>';return}
-      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.national_id||"-")}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
+      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(formatNationalId(x.national_id||x.national_id_last4))}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
     }
     async function openPayrollEmployee(id=null){
       document.getElementById("payrollModal").classList.add("show");document.getElementById("peStatus").textContent="";
