@@ -1907,7 +1907,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "CLEAN_V2_AUTH_SINGLE_SOURCE";
+    const PAYROLL_UI_BUILD = "CLEAN_V2_1_SESSION_AUTHORITATIVE";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -3521,6 +3521,20 @@
         });
 
         if (!liff.isLoggedIn()) {
+          // CLEAN V2.1.1: Username/Password session is authoritative even when LINE is not logged in.
+          if(getFallbackSessionToken()){
+            status.textContent = "กำลังตรวจสอบบัญชีพนักงาน...";
+            await refreshAllMenuAccess();
+            await refreshProfitLossMenuAccess().catch(()=>{});
+            await refreshInvoiceMenuAccess().catch(()=>{});
+            await refreshBillingAccess().catch(()=>{});
+            const su=window.currentMenuUser||{};
+            const loginBtn=document.getElementById("topLoginButton");
+            if(loginBtn) loginBtn.textContent=(su.username||"บัญชีพนักงาน")+" · เข้าสู่ระบบแล้ว";
+            status.textContent="เข้าสู่ระบบด้วยบัญชีพนักงานแล้ว ✓ "+(su.username||"");
+            applyMenuAccess();
+            return;
+          }
           status.textContent = "กำลังเปิดหน้าเข้าสู่ระบบ LINE...";
           const loginBtn = document.getElementById("topLoginButton");
           if (loginBtn) loginBtn.textContent = "เข้าสู่ระบบ LINE";
@@ -3798,8 +3812,7 @@
         if(data?.line_status==="linked"){
           menuLineLinked=true;
           if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}
-          await new Promise(r=>setTimeout(r,250));
-          try{await checkQcAccess();}catch(_){ }
+          // CLEAN V2.1.1: do not let LINE QC checks mutate a valid session permission snapshot.
         }else{
           menuLineLinked=false;
           const msg=data?.line_status==="linked_to_other"?"เข้าสู่ระบบสำรองสำเร็จ แต่ LINE นี้เชื่อมกับบัญชีอื่นอยู่ กรุณาแจ้งผู้ดูแล":"เข้าสู่ระบบสำรองสำเร็จ ✓ ระบบเก็บ Session สำรองไว้แล้ว";
@@ -5722,7 +5735,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.1.0 CLEAN</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.1.1 SESSION</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
