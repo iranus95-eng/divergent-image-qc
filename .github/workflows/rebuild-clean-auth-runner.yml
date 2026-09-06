@@ -1,0 +1,42 @@
+name: Run clean auth rebuild branch
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/rebuild-clean-auth-runner.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rebuild-clean-v2
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply migration
+        run: python scripts/apply_clean_auth.py
+      - name: Validate JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I)
+          for i,code in enumerate(scripts): Path(f'/tmp/inline-{i}.js').write_text(code,encoding='utf-8')
+          print(f'inline scripts: {len(scripts)}')
+          PY
+          for f in /tmp/inline-*.js; do node --check "$f"; done
+      - name: Commit clean rebuild
+        run: |
+          if git diff --quiet -- index.html; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Integrate clean single-source auth into index'
+          git push origin HEAD:rebuild-clean-v2
