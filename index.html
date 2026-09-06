@@ -1797,7 +1797,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V30_LOCAL_PDF_DEVICE_SHARE";
+    const PAYROLL_UI_BUILD = "V31_PC_DOWNLOAD_LINE_READY";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -5112,40 +5112,90 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
       return "รายงานการไฟฟ้าที่ยังเบิกไม่ได้";
     }
 
+    function isDesktopComputer(){
+      const ua=String(navigator.userAgent||"");
+      const mobile=/Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+      return !mobile;
+    }
+
+    function downloadLocalPdfBlob(out){
+      const url=URL.createObjectURL(out.blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=out.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+    }
+
+    function showLineDesktopReady(out){
+      const old=document.getElementById("lineDesktopReadyOverlay");
+      if(old)old.remove();
+      const ov=document.createElement("div");
+      ov.id="lineDesktopReadyOverlay";
+      ov.style.cssText="position:fixed;inset:0;z-index:100000;background:rgba(20,8,45,.55);display:flex;align-items:center;justify-content:center;padding:20px";
+      const box=document.createElement("div");
+      box.style.cssText="width:min(520px,94vw);background:#fff;border-radius:20px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.25);font-family:inherit;color:#2d1745";
+      const safeName=reportPdfEsc(out.fileName||"report.pdf");
+      box.innerHTML=`
+        <div style="font-size:44px;line-height:1;margin-bottom:12px">✅</div>
+        <div style="font-size:22px;font-weight:800;margin-bottom:8px">PDF พร้อมส่งทาง LINE แล้ว</div>
+        <div style="font-size:14px;color:#6f6280;line-height:1.7;margin-bottom:14px">ไฟล์ถูกบันทึกลงเครื่องของคุณแล้ว</div>
+        <div style="background:#f7f3fb;border:1px solid #eadff4;border-radius:12px;padding:12px 14px;font-weight:700;word-break:break-all;margin-bottom:16px">${safeName}</div>
+        <div style="font-size:15px;line-height:1.8;margin-bottom:20px">
+          1. เปิด <b>LINE Desktop</b><br>
+          2. เลือกเพื่อนหรือกลุ่มที่ต้องการส่ง<br>
+          3. ลากไฟล์ PDF จากโฟลเดอร์ <b>Downloads</b> ลงในแชต
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+          <button id="lineCopyFileNameBtn" style="border:1px solid #d9c9e8;background:#fff;color:#4f246f;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer">คัดลอกชื่อไฟล์</button>
+          <button id="lineDesktopReadyOk" style="border:0;background:#06c755;color:#fff;border-radius:10px;padding:10px 18px;font-weight:800;cursor:pointer">รับทราบ</button>
+        </div>`;
+      ov.appendChild(box);document.body.appendChild(ov);
+      document.getElementById("lineDesktopReadyOk")?.addEventListener("click",()=>ov.remove());
+      document.getElementById("lineCopyFileNameBtn")?.addEventListener("click",async()=>{
+        try{await navigator.clipboard.writeText(out.fileName||"");alert("คัดลอกชื่อไฟล์แล้ว");}catch(_){alert(out.fileName||"");}
+      });
+      ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+    }
+
     async function shareReportPdfToLine(type){
-      let objectUrl=null;
       try{
         pnlPdfProgress(true,"กำลังเตรียม LINE","กำลังสร้าง PDF ในเครื่อง...");
         const out=await createReportPdf(type);
         const file=new File([out.blob],out.fileName,{type:"application/pdf"});
         const title=reportLineTitle(type);
+
+        // คอมพิวเตอร์: ดาวน์โหลด PDF ตรงลงเครื่อง แล้วแนะนำการส่งผ่าน LINE Desktop
+        if(isDesktopComputer()){
+          downloadLocalPdfBlob(out);
+          pnlPdfProgress(false);
+          showLineDesktopReady(out);
+          return;
+        }
+
+        // มือถือ/แท็บเล็ต: ใช้ Share Sheet ของอุปกรณ์เพื่อเลือก LINE และส่งไฟล์ได้ทันที
         const shareData={
           title:`${title} ${String(out.label||"")}`.trim(),
           text:String(out.summary||`${title} ${String(out.label||"")}`).trim(),
           files:[file]
         };
-
-        // ใช้ Web Share ของอุปกรณ์โดยตรง: Windows/Android/iOS จะเปิด Share Sheet ของเครื่อง
         if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
           pnlPdfProgress(false);
           await navigator.share(shareData);
           return;
         }
 
-        // Browser ที่แชร์ไฟล์ไม่ได้: บันทึก PDF ลงเครื่องให้ทันที แล้วให้ผู้ใช้แนบใน LINE เอง
-        objectUrl=URL.createObjectURL(out.blob);
-        const a=document.createElement("a");
-        a.href=objectUrl;
-        a.download=out.fileName;
-        document.body.appendChild(a);a.click();a.remove();
-        alert("เบราว์เซอร์นี้ยังแชร์ไฟล์ PDF โดยตรงไม่ได้ ระบบบันทึก PDF ลงเครื่องให้แล้ว กรุณาเปิด LINE แล้วแนบไฟล์ที่ดาวน์โหลด");
+        // อุปกรณ์ที่แชร์ไฟล์ไม่ได้: ดาวน์โหลด PDF ให้ทันที
+        downloadLocalPdfBlob(out);
+        alert("บันทึก PDF ลงเครื่องให้แล้ว กรุณาเปิด LINE แล้วแนบไฟล์จากโฟลเดอร์ Downloads");
       }catch(e){
         if(e?.name==="AbortError")return;
         console.error(e);
-        alert("แชร์ PDF ไม่สำเร็จ: "+(e?.message||e));
+        alert("เตรียม PDF สำหรับ LINE ไม่สำเร็จ: "+(e?.message||e));
       }finally{
         pnlPdfProgress(false);
-        if(objectUrl)setTimeout(()=>URL.revokeObjectURL(objectUrl),2500);
       }
     }
 
@@ -5230,7 +5280,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.8</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.9</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
