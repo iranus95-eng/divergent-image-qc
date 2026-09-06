@@ -594,6 +594,27 @@
     .kb-amount-input{width:120px;border:1px solid #ded5e8;border-radius:9px;padding:8px 9px;text-align:right;font-weight:700}
     .kb-amount-input:focus{outline:none;border-color:#8d63b3;box-shadow:0 0 0 2px rgba(141,99,179,.10)}
 
+
+    .pnl-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+    .pnl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+    .pnl-card{background:#fff;border:1px solid #eadff5;border-radius:16px;padding:16px}
+    .pnl-card span{font-size:12px;color:#756885}
+    .pnl-card b{display:block;margin-top:6px;font-size:24px;color:#3d176c}
+    .pnl-card.profit b{color:#16754d}.pnl-card.loss b{color:#b33a3a}
+    .pnl-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+    .pnl-box{background:#fff;border:1px solid #e9e0f2;border-radius:16px;padding:16px}
+    .pnl-box h3{margin:0 0 12px;color:#48266d}
+    .pnl-cost-row{display:grid;grid-template-columns:1fr 150px 120px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f0ebf4}
+    .pnl-cost-row input{width:100%;text-align:right}
+    .pnl-cost-row .formula{font-size:11px;color:#877890}
+    .pnl-source{font-size:12px;color:#786c86;line-height:1.6;background:#f8f4fc;border-radius:12px;padding:12px;margin-top:12px}
+    .pnl-summary-table{width:100%;border-collapse:collapse;font-size:13px}
+    .pnl-summary-table td{padding:9px 6px;border-bottom:1px solid #eee8f3}
+    .pnl-summary-table td:last-child{text-align:right;font-weight:700}
+    .pnl-total td{font-size:15px;font-weight:900;color:#3e1a64;border-top:2px solid #d9c7eb}
+    .pnl-note{font-size:12px;color:#83758f;margin-top:8px}
+    @media(max-width:1000px){.pnl-grid{grid-template-columns:repeat(2,1fr)}.pnl-layout{grid-template-columns:1fr}.pnl-cost-row{grid-template-columns:1fr 130px}}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -887,6 +908,7 @@
         <div class="nav-item" id="navUsers" onclick="openUserManagement()"><span class="nav-ico">👥</span><span>จัดการผู้ใช้งาน</span></div>
         <div class="nav-item" id="navPayroll" onclick="openPayrollManagement()"><span class="nav-ico">฿</span><span>จัดการเงินเดือน</span></div>
         <div class="nav-item" id="navClaim" onclick="openClaimManagement()"><span class="nav-ico">▣</span><span>ตั้งเบิกค่าตอบแทน</span></div>
+        <div class="nav-item" id="navPnL" onclick="openProfitLossManagement()"><span class="nav-ico">📊</span><span>กำไร–ขาดทุนรายเดือน</span></div>
         <div class="nav-item" id="navStaffExpense" onclick="openStaffExpenseManagement()"><span class="nav-ico">🧾</span><span>ค่าใช้จ่ายสตาฟ</span></div>
       </nav>
       <div class="side-spacer"></div>
@@ -1199,6 +1221,110 @@
       </div>
     </div>
 
+
+    <section class="payroll-workspace" id="pnlWorkspace" style="display:none">
+      <div class="payroll-head">
+        <div>
+          <h2>รายงานกำไร–ขาดทุนประจำเดือน</h2>
+          <p id="pnlPeriodText">อ้างอิงรายรับจากไฟล์ตั้งเบิกค่าตอบแทน • เลือกเดือนที่รับเงินครบทุกไซด์ก่อน</p>
+        </div>
+        <div class="pnl-toolbar">
+          <select id="pnlMonth" class="expense-select" onchange="renderPnL()">
+            <option value="มค">มกราคม 2569 • รับครบทุกไซด์</option>
+            <option value="กพ">กุมภาพันธ์ 2569 • รับครบทุกไซด์</option>
+            <option value="มีค" selected>มีนาคม 2569 • รับครบทุกไซด์</option>
+          </select>
+          <button class="primary-admin-btn" onclick="downloadPnLCsv()">⬇ ดาวน์โหลดรายงาน CSV</button>
+          <button class="expense-soft" onclick="sharePnLFilePlaceholder()">📤 ส่งไฟล์</button>
+        </div>
+      </div>
+
+      <div class="pnl-grid">
+        <div class="pnl-card"><span>รายได้รับจริง</span><b id="pnlRevenue">0.00</b></div>
+        <div class="pnl-card"><span>ต้นทุนรวม</span><b id="pnlCost">0.00</b></div>
+        <div class="pnl-card profit" id="pnlProfitCard"><span>กำไร / ขาดทุนสุทธิ</span><b id="pnlProfit">0.00</b></div>
+        <div class="pnl-card"><span>Net Margin</span><b id="pnlMargin">0.00%</b></div>
+      </div>
+
+      <div class="pnl-layout">
+        <div class="pnl-box">
+          <h3>ต้นทุนประจำเดือน</h3>
+
+          <div class="pnl-cost-row">
+            <div><b>เงินเดือนพนักงาน</b><div class="formula">รอเชื่อมยอดจากระบบเงินเดือน • กรอกชั่วคราวได้</div></div>
+            <input id="pnlEmployeePayroll" type="number" min="0" step="0.01" value="0" oninput="renderPnL()">
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>เงินเดือนสตาฟ</b><div class="formula">กรอกยอดเงินเดือนสตาฟของเดือนนี้</div></div>
+            <input id="pnlStaffPayroll" type="number" min="0" step="0.01" value="0" oninput="renderPnL()">
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ค่ากระดาษ</b><div class="formula" id="pnlPaperFormula">จำนวนงานจริง × 102% × 0.25 บาท</div></div>
+            <input id="pnlPaperCost" type="number" readonly>
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ค่าใช้จ่ายสตาฟ</b><div class="formula">รอเชื่อมยอดจากเมนูค่าใช้จ่ายสตาฟ • กรอกชั่วคราวได้</div></div>
+            <input id="pnlStaffExpense" type="number" min="0" step="0.01" value="0" oninput="renderPnL()">
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ค่าทำบัญชี</b><div class="formula">คงที่ 3,000 บาท/เดือน</div></div>
+            <input id="pnlAccounting" type="number" min="0" step="0.01" value="3000" oninput="renderPnL()">
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ค่าอุปกรณ์สำนักงาน</b><div class="formula">คงที่ 5,000 บาท/เดือน</div></div>
+            <input id="pnlOffice" type="number" min="0" step="0.01" value="5000" oninput="renderPnL()">
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ค่ารับรอง</b><div class="formula">คงที่ 3,000 บาท/เดือน</div></div>
+            <input id="pnlHospitality" type="number" min="0" step="0.01" value="3000" oninput="renderPnL()">
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ค่าเครื่องพิมพ์</b><div class="formula">3,500 × จำนวนคน × 110%</div></div>
+            <input id="pnlPrinterPeople" type="number" min="0" step="1" value="103" oninput="renderPnL()">
+            <span id="pnlPrinterCostText">0.00 บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ค่าเสื้อพนักงาน</b><div class="formula">250 × จำนวนคน</div></div>
+            <input id="pnlShirtPeople" type="number" min="0" step="1" value="103" oninput="renderPnL()">
+            <span id="pnlShirtCostText">0.00 บาท</span>
+          </div>
+
+          <div class="pnl-note">ค่าเครื่องพิมพ์และเสื้อยังนับเต็มในเดือนนี้ตามข้อมูลเบื้องต้น สามารถปรับเป็น “ซื้อจริงเฉพาะเดือน” หรือค่าเสื่อมภายหลังได้</div>
+        </div>
+
+        <div class="pnl-box">
+          <h3>สรุปรายงาน</h3>
+          <table class="pnl-summary-table">
+            <tr><td>ยอดตั้งเบิก</td><td id="pnlClaimAmount">0.00</td></tr>
+            <tr><td>ยอดรับจากการไฟฟ้า</td><td id="pnlReceivedAmount">0.00</td></tr>
+            <tr><td>ค่าปรับ/ยอดหัก</td><td id="pnlPenaltyAmount">0.00</td></tr>
+            <tr><td>จำนวนไซด์</td><td id="pnlSiteCount">0</td></tr>
+            <tr><td>จำนวนงานจริง</td><td id="pnlActualCount">0</td></tr>
+            <tr><td>กระดาษรวมเผื่อเสีย 2%</td><td id="pnlPaperSheets">0</td></tr>
+            <tr class="pnl-total"><td>รวมรายได้</td><td id="pnlSummaryRevenue">0.00</td></tr>
+            <tr class="pnl-total"><td>รวมต้นทุน</td><td id="pnlSummaryCost">0.00</td></tr>
+            <tr class="pnl-total"><td>กำไร / ขาดทุน</td><td id="pnlSummaryProfit">0.00</td></tr>
+          </table>
+          <div class="pnl-source" id="pnlSourceNote"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="payroll-workspace" id="payrollWorkspace">
       <div class="payroll-head">
         <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • รูปแบบตามข้อมูลต้นฉบับ • เพิ่มใหม่ต่อท้ายอัตโนมัติ</p></div>
@@ -1345,8 +1471,8 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
+    const PAYROLL_UI_BUILD = "V18_ROOTCAUSE_FIXED_API7";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
-    const PAYROLL_NATIONAL_ID_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-national-id-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     let payrollEmployees=[]; let payrollCanManage=false;
     let staffExpenseCycles=[]; let staffExpenseCategories=[]; let staffExpenseItems=[]; let staffExpenseCanManage=false;
@@ -1360,7 +1486,7 @@
     let currentUserManagementPermissions = {};
 
     function setNavActive(activeId) {
-      ["navHome","navQc","navSearch","navUsers","navPayroll","navStaffExpense"].forEach(id => {
+      ["navHome","navQc","navSearch","navUsers","navPayroll","navClaim","navPnL","navStaffExpense"].forEach(id => {
         const el=document.getElementById(id); if(!el) return;
         el.classList.toggle("active", id===activeId);
         el.classList.toggle("muted", id!==activeId);
@@ -1493,7 +1619,7 @@
     }
 
     async function openUserManagement(){
-      const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";
+      const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";const pw=document.getElementById("pnlWorkspace");if(pw)pw.style.display="none";
       const n=document.getElementById("navUsers");
       if(n) n.classList.add("checking-access");
       try{
@@ -1696,28 +1822,23 @@
       return d;
     }
 
-    async function savePayrollNationalId(id,nationalId){
-      const accessToken=await getLineAccessToken();
-      const r=await fetch(PAYROLL_NATIONAL_ID_API_URL,{
-        method:"POST",
-        headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
-        body:JSON.stringify({id:Number(id),national_id:nationalId||""})
+
+    function openProfitLossManagement(){
+      document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
+      const nav=document.getElementById("navPnL"); if(nav)nav.classList.add("active");
+      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","claimWorkspace"].forEach(id=>{
+        const el=document.getElementById(id); if(el)el.style.display="none";
       });
-      const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("NATIONAL_ID_INVALID_RESPONSE")}
-      if(!r.ok){
-        const map={
-          NATIONAL_ID_MUST_BE_13_DIGITS:"เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก",
-          NATIONAL_ID_DUPLICATE:"เลขบัตรประชาชนนี้มีอยู่ในรายชื่อพนักงานแล้ว"
-        };
-        throw new Error(map[d.error]||d.error||("HTTP "+r.status));
-      }
-      return d;
+      const pnl=document.getElementById("pnlWorkspace");
+      if(pnl)pnl.style.display="block";
+      renderPnL();
     }
+
     function openClaimManagement(){
       document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
       const nav=document.getElementById("navClaim"); if(nav)nav.classList.add("active");
 
-      const ids=["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace"];
+      const ids=["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","pnlWorkspace"];
       ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});
       const claim=document.getElementById("claimWorkspace");
       if(claim)claim.style.display="block";
@@ -1727,7 +1848,7 @@
 
 
     async function openPayrollManagement(){
-      const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";
+      const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";const pw=document.getElementById("pnlWorkspace");if(pw)pw.style.display="none";
       try{
         const p=await payrollApi("permissions"); payrollCanManage=!!p.can_manage;
         window.payrollLinkPending=false;
@@ -1901,7 +2022,7 @@
       const b=document.getElementById("expenseCycleBadge");if(b){b.textContent=c.status;b.className="expense-status "+c.status}
     }
     async function openStaffExpenseManagement(){
-      const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";
+      const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";const pw=document.getElementById("pnlWorkspace");if(pw)pw.style.display="none";
       switchWorkspace("expense");
       const st=document.getElementById("expenseStatus");
       if(staffExpenseCycles.length){
@@ -3823,6 +3944,109 @@
       claimModalStatus.textContent="บันทึกตัวอย่างบนหน้าจอแล้ว";
       renderClaimWorkspace();
       setTimeout(closeClaimItemModal,350);
+    }
+
+
+    function pnlData(){
+      const key=document.getElementById("pnlMonth")?.value||"มีค";
+      const meta=CLAIM_SOURCE_DATA[key]||{records:[],label:key,title:"",period:""};
+      const rows=(meta.records||[]).filter(x=>claimNum(x.claim_amount)>0);
+      const claim=rows.reduce((s,x)=>s+claimNum(x.claim_amount),0);
+      const received=rows.reduce((s,x)=>s+claimNum(x.received),0);
+      const actual=rows.reduce((s,x)=>s+claimNum(x.actual_count),0);
+      const penalty=Math.max(claim-received,0);
+      return {key,meta,rows,claim,received,actual,penalty};
+    }
+
+    function pnlValue(id){
+      return Math.max(0,Number(document.getElementById(id)?.value||0));
+    }
+
+    function renderPnL(){
+      const d=pnlData();
+      const paperSheets=Math.ceil(d.actual*1.02);
+      const paperCost=paperSheets*0.25;
+      const employeePayroll=pnlValue("pnlEmployeePayroll");
+      const staffPayroll=pnlValue("pnlStaffPayroll");
+      const staffExpense=pnlValue("pnlStaffExpense");
+      const accounting=pnlValue("pnlAccounting");
+      const office=pnlValue("pnlOffice");
+      const hospitality=pnlValue("pnlHospitality");
+      const printerPeople=Math.floor(pnlValue("pnlPrinterPeople"));
+      const shirtPeople=Math.floor(pnlValue("pnlShirtPeople"));
+      const printerCost=printerPeople*3500*1.10;
+      const shirtCost=shirtPeople*250;
+      const totalCost=employeePayroll+staffPayroll+paperCost+staffExpense+accounting+office+hospitality+printerCost+shirtCost;
+      const profit=d.received-totalCost;
+      const margin=d.received>0?(profit/d.received*100):0;
+
+      pnlPaperCost.value=paperCost.toFixed(2);
+      pnlPrinterCostText.textContent=claimMoney(printerCost)+" บาท";
+      pnlShirtCostText.textContent=claimMoney(shirtCost)+" บาท";
+      pnlPaperFormula.textContent=`${d.actual.toLocaleString("th-TH")} งาน × 102% = ${paperSheets.toLocaleString("th-TH")} ใบ × 0.25 บาท`;
+
+      pnlRevenue.textContent=claimMoney(d.received);
+      pnlCost.textContent=claimMoney(totalCost);
+      pnlProfit.textContent=(profit<0?"-":"")+claimMoney(Math.abs(profit));
+      pnlMargin.textContent=margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";
+      pnlProfitCard.classList.toggle("loss",profit<0);
+      pnlProfitCard.classList.toggle("profit",profit>=0);
+
+      pnlClaimAmount.textContent=claimMoney(d.claim);
+      pnlReceivedAmount.textContent=claimMoney(d.received);
+      pnlPenaltyAmount.textContent=claimMoney(d.penalty);
+      pnlSiteCount.textContent=d.rows.length.toLocaleString("th-TH")+" ไซด์";
+      pnlActualCount.textContent=d.actual.toLocaleString("th-TH")+" ราย";
+      pnlPaperSheets.textContent=paperSheets.toLocaleString("th-TH")+" ใบ";
+      pnlSummaryRevenue.textContent=claimMoney(d.received);
+      pnlSummaryCost.textContent=claimMoney(totalCost);
+      pnlSummaryProfit.textContent=(profit<0?"-":"")+claimMoney(Math.abs(profit));
+
+      pnlPeriodText.textContent=`${d.meta.label||""} • ${d.meta.period||""}`;
+      pnlSourceNote.innerHTML=`<b>ฐานรายได้:</b> ยอดรับจากการไฟฟ้าตามไฟล์ตั้งเบิกค่าตอบแทน<br>
+        <b>เดือนนี้:</b> ${escapeHtml(d.meta.title||d.meta.label||"")}<br>
+        <b>หมายเหตุ:</b> เงินเดือนพนักงาน / เงินเดือนสตาฟ / ค่าใช้จ่ายสตาฟ ยังเป็นช่องกรอกชั่วคราวจนกว่าจะเชื่อม API จริง`;
+    }
+
+    function downloadPnLCsv(){
+      renderPnL();
+      const d=pnlData();
+      const paperSheets=Math.ceil(d.actual*1.02);
+      const paperCost=paperSheets*0.25;
+      const costs=[
+        ["เงินเดือนพนักงาน",pnlValue("pnlEmployeePayroll")],
+        ["เงินเดือนสตาฟ",pnlValue("pnlStaffPayroll")],
+        ["ค่ากระดาษ",paperCost],
+        ["ค่าใช้จ่ายสตาฟ",pnlValue("pnlStaffExpense")],
+        ["ค่าทำบัญชี",pnlValue("pnlAccounting")],
+        ["ค่าอุปกรณ์สำนักงาน",pnlValue("pnlOffice")],
+        ["ค่ารับรอง",pnlValue("pnlHospitality")],
+        ["ค่าเครื่องพิมพ์",Math.floor(pnlValue("pnlPrinterPeople"))*3500*1.10],
+        ["ค่าเสื้อพนักงาน",Math.floor(pnlValue("pnlShirtPeople"))*250]
+      ];
+      const totalCost=costs.reduce((s,x)=>s+Number(x[1]||0),0);
+      const profit=d.received-totalCost;
+      const lines=[
+        ["รายงานกำไร-ขาดทุน",d.meta.label||d.key],
+        ["รอบงาน",d.meta.period||""],
+        [],
+        ["รายการ","จำนวนเงิน (บาท)"],
+        ["รายได้รับจริง",d.received.toFixed(2)],
+        ...costs.map(x=>[x[0],Number(x[1]).toFixed(2)]),
+        ["รวมต้นทุน",totalCost.toFixed(2)],
+        ["กำไร/ขาดทุนสุทธิ",profit.toFixed(2)]
+      ];
+      const csv="\ufeff"+lines.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=`Divergent_Profit_Loss_${d.key}_${Date.now()}.csv`;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }
+
+    function sharePnLFilePlaceholder(){
+      alert("เมนูส่งไฟล์ยังคงไว้ก่อนตามที่กำหนด • ขั้นถัดไปค่อยเชื่อมการส่งไฟล์จริง");
     }
 
 </script>
