@@ -23,7 +23,8 @@
 </main>
 <script>
 const AUTH_URL='https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth';
-const SESSION_KEY='divergent_web_session_token_v1';
+const SESSION_KEY='divergent_session_token_v3';
+const LEGACY_SESSION_KEYS=['divergent_web_session_token_v1','divergent_fallback_session_token'];
 const form=document.getElementById('loginForm'),btn=document.getElementById('loginBtn'),statusEl=document.getElementById('status');
 form.addEventListener('submit',async(e)=>{
   e.preventDefault();
@@ -39,9 +40,10 @@ form.addEventListener('submit',async(e)=>{
     const token=d.session_token||d.token||d.session?.token||'';
     if(!token)throw new Error('LOGIN_TOKEN_MISSING');
     localStorage.setItem(SESSION_KEY,token);
+    LEGACY_SESSION_KEYS.forEach((key)=>localStorage.removeItem(key));
     localStorage.removeItem('divergent_menu_access_cache_v2');
     sessionStorage.removeItem('divergent_line_auto_login_attempted');
-    location.replace('./?web=1&direct=1&v=7');
+    location.replace('./?web=1&direct=1&v=8');
   }catch(err){statusEl.textContent=err?.message==='LOGIN_TOKEN_MISSING'?'เข้าสู่ระบบสำเร็จแต่ไม่พบ Session Token':(err?.message||String(err));btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
 });
 </script>
