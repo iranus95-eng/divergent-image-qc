@@ -1823,18 +1823,32 @@
       try{
         st.textContent="กำลังบันทึก...";
         let rowId=Number(id)||0;
+        let saved=null;
         if(id){
-          await payrollApi("update_employee",{id:Number(id),...p});
+          saved=await payrollApi("update_employee",{id:Number(id),...p});
         }else{
-          const created=await payrollApi("create_employee",p);
-          rowId=Number(created?.employee?.id||created?.employee?.master_row_id||0);
+          saved=await payrollApi("create_employee",p);
+          rowId=Number(saved?.employee?.id||saved?.employee?.master_row_id||0);
         }
         if(!rowId) throw new Error("CREATE_EMPLOYEE_ID_MISSING");
-        await savePayrollNationalId(rowId,nid);
+        const savedNid=String(saved?.employee?.national_id||"").replace(/\D/g,"");
+        if(savedNid.length!==13) throw new Error("NATIONAL_ID_SAVE_FAILED");
         st.textContent="บันทึกสำเร็จ ✓";
         await loadPayrollEmployees();
         if(!id)setTimeout(closePayrollModal,500)
-      }catch(e){st.textContent="บันทึกไม่สำเร็จ: "+e.message}
+      }catch(e){
+        const msg=String(e?.message||e);
+        const map={
+          NATIONAL_ID_MUST_BE_13_DIGITS:"เลขบัตรประชาชนต้องครบ 13 หลัก",
+          NATIONAL_ID_DUPLICATE:"เลขบัตรประชาชนนี้มีอยู่ในระบบแล้ว",
+          SITE_REQUIRED:"กรุณากรอกไซด์งาน",
+          BANK_REQUIRED:"กรุณากรอกธนาคาร",
+          BANK_ACCOUNT_REQUIRED:"กรุณากรอกเลขบัญชี",
+          RATE_REQUIRED:"กรุณากรอกเรต",
+          NATIONAL_ID_SAVE_FAILED:"ระบบไม่ได้บันทึกเลขบัตรครบ 13 หลัก"
+        };
+        st.textContent="บันทึกไม่สำเร็จ: "+(map[msg]||msg);
+      }
     }
     async function addPayrollRate(){
       const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_rate",{id:id,site_name:newRateSite.value.trim(),rate_amount:Number(newRateAmount.value)});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มเรตไม่สำเร็จ: "+e.message}
