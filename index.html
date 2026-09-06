@@ -828,6 +828,10 @@
   @media(max-width:800px){.expense-kpis{grid-template-columns:1fr}.expense-toolbar{grid-template-columns:1fr}.expense-grid{grid-template-columns:1fr}.expense-wide{grid-column:auto}}
 </style>
 
+
+<style id="money-report-v1">
+.money-report-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #6d36d9;background:#fff;color:#5c28c8;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer}.money-report-btn.primary{background:linear-gradient(135deg,#6d36d9,#8b4ce5);color:#fff;border-color:transparent}.money-report-modal{position:fixed;inset:0;background:rgba(25,12,45,.56);z-index:10120;display:none;align-items:center;justify-content:center;padding:18px}.money-report-modal.show{display:flex}.money-report-card{width:min(620px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 24px 70px rgba(34,12,58,.35)}.money-report-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.money-report-head h3{margin:0;color:#35135e}.money-report-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.money-report-field{border:1px solid #eadff7;border-radius:14px;padding:13px;background:#fcfaff}.money-report-field label{display:block;font-size:12px;color:#6e5a83;margin-bottom:7px}.money-report-field select,.money-report-field input{width:100%;box-sizing:border-box;border:1px solid #ded1ee;border-radius:10px;padding:10px;background:white}.money-report-preview{margin-top:14px;padding:14px;border-radius:14px;background:#f8f4fd;color:#493461;font-size:13px;line-height:1.65}.money-report-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-end;margin-top:16px}.money-report-note{font-size:11px;color:#806e94;margin-top:10px}@media(max-width:650px){.money-report-grid{grid-template-columns:1fr}.money-report-actions>*{flex:1 1 45%}}
+</style>
 </head>
 
 <body>
@@ -1041,7 +1045,7 @@
     <section class="card expense-workspace" id="staffExpenseWorkspace">
       <div class="expense-head">
         <div><h2>ค่าใช้จ่ายสตาฟ</h2><p>จัดการรอบเบิกวันที่ 3 / วันที่ 7 / รอบพิเศษ • บันทึกรายการ • สรุปยอดก่อนจ่าย</p></div>
-        <button id="expenseAddBtn" onclick="openExpenseItemModal()">+ เพิ่มรายการค่าใช้จ่าย</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="money-report-btn" onclick="openMoneyReport('expense')">📄 สรุปรายงาน</button><button id="expenseAddBtn" onclick="openExpenseItemModal()">+ เพิ่มรายการค่าใช้จ่าย</button></div>
       </div>
       <div class="expense-kpis">
         <div class="expense-kpi"><span>จำนวนรายการในรอบ</span><b id="expenseItemCount">0</b></div>
@@ -1090,7 +1094,7 @@
     <section class="payroll-workspace" id="payrollWorkspace">
       <div class="payroll-head">
         <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • บัญชีธนาคาร • พื้นที่/เรต • ค่าตอบแทนพิเศษ • เรียงตามไซด์งาน</p></div>
-        <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="money-report-btn" onclick="openMoneyReport('payroll')">📄 สรุปรายงาน</button><button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button></div>
       </div>
       <div class="payroll-kpis">
         <div class="payroll-kpi"><span>รายการเดือนล่าสุดที่แสดง</span><b id="payrollCount">0</b></div>
@@ -1712,6 +1716,30 @@
       try{st.textContent="กำลังบันทึก...";if(id)await staffExpenseApi("update_item",{id,...p});else await staffExpenseApi("create_item",p);st.textContent="บันทึกสำเร็จ ✓";await loadStaffExpenseItems();setTimeout(closeExpenseItemModal,350)}catch(e){st.textContent="บันทึกไม่สำเร็จ: "+e.message}
     }
     async function setExpenseCycleStatus(status){const id=Number(document.getElementById("expenseCycleSelect")?.value||0);if(!id||!staffExpenseCanManage)return;if(!confirm(`เปลี่ยนสถานะรอบเป็น ${status} ?`))return;try{await staffExpenseApi("set_cycle_status",{cycle_id:id,status});await loadStaffExpenseBootstrap(true)}catch(e){alert("เปลี่ยนสถานะไม่สำเร็จ: "+e.message)}}
+
+
+    let moneyReportType="expense";
+    let moneyReportLastFile=null;
+    function moneyReportSafe(v){return String(v??"").replace(/\r?\n/g," ").trim()}
+    function moneyReportCsvCell(v){const s=moneyReportSafe(v).replace(/"/g,'""');return '"'+s+'"'}
+    function currentExpenseRowsForReport(){
+      const q=String(document.getElementById("expenseSearch")?.value||"").trim().toLowerCase(),cf=String(document.getElementById("expenseCategoryFilter")?.value||"");
+      return staffExpenseItems.filter(x=>(!q||[x.staff_name,x.category_name_snapshot,x.other_detail,x.note].some(v=>String(v||"").toLowerCase().includes(q)))&&(!cf||String(x.category_id||"")===cf));
+    }
+    function currentPayrollRowsForReport(){
+      const q=String(document.getElementById("payrollSearch")?.value||"").toLowerCase().trim();
+      return payrollEmployees.filter(x=>!q||[x.employee_name,x.site_name,x.national_id,x.bank_name,x.bank_account].some(v=>String(v||"").toLowerCase().includes(q)));
+    }
+    function moneyReportRows(){const scope=document.getElementById("moneyReportScope")?.value||"CURRENT";if(moneyReportType==="expense")return scope==="CURRENT"?currentExpenseRowsForReport():staffExpenseItems.slice();return scope==="CURRENT"?currentPayrollRowsForReport():payrollEmployees.slice()}
+    function openMoneyReport(type){moneyReportType=type;moneyReportLastFile=null;const isEx=type==="expense";document.getElementById("moneyReportTitle").textContent=isEx?"สรุปรายงานเบิกค่าใช้จ่าย":"สรุปรายงานจัดการเงินเดือน";document.getElementById("moneyReportSubtitle").textContent=isEx?"สรุปรายการตามรอบเบิกที่กำลังเลือก":"สรุปรายชื่อพนักงานและข้อมูลการจ่ายที่โหลดอยู่";document.getElementById("moneyReportModal").classList.add("show");refreshMoneyReportPreview()}
+    function closeMoneyReport(){document.getElementById("moneyReportModal").classList.remove("show")}
+    function refreshMoneyReportPreview(){const rows=moneyReportRows();let total=0;if(moneyReportType==="expense")total=rows.reduce((s,x)=>s+Number(x.amount||0),0);const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0));document.getElementById("moneyReportPreview").innerHTML=moneyReportType==="expense"?`<b>รายงานเบิกค่าใช้จ่าย</b><br>รอบ: ${escapeHtml(c?expenseCycleLabel(c):"-")}<br>จำนวน ${rows.length.toLocaleString("th-TH")} รายการ<br><b>ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</b>`:`<b>รายงานจัดการเงินเดือน</b><br>จำนวนพนักงาน ${rows.length.toLocaleString("th-TH")} รายการ<br>ผูกบัญชีผู้ใช้แล้ว ${rows.filter(x=>x.app_user_id).length.toLocaleString("th-TH")} รายการ`}
+    function moneyReportFilename(ext){const d=new Date().toISOString().slice(0,10).replaceAll("-","");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0));return `Staff_Expense_${c?.scheduled_date?.replaceAll("-","")||d}.${ext}`}return `Payroll_Report_${d}.${ext}`}
+    function buildMoneyCsv(){const rows=moneyReportRows();let lines=[];if(moneyReportType==="expense"){lines.push(["วันที่","ชื่อสตาฟ","หมวด","รายละเอียด","ธนาคาร","เลขบัญชี","วิธีจ่าย","จำนวนเงิน","สถานะ"].map(moneyReportCsvCell).join(","));for(const x of rows)lines.push([x.expense_date,x.staff_name,x.category_name_snapshot,x.other_detail||x.note||"",x.bank_name||"",x.bank_account||"",x.payment_method||"",Number(x.amount||0).toFixed(2),x.approval_status||""].map(moneyReportCsvCell).join(","));lines.push(["","","","","","","รวม",rows.reduce((s,x)=>s+Number(x.amount||0),0).toFixed(2),""].map(moneyReportCsvCell).join(","))}else{lines.push(["ลำดับ","ชื่อพนักงาน","เลขบัตรประชาชน","พื้นที่","เรต","ธนาคาร","เลขบัญชี","สถานะ"].map(moneyReportCsvCell).join(","));for(const x of rows)lines.push([x.source_row??"",x.employee_name||"",x.national_id||"",x.site_name||"",x.rate_per_unit??"",x.bank_name||"",x.bank_account||"",x.is_active?"ใช้งาน":"ปิด"].map(moneyReportCsvCell).join(","))}return "\ufeff"+lines.join("\r\n")}
+    function buildMoneyPrintHtml(){const rows=moneyReportRows(),now=new Date().toLocaleString("th-TH");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0)),total=rows.reduce((s,x)=>s+Number(x.amount||0),0);return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเบิกค่าใช้จ่าย</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8;margin:0 0 4px}small{color:#666}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f3edfb}.num{text-align:right}.total{font-size:18px;font-weight:800;text-align:right;margin-top:14px}</style></head><body><h1>รายงานเบิกค่าใช้จ่าย</h1><small>${moneyReportSafe(c?expenseCycleLabel(c):"-")} • สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>วันที่</th><th>ชื่อสตาฟ</th><th>หมวด</th><th>รายละเอียด</th><th>วิธีจ่าย</th><th class="num">จำนวนเงิน</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.expense_date||"")}</td><td>${escapeHtml(x.staff_name||"")}</td><td>${escapeHtml(x.category_name_snapshot||"")}</td><td>${escapeHtml(x.other_detail||x.note||"-")}</td><td>${escapeHtml(x.payment_method||"-")}</td><td class="num">${Number(x.amount||0).toLocaleString("th-TH",{minimumFractionDigits:2})}</td></tr>`).join("")}</tbody></table><div class="total">ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</div></body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table></body></html>`}
+    async function createMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="CSV"){const blob=new Blob([buildMoneyCsv()],{type:"text/csv;charset=utf-8"});moneyReportLastFile=new File([blob],moneyReportFilename("csv"),{type:blob.type});alert("สร้างไฟล์ Excel (CSV) พร้อมแล้ว") }else{const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างรายงาน กรุณาอนุญาต Pop-up");return}w.document.open();w.document.write(buildMoneyPrintHtml());w.document.close();setTimeout(()=>{w.focus();w.print()},300)}}
+    async function downloadMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){await createMoneyReport();return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(moneyReportLastFile);a.download=moneyReportLastFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+    async function shareMoneyReportToLine(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){alert("สำหรับ PDF ให้กดสร้างรายงาน → บันทึกเป็น PDF จากหน้าพิมพ์ แล้วแชร์ไฟล์เข้า LINE ได้ทันทีจากเครื่อง\n\nหากต้องการส่งจากปุ่มนี้โดยตรง ให้เลือก Excel (CSV)");return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const text=moneyReportType==="expense"?"รายงานเบิกค่าใช้จ่ายจาก Divergent Corporation":"รายงานจัดการเงินเดือนจาก Divergent Corporation";try{if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[moneyReportLastFile]}))){await navigator.share({title:text,text,files:[moneyReportLastFile]});return}alert("อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับการส่งไฟล์โดยตรง กรุณากดดาวน์โหลดแล้วแนบไฟล์ใน LINE") }catch(e){if(String(e?.name||"")!=="AbortError")alert("ส่ง LINE ไม่สำเร็จ: "+(e.message||e))}}
 
     async function qcSearchApi(action, payload = {}) {
       const accessToken = await getLineAccessToken();
@@ -3185,5 +3213,18 @@
     }
 </script>
   <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.4</div>
+
+<div class="money-report-modal" id="moneyReportModal">
+  <div class="money-report-card">
+    <div class="money-report-head"><div><h3 id="moneyReportTitle">สรุปรายงาน</h3><div id="moneyReportSubtitle" style="font-size:12px;color:#806e94;margin-top:4px"></div></div><button class="money-report-btn" onclick="closeMoneyReport()">✕</button></div>
+    <div class="money-report-grid">
+      <div class="money-report-field"><label>รูปแบบไฟล์</label><select id="moneyReportFormat" onchange="refreshMoneyReportPreview()"><option value="PDF">PDF / พิมพ์รายงาน</option><option value="CSV">Excel (CSV)</option></select></div>
+      <div class="money-report-field"><label>ขอบเขตรายงาน</label><select id="moneyReportScope" onchange="refreshMoneyReportPreview()"><option value="CURRENT">รายการที่กำลังแสดง</option><option value="ALL">ข้อมูลทั้งหมดที่โหลดแล้ว</option></select></div>
+    </div>
+    <div class="money-report-preview" id="moneyReportPreview"></div>
+    <div class="money-report-actions"><button class="money-report-btn primary" onclick="createMoneyReport()">สร้างรายงาน</button><button class="money-report-btn" onclick="shareMoneyReportToLine()">ส่ง LINE</button><button class="money-report-btn" onclick="downloadMoneyReport()">ดาวน์โหลด</button></div>
+    <div class="money-report-note">บนมือถือ ปุ่มส่ง LINE จะใช้ระบบ Share ของเครื่องและเลือก LINE ได้โดยตรงเมื่อเบราว์เซอร์รองรับการแชร์ไฟล์ ส่วน PDF ใช้หน้าพิมพ์ของเบราว์เซอร์เพื่อบันทึกเป็น PDF ได้</div>
+  </div>
+</div>
 </body>
 </html>
