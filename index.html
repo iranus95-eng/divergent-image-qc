@@ -1887,7 +1887,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V48_USER_MANAGEMENT_FAST";
+    const PAYROLL_UI_BUILD = "V51_PAYROLL_LOADER_RESILIENT";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -2033,12 +2033,30 @@
       try{if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn())return await getLineAccessToken();}catch(_){ }
       return "";
     }
-    async function webListApi(action,payload={}){
-      const token=await getBestDataToken();
+    async function fetchJsonWithTimeout(url,options={},timeoutMs=8000){
+      const ctl=new AbortController();
+      const timer=setTimeout(()=>ctl.abort(),timeoutMs);
+      try{return await fetch(url,{...options,signal:ctl.signal});}
+      catch(e){if(e?.name==="AbortError")throw new Error("REQUEST_TIMEOUT");throw e;}
+      finally{clearTimeout(timer);}
+    }
+    async function webListApiWithToken(token,action,payload={},timeoutMs=8000){
       if(!token)throw new Error("AUTH_REQUIRED");
-      const r=await fetch(WEB_LIST_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
+      const r=await fetchJsonWithTimeout(WEB_LIST_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})},timeoutMs);
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){throw new Error("WEB_LIST_INVALID_RESPONSE")}
       if(!r.ok)throw new Error(d.error||("HTTP "+r.status));return d;
+    }
+    async function webListApi(action,payload={}){
+      const tried=new Set(); const errors=[];
+      const session=getFallbackSessionToken();
+      if(session){tried.add(session);try{return await webListApiWithToken(session,action,payload,5500)}catch(e){errors.push(e);}}
+      try{
+        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
+          const line=await getLineAccessToken();
+          if(line&&!tried.has(line)){tried.add(line);try{return await webListApiWithToken(line,action,payload,7500)}catch(e){errors.push(e);}}
+        }
+      }catch(e){errors.push(e);}
+      throw errors[errors.length-1]||new Error("AUTH_REQUIRED");
     }
     async function fetchMenuAccessWithToken(token){
       if(!token)return null;
@@ -2085,7 +2103,9 @@
         if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;}
         window.fallbackAuthMode=j?.auth_mode||"line";
         try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser,at:Date.now()}))}catch(_){ }
-        applyMenuAccess();return true;
+        applyMenuAccess();
+        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
+        return true;
       }catch(e){console.warn("menu access",e);applyMenuAccess();return false;}
     }
     function requireMenuAccess(key,label){if(menuAccess[key])return true;if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password ในระบบสำรองเพื่อยืนยันและซ่อมการเชื่อม LINE`);return false;}alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);return false;}
@@ -2602,17 +2622,30 @@
     }
     async function loadPayrollEmployees(force=false){
       const st=document.getElementById("payrollStatus");
-      if(!payrollEmployees.length&&!force)usePayrollCache();
-      if(st)st.textContent=payrollEmployees.length?"กำลังอัปเดตข้อมูลล่าสุดเบื้องหลัง...":"กำลังโหลดข้อมูลเงินเดือน...";
-      const d=await payrollListApi();
-      payrollEmployees=(d.employees||[]).slice().sort((a,b)=>{
-        const ra=Number(a.source_row||999999), rb=Number(b.source_row||999999);
-        if(ra!==rb) return ra-rb;
-        return String(a.employee_name||"").localeCompare(String(b.employee_name||""),"th");
-      });
-      payrollCanManage=!!d.can_manage; payrollPage=1; writePayrollCache({...d,employees:payrollEmployees});
-      filterPayrollEmployees();
-      if(st)st.textContent=`พร้อมใช้งาน • ${payrollEmployees.length} รายการ • อัปเดตล่าสุด ${new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})}`;
+      const body=document.getElementById("payrollBody");
+      if(!payrollEmployees.length)usePayrollCache();
+      if(payrollEmployees.length){filterPayrollEmployees();if(st)st.textContent=force?"กำลังรีเฟรชข้อมูลล่าสุด...":"แสดงข้อมูลล่าสุดที่บันทึกไว้ • กำลังตรวจสอบข้อมูลใหม่เบื้องหลัง...";}
+      else{if(body)body.innerHTML='<tr><td colspan="9" style="padding:18px;text-align:center">กำลังโหลดข้อมูลเงินเดือน... <span style="color:#7a5a96">หากเกิน 8 วินาทีระบบจะลองเชื่อมต่อสำรองอัตโนมัติ</span></td></tr>';if(st)st.textContent="กำลังเชื่อมต่อฐานข้อมูลเงินเดือน...";}
+      try{
+        const d=await payrollListApi();
+        payrollEmployees=(d.employees||[]).slice().sort((a,b)=>{
+          const ra=Number(a.source_row||999999), rb=Number(b.source_row||999999);
+          if(ra!==rb)return ra-rb;
+          return String(a.employee_name||"").localeCompare(String(b.employee_name||""),"th");
+        });
+        payrollCanManage=!!d.can_manage; payrollPage=1; writePayrollCache({...d,employees:payrollEmployees});
+        filterPayrollEmployees();
+        if(st)st.textContent=`พร้อมใช้งาน • ${payrollEmployees.length} รายการ • อัปเดตล่าสุด ${new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;
+        return true;
+      }catch(e){
+        console.warn("payroll load",e);
+        if(payrollEmployees.length){filterPayrollEmployees();if(st)st.innerHTML=`ใช้ข้อมูลสำรองในเครื่อง ${payrollEmployees.length} รายการ • เชื่อมต่อข้อมูลล่าสุดไม่สำเร็จ <button class="payroll-edit" onclick="loadPayrollEmployees(true)" style="margin-left:8px">ลองใหม่</button>`;}
+        else{
+          if(body)body.innerHTML='<tr><td colspan="9" style="padding:22px;text-align:center;color:#a33"><b>โหลดข้อมูลเงินเดือนไม่สำเร็จ</b><br><span style="font-size:12px;color:#775">ระบบหยุดรอแล้วเพื่อไม่ให้หน้าค้าง</span><br><button class="payroll-edit" onclick="loadPayrollEmployees(true)" style="margin-top:10px">ลองโหลดใหม่</button></td></tr>';
+          if(st)st.textContent=`เชื่อมต่อไม่สำเร็จ: ${e?.message||e}`;
+        }
+        return false;
+      }
     }
     function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
     function formatNationalId(v){
@@ -5678,7 +5711,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.7</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.8</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
