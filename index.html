@@ -1876,20 +1876,29 @@
     let menuAccessConfirmed=false;
     function hasAnyMenuAccess(a){return !!(a&&(a.qc||a.claim||a.claim_pending||a.payroll||a.staff_expense||a.user_management||a.invoice||a.billing));}
     const MENU_ACCESS_KEYS=["qc","claim","claim_pending","staff_payroll","payroll","staff_expense","user_management","invoice","billing"];
+    let authoritativeMenuAccess=null;
+    let authoritativeAuthMode="";
     function normalizeMenuAccess(access){
       const clean={};
       for(const k of MENU_ACCESS_KEYS) clean[k]=access?.[k]===true;
       return clean;
     }
+    function effectiveMenuAccess(){
+      return authoritativeMenuAccess||normalizeMenuAccess(menuAccess);
+    }
     function commitMenuAccess(access,user,authMode){
       if(!access||typeof access!=="object") return false;
-      // CLEAN REBUILD: permission is a snapshot from the authenticated account, never a merge.
-      menuAccess=normalizeMenuAccess(access);
+      // V3: a valid employee session owns the entire sidebar until logout/expiry.
+      if(authoritativeAuthMode==="session" && authMode==="line" && getFallbackSessionToken()) return false;
+      const clean=normalizeMenuAccess(access);
+      menuAccess={...clean};
+      authoritativeMenuAccess=Object.freeze({...clean});
+      authoritativeAuthMode=authMode||authoritativeAuthMode||"";
       if(user) window.currentMenuUser=user;
       if(authMode) window.fallbackAuthMode=authMode;
       menuLineLinked=authMode==="line";
       menuAccessConfirmed=true;
-      try{localStorage.setItem("divergent_menu_access_cache_v2",JSON.stringify({access:menuAccess,user:window.currentMenuUser||null,auth_mode:authMode||window.fallbackAuthMode||"",at:Date.now()}))}catch(_){ }
+      try{localStorage.setItem("divergent_menu_access_cache_v3",JSON.stringify({access:clean,user:window.currentMenuUser||null,auth_mode:authoritativeAuthMode,at:Date.now()}))}catch(_){ }
       applyMenuAccess();
       return true;
     }
@@ -1907,7 +1916,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "CLEAN_V2_1_SESSION_AUTHORITATIVE";
+    const PAYROLL_UI_BUILD = "SIDEBAR_V3_IMMUTABLE_SESSION";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -1963,7 +1972,7 @@
     function switchWorkspace(name) {
       if(name==="qc" && !requireMenuAccess("qc","เมนูตรวจสอบงาน")) return;
       if((name==="search"||name==="location") && !requireMenuAccess("qc","เมนูค้นหาข้อมูล")) return;
-      if(name==="users" && !menuAccess.user_management && !(currentUserManagementPermissions?.can_access_user_management)){
+      if(name==="users" && !effectiveMenuAccess().user_management && !(currentUserManagementPermissions?.can_access_user_management)){
         if(!requireMenuAccess("user_management","เมนูจัดการผู้ใช้งาน")) return;
       }
       const home=document.getElementById("homeWorkspace");
@@ -1993,18 +2002,25 @@
 
 
 
-    function setMenuVisible(id,show){const el=document.getElementById(id);if(el)el.style.display=show?"flex":"none";}
+    function setMenuVisible(id,show){
+      const el=document.getElementById(id);
+      if(!el)return;
+      el.style.display=show?"flex":"none";
+      el.setAttribute("aria-hidden",show?"false":"true");
+    }
     function applyMenuAccess(){
-      setMenuVisible("navClaim",!!menuAccess.claim);
-      setMenuVisible("navClaimPending",!!menuAccess.claim_pending);
+      const a=effectiveMenuAccess();
+      setMenuVisible("navHome",true);
+      setMenuVisible("navClaim",!!a.claim);
+      setMenuVisible("navClaimPending",!!a.claim_pending);
       setMenuVisible("navStaffPayroll",false);
-      setMenuVisible("navPayroll",!!menuAccess.payroll);
-      setMenuVisible("navStaffExpense",!!menuAccess.staff_expense);
-      setMenuVisible("navQc",!!menuAccess.qc);
-      setMenuVisible("navSearch",!!menuAccess.qc);
-      setMenuVisible("navUsers",!!menuAccess.user_management);
-      setMenuVisible("navInvoice",!!menuAccess.invoice);
-      setMenuVisible("navBilling",!!menuAccess.billing);
+      setMenuVisible("navPayroll",!!a.payroll);
+      setMenuVisible("navStaffExpense",!!a.staff_expense);
+      setMenuVisible("navQc",!!a.qc);
+      setMenuVisible("navSearch",!!a.qc);
+      setMenuVisible("navUsers",!!a.user_management);
+      setMenuVisible("navInvoice",!!a.invoice);
+      setMenuVisible("navBilling",!!a.billing);
     }
     function showAccountLinkRequired(message){
       switchWorkspace("home");
@@ -2032,7 +2048,7 @@
       try{if(presenceTimer){clearInterval(presenceTimer);presenceTimer=null;}}catch(_){ }
       try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }
       try{localStorage.removeItem("divergent_web_session_user")}catch(_){ }
-      try{localStorage.removeItem("divergent_menu_access_cache_v2")}catch(_){ }
+      try{localStorage.removeItem("divergent_menu_access_cache_v2");localStorage.removeItem("divergent_menu_access_cache_v3");authoritativeMenuAccess=null;authoritativeAuthMode="";}catch(_){ }
       try{localStorage.removeItem(USER_ADMIN_CACHE_KEY)}catch(_){ }
       try{localStorage.removeItem(PAYROLL_CACHE_KEY)}catch(_){ }
       try{sessionStorage.removeItem("divergent_line_auto_login_attempted")}catch(_){ }
@@ -2085,49 +2101,52 @@
       return {r,j};
     }
     async function refreshAllMenuAccess(){
-      // CLEAN REBUILD: an explicit Username/Password session is authoritative.
-      // LINE is consulted only when there is no valid web session.
       const sessionToken=getFallbackSessionToken();
       if(sessionToken){
         try{
           const sr=await fetchMenuAccessWithToken(sessionToken);
           if(sr?.r?.ok && sr?.j?.access){
             commitMenuAccess(sr.j.access,sr.j.user,"session");
-            if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
+            if(effectiveMenuAccess().payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
             return true;
           }
-          if(sr && !sr.r.ok && ["AUTH_INVALID","AUTH_REQUIRED"].includes(sr.j?.error)){
+          if(sr && !sr.r.ok && ["AUTH_INVALID","AUTH_REQUIRED","USER_DISABLED","USER_EXPIRED"].includes(sr.j?.error)){
             try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }
-          }else if(sr && !sr.r.ok){
+            authoritativeMenuAccess=null; authoritativeAuthMode="";
+          }else{
+            // Network/server failures must never collapse an already-confirmed session sidebar.
+            applyMenuAccess();
             return false;
           }
-        }catch(e){console.warn("menu session check",e);return false;}
+        }catch(e){console.warn("session permission refresh",e);applyMenuAccess();return false;}
       }
-
       try{
         if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
           const lineToken=await getLineAccessToken();
           if(lineToken){
             const lr=await fetchMenuAccessWithToken(lineToken);
-            if(lr?.r?.ok && lr?.j?.access){
-              commitMenuAccess(lr.j.access,lr.j.user,"line");
-              if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
-              return true;
-            }
+            if(lr?.r?.ok && lr?.j?.access){commitMenuAccess(lr.j.access,lr.j.user,"line");return true;}
             if(lr?.j?.error==="LINE_NOT_LINKED"){menuLineLinked=false;showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาใช้ Username / Password เพื่อเข้าสู่ระบบ");}
           }
         }
-      }catch(e){console.warn("menu LINE check",e);}
+      }catch(e){console.warn("LINE permission refresh",e);}
+      applyMenuAccess();
       return false;
     }
-    function requireMenuAccess(key,label){if(menuAccess[key])return true;if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password ในระบบสำรองเพื่อยืนยันและซ่อมการเชื่อม LINE`);return false;}alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);return false;}
+    function requireMenuAccess(key,label){
+      const a=effectiveMenuAccess();
+      if(a[key])return true;
+      if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password`);return false;}
+      alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);
+      return false;
+    }
 
     async function billingPermissionApi(action,payload={}){
       const token=await getLineAccessTokenForApi();
       const r=await fetch(BILLING_ACCESS_API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({action,...payload})});
       const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||"BILLING_API_ERROR"); return j;
     }
-    async function refreshBillingAccess(){billingAccess=!!menuAccess.billing;applyMenuAccess();return billingAccess;}
+    async function refreshBillingAccess(){billingAccess=!!effectiveMenuAccess().billing;applyMenuAccess();return billingAccess;}
     async function openBillingManagement(){
       if(!menuAccess.billing){await refreshAllMenuAccess();}
       if(!requireMenuAccess("billing","เมนูจัดทำใบวางบิล"))return;
@@ -2165,7 +2184,7 @@
     function thaiBahtText(n){n=Math.round((Number(n)||0)*100)/100;const nums=["ศูนย์","หนึ่ง","สอง","สาม","สี่","ห้า","หก","เจ็ด","แปด","เก้า"],units=["","สิบ","ร้อย","พัน","หมื่น","แสน","ล้าน"];function readInt(x){x=Math.floor(x);if(x===0)return"";if(x>=1000000)return readInt(Math.floor(x/1000000))+"ล้าน"+readInt(x%1000000);let s="",ds=String(x),L=ds.length;for(let i=0;i<L;i++){let d=Number(ds[i]),p=L-i-1;if(!d)continue;if(p===1){if(d===1)s+="สิบ";else if(d===2)s+="ยี่สิบ";else s+=nums[d]+"สิบ"}else if(p===0&&d===1&&L>1)s+="เอ็ด";else s+=nums[d]+units[p]}return s}const baht=Math.floor(n),sat=Math.round((n-baht)*100);let t=(baht?readInt(baht):"ศูนย์")+"บาท";return t+(sat?readInt(sat)+"สตางค์":"ถ้วน")}
     function renderInvoicePreview(){const c=invoiceCustomers()[Number(document.getElementById("invCustomer")?.value||0)]||invoiceDefaultCustomers()[0];const no=document.getElementById("invNo")?.value||"",dt=document.getElementById("invDateText")?.value||"",tax=document.getElementById("invTaxId")?.value||"",addr=document.getElementById("invAddress")?.value||"";const bm=document.getElementById("invBillMonth")?.value||"",sd=invoiceThaiDateShort(document.getElementById("invStartDate")?.value),ed=invoiceThaiDateShort(document.getElementById("invEndDate")?.value),month=invoiceThaiMonth(bm);document.getElementById("pInvNo").textContent=no;document.getElementById("pInvDate").textContent=dt;document.getElementById("pInvCustomer").textContent=c.name;document.getElementById("pInvTax").textContent=tax;document.getElementById("pInvAddress").textContent=addr;let sub=0;document.getElementById("pInvItems").innerHTML=invoiceItems.map((r,i)=>{const amt=Number(r.qty||0)*Number(r.price||0);sub+=amt;const desc=`ค่าจ้างจัดพิมพ์ใบแจ้งเตือนและส่งใบแจ้งเตือนค่าไฟฟ้า<br>รอบบิลเดือน${month} (${sd} - ${ed}) ${escapeHtml(r.area)}`;return `<tr><td class="center">${i+1}</td><td>${desc}</td><td class="num">${Number(r.qty||0).toLocaleString("th-TH")}</td><td class="num">${invoiceMoney(r.price)}</td><td class="num">${invoiceMoney(amt)}</td></tr>`}).join("");const vat=sub*.07,grand=sub+vat;document.getElementById("pInvSubtotal").textContent=invoiceMoney(sub);document.getElementById("pInvVat").textContent=invoiceMoney(vat);document.getElementById("pInvGrand").textContent=invoiceMoney(grand);document.getElementById("pInvBaht").textContent="("+thaiBahtText(grand)+")";document.getElementById("invFormTotals").innerHTML=`รวมราคาสินค้า <b>${invoiceMoney(sub)}</b> บาท<br>ภาษีมูลค่าเพิ่ม 7% <b>${invoiceMoney(vat)}</b> บาท<br>จำนวนเงินรวมทั้งสิ้น <b>${invoiceMoney(grand)}</b> บาท<br><b>${thaiBahtText(grand)}</b>`}
     async function refreshInvoiceMenuAccess(){
-      window.invoiceAccessAllowed=!!menuAccess.invoice;
+      window.invoiceAccessAllowed=!!effectiveMenuAccess().invoice;
       applyMenuAccess();
       return window.invoiceAccessAllowed;
     }
@@ -3510,7 +3529,7 @@
 
     async function initLiff() {
       const status = document.getElementById("lineUserStatus");
-      try{const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache_v2")||"null");const hasSession=!!getFallbackSessionToken();if(c?.access&&((hasSession&&c.auth_mode==="session")||(!hasSession&&c.auth_mode==="line"))){menuAccess=normalizeMenuAccess(c.access);window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }
+      try{localStorage.removeItem("divergent_menu_access_cache_v2");const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache_v3")||"null");const hasSession=!!getFallbackSessionToken();if(c?.access&&((hasSession&&c.auth_mode==="session")||(!hasSession&&c.auth_mode==="line"))){menuAccess=normalizeMenuAccess(c.access);authoritativeMenuAccess=Object.freeze({...menuAccess});authoritativeAuthMode=c.auth_mode||"";window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }
 
       try {
         status.textContent = "กำลังเชื่อมต่อ LINE...";
@@ -3607,10 +3626,7 @@
     }
 
 
-    function showClaimPendingNav(show){
-      const nav=document.getElementById("navClaimPending");
-      if(nav)nav.style.display=show?"":"none";
-    }
+    function showClaimPendingNav(show){ applyMenuAccess(); }
 
     function setQcEnabled(enabled) {
       document.getElementById("siteSelect").disabled = !enabled;
@@ -5735,7 +5751,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.1.1 SESSION</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.2.0 SIDEBAR REBUILD</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
