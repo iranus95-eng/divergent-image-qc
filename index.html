@@ -1177,7 +1177,7 @@
           <div style="font-size:12px;color:#756585;margin-bottom:10px">กรอก Username / Password ที่ผู้ดูแลสร้างไว้ ระบบจะผูก LINE นี้กับบัญชีพนักงานให้อัตโนมัติ</div>
           <input id="employeeBindUsername" type="text" maxlength="60" placeholder="Username" autocomplete="username" style="margin-bottom:8px" />
           <input id="employeeBindPassword" type="password" maxlength="120" placeholder="Password" autocomplete="current-password" style="margin-bottom:8px" />
-          <button id="employeeBindButton" onclick="bindEmployeeAccount()" style="width:100%">เข้าสู่ระบบสำรอง / ซ่อมการเชื่อม LINE</button>
+          <button id="employeeBindButton" onclick="bindEmployeeAccount()" style="width:100%">เข้าสู่ระบบสำรอง / ซ่อม LINE</button>
           <div id="employeeBindResult" class="registration-result" style="margin-top:8px"></div>
         </div>
 
@@ -1958,11 +1958,25 @@
         if((!result||!result.r.ok) && window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
           try{const lineToken=await getLineAccessToken();result=await fetchMenuAccessWithToken(lineToken)}catch(_){ }
         }
-        if(!result){applyMenuAccess();return false;}
+        if(!result){
+          applyMenuAccess();
+          return false;
+        }
         const {r,j}=result;
         if(!r.ok){
-          if(j?.error==="LINE_NOT_LINKED"){menuLineLinked=false;applyMenuAccess();return false;}
-          if(j?.error==="AUTH_INVALID"||j?.error==="AUTH_REQUIRED"){try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }applyMenuAccess();return false;}
+          if(j?.error==="LINE_NOT_LINKED"){
+            // Keep the last known menu state visible instead of making the sidebar disappear.
+            // The user can immediately use Username/Password fallback to repair the account link.
+            menuLineLinked=false;
+            applyMenuAccess();
+            setTimeout(()=>showAccountLinkRequired("ตรวจพบว่า LINE ยังไม่ได้ผูกกับบัญชีพนักงานนี้ กรุณาเข้าสู่ระบบสำรองด้วย Username / Password หนึ่งครั้ง ระบบจะซ่อมการเชื่อม LINE ให้อัตโนมัติ"),80);
+            return false;
+          }
+          if(j?.error==="AUTH_INVALID"||j?.error==="AUTH_REQUIRED"){
+            try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }
+            applyMenuAccess();
+            return false;
+          }
           throw new Error(j?.error||"MENU_ACCESS_ERROR");
         }
         menuLineLinked=j?.auth_mode==="line";menuAccess={...menuAccess,...(j.access||{})};window.currentMenuUser=j?.user||null;
@@ -3606,8 +3620,14 @@
           const map={INVALID_CREDENTIALS:"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",USER_DISABLED:"บัญชีถูกระงับ",USER_EXPIRED:"บัญชีหมดอายุ",CREDENTIALS_REQUIRED:"กรอก Username และ Password ให้ครบ"};
           throw new Error(map[data?.error]||data?.detail||data?.error||("HTTP "+response.status));
         }
-        if(data?.session_token){localStorage.setItem(FALLBACK_SESSION_KEY,data.session_token);localStorage.setItem("divergent_web_session_user",JSON.stringify(data.user||{}));}
+        if(data?.session_token){
+          localStorage.setItem(FALLBACK_SESSION_KEY,data.session_token);
+          localStorage.setItem("divergent_web_session_user",JSON.stringify(data.user||{}));
+        }
         menuAccess={...menuAccess,...(data.access||{})};
+        // Persist permission state immediately so the sidebar does not collapse during LINE repair.
+        try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:data.user||window.currentMenuUser||null,at:Date.now()}))}catch(_){ }
+        applyMenuAccess();
         if(data?.line_status==="linked"){
           menuLineLinked=true;
           if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}
@@ -3627,7 +3647,7 @@
         else switchWorkspace("home");
       }catch(e){
         if(result){result.classList.add("registration-rejected");result.textContent="เข้าสู่ระบบไม่สำเร็จ: "+(e.message||e);}
-      }finally{if(btn){btn.disabled=false;btn.textContent="เข้าสู่ระบบสำรอง / ซ่อมการเชื่อม LINE";}}
+      }finally{if(btn){btn.disabled=false;btn.textContent="เข้าสู่ระบบสำรอง / ซ่อม LINE";}}
     }
 
     async function submitQcRegistration() {
@@ -5535,7 +5555,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.1</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.2</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
