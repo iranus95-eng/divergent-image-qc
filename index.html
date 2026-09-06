@@ -579,6 +579,17 @@
     .kbank-close{border:0;background:#f3eef7;border-radius:12px;padding:9px 13px;cursor:pointer;font-weight:800}
     @media(max-width:760px){.kbank-kpis{grid-template-columns:repeat(2,1fr)}}
 
+
+    .kbank-setup{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:12px;margin:0 0 16px}
+    .kbank-field{display:flex;flex-direction:column;gap:6px}
+    .kbank-field label{font-size:13px;font-weight:800;color:#4a2b67}
+    .kbank-field input{border:1px solid #ded5e8;border-radius:12px;padding:11px 12px;font-size:14px;outline:none}
+    .kbank-field input:focus{border-color:#8d63b3;box-shadow:0 0 0 3px rgba(141,99,179,.12)}
+    .kbank-status{display:none;margin:-3px 0 15px;padding:10px 12px;border-radius:12px;font-size:13px}
+    .kbank-status.ok{display:block;background:#eef9f3;color:#137347}
+    .kbank-status.bad{display:block;background:#fff0f0;color:#b3261e}
+    @media(max-width:760px){.kbank-setup{grid-template-columns:1fr}}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -1115,8 +1126,11 @@
     <section class="payroll-workspace" id="payrollWorkspace">
       <div class="payroll-head">
         <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • บัญชีธนาคาร • พื้นที่/เรต • ค่าตอบแทนพิเศษ • เรียงตามไซด์งาน</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="money-report-btn" onclick="openMoneyReport('payroll')"
-          <button class="payroll-btn payroll-btn-secondary" onclick="openKBankPayroll()">🏦 เตรียมไฟล์ KBank</button>>📄 สรุปรายงาน</button><button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="money-report-btn" onclick="openMoneyReport('payroll')">📄 สรุปรายงาน</button>
+          <button class="payroll-btn payroll-btn-secondary" onclick="openKBankPayroll()">🏦 เตรียมไฟล์ KBank</button>
+          <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
+        </div>
       </div>
       <div class="payroll-kpis">
         <div class="payroll-kpi"><span>รายการเดือนล่าสุดที่แสดง</span><b id="payrollCount">0</b></div>
@@ -1255,6 +1269,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
+    const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const PAYROLL_NATIONAL_ID_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-national-id-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     let payrollEmployees=[]; let payrollCanManage=false;
@@ -1591,6 +1606,19 @@
       const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PAYROLL_INVALID_RESPONSE")}
       if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d;
     }
+    async function payrollListApi(){
+      const accessToken=await getLineAccessToken();
+      const r=await fetch(PAYROLL_LIST_API_URL,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
+        body:JSON.stringify({})
+      });
+      const t=await r.text(); let d={};
+      try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PAYROLL_LIST_INVALID_RESPONSE")}
+      if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+      return d;
+    }
+
     async function savePayrollNationalId(id,nationalId){
       const accessToken=await getLineAccessToken();
       const r=await fetch(PAYROLL_NATIONAL_ID_API_URL,{
@@ -1640,7 +1668,7 @@
     async function loadPayrollEmployees(){
       const st=document.getElementById("payrollStatus"); st.textContent="กำลังโหลดข้อมูล...";
       try{
-        const d=await payrollApi("list_employees",{active_only:false});
+        const d=await payrollListApi();
         payrollEmployees=(d.employees||[]).slice().sort((a,b)=>{
           const ra=Number(a.source_row||999999), rb=Number(b.source_row||999999);
           if(ra!==rb) return ra-rb;
@@ -1648,7 +1676,7 @@
         });
         payrollCanManage=!!d.can_manage;
         filterPayrollEmployees();
-        st.textContent=`โหลดข้อมูลเดือนล่าสุด ${payrollEmployees.length} รายการแล้ว`;
+        st.textContent=`โหลดข้อมูลเดือนล่าสุด ${payrollEmployees.length} รายการแล้ว • เลขบัตรครบ ${payrollEmployees.filter(x=>String(x.national_id||"").replace(/\D/g,"").length===13).length} รายการ`;
       }catch(e){st.textContent="โหลดไม่สำเร็จ: "+e.message}
     }
     function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
@@ -1818,8 +1846,25 @@
         <div class="kbank-kpi">พนักงานทั้งหมด<b id="kbTotal">0</b></div>
         <div class="kbank-kpi">พร้อมส่งธนาคาร<b id="kbReady">0</b></div>
         <div class="kbank-kpi">ข้อมูลไม่ครบ<b id="kbInvalid">0</b></div>
-        <div class="kbank-kpi">ยอดที่ระบุ<b id="kbAmount">0.00</b></div>
+        <div class="kbank-kpi">ยอดที่ระบุ<b id="kbAmount">—</b></div>
       </div>
+
+      <div class="kbank-setup">
+        <div class="kbank-field">
+          <label>เลขบัญชีผู้จ่าย</label>
+          <input id="kbPayerAccount" inputmode="numeric" placeholder="เลขบัญชีบริษัท">
+        </div>
+        <div class="kbank-field">
+          <label>วันที่ทำรายการ (YYMMDD)</label>
+          <input id="kbTxnDate" inputmode="numeric" maxlength="6" placeholder="เช่น 260906">
+        </div>
+        <div class="kbank-field">
+          <label>วันที่จ่าย (YYMMDD)</label>
+          <input id="kbPayDate" inputmode="numeric" maxlength="6" placeholder="เช่น 260907">
+        </div>
+      </div>
+
+      <div id="kbSetupStatus" class="kbank-status"></div>
 
       <div style="overflow:auto;max-height:430px;border:1px solid #eee;border-radius:14px">
         <table class="kbank-checks">
@@ -1834,12 +1879,13 @@
 
       <div class="kbank-actions">
         <button class="payroll-btn" onclick="exportKBankPrecheck()">⬇ ดาวน์โหลดรายการตรวจสอบ</button>
-        <button class="payroll-btn payroll-btn-secondary" id="kbankPctBtn" onclick="showKBankPCTRequirement()">สร้าง PCT .TXT</button>
+        <button class="payroll-btn payroll-btn-secondary" onclick="saveKBankSetup()">💾 บันทึกค่าตั้งต้น</button>
+        <button class="payroll-btn payroll-btn-secondary" onclick="exportKBankDraftTxt()">🧪 สร้าง TXT ทดลอง</button>
       </div>
 
       <div class="kbank-note">
-        ระบบตรวจข้อมูลให้พร้อมแล้ว แต่ยังไม่สร้างไฟล์ PCT แบบเดาเอง เพราะโครงสร้าง Text File ต้องตรงกับรูปแบบที่ KBank กำหนดให้บริษัทของคุณ
-        เมื่อมีตัวอย่าง PCT ที่เคยอัปโหลดผ่านธนาคารได้ 1 ไฟล์ เราจะเชื่อมตัวสร้าง .TXT ให้กดครั้งเดียวได้ทันที
+        ช่องด้านบนอ้างอิงจากขั้นตอนของรายงาน KBank Payroll รหัส 22101 ที่ให้ระบุ “เลขบัญชีผู้จ่าย”, “วันที่ทำรายการ” และ “วันที่จ่าย”
+        ไฟล์ TXT ที่ปุ่มทดลองสร้างเป็นไฟล์ตรวจสอบข้อมูลภายในเท่านั้น ยังไม่ควรนำไปอัปโหลดธนาคาร จนกว่าจะยืนยัน layout ของ PCT - KBANK PAYROLL ได้ครบถ้วน
       </div>
     </div>
   </div>
@@ -3392,6 +3438,8 @@
       document.getElementById("kbInvalid").textContent=(rows.length-ready).toLocaleString("th-TH");
       document.getElementById("kbAmount").textContent="—";
       document.getElementById("kbankPayrollOverlay").classList.add("show");
+      loadKBankSetup();
+      validateKBankSetup(false);
     }
     function closeKBankPayroll(){document.getElementById("kbankPayrollOverlay").classList.remove("show")}
     function exportKBankPrecheck(){
@@ -3408,8 +3456,81 @@
       a.download=`KBank_Payroll_Precheck_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.csv`;
       document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }
-    function showKBankPCTRequirement(){
-      alert("ขั้นตอนต่อไปต้องใช้ตัวอย่างไฟล์ PCT - KBANK PAYROLL ของบริษัทที่เคยอัปโหลดผ่าน K CASH CONNECT PLUS ได้จริง 1 ไฟล์ เพื่อกำหนด Header / Detail / Trailer และตำแหน่งข้อมูลให้ตรงกับบัญชีบริษัทโดยไม่เดา");
+    function kbValidYYMMDD(v){
+      v=kbankDigits(v);
+      if(v.length!==6) return false;
+      const yy=Number(v.slice(0,2)), mm=Number(v.slice(2,4)), dd=Number(v.slice(4,6));
+      if(mm<1||mm>12||dd<1||dd>31) return false;
+      const year=2000+yy;
+      const d=new Date(year,mm-1,dd);
+      return d.getFullYear()===year && d.getMonth()===mm-1 && d.getDate()===dd;
+    }
+    function kbTodayYYMMDD(offsetDays=0){
+      const d=new Date(); d.setDate(d.getDate()+offsetDays);
+      return String(d.getFullYear()).slice(-2)+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
+    }
+    function loadKBankSetup(){
+      const raw=localStorage.getItem("divergent_kbank_setup");
+      let s={};
+      try{s=raw?JSON.parse(raw):{}}catch(_){}
+      document.getElementById("kbPayerAccount").value=s.payer_account||"";
+      document.getElementById("kbTxnDate").value=s.transaction_date||kbTodayYYMMDD(0);
+      document.getElementById("kbPayDate").value=s.pay_date||kbTodayYYMMDD(1);
+    }
+    function validateKBankSetup(show=true){
+      const payer=kbankDigits(document.getElementById("kbPayerAccount").value);
+      const txn=kbankDigits(document.getElementById("kbTxnDate").value);
+      const pay=kbankDigits(document.getElementById("kbPayDate").value);
+      const err=[];
+      if(payer.length<9) err.push("เลขบัญชีผู้จ่ายไม่ครบ");
+      if(!kbValidYYMMDD(txn)) err.push("วันที่ทำรายการไม่ถูกต้อง");
+      if(!kbValidYYMMDD(pay)) err.push("วันที่จ่ายไม่ถูกต้อง");
+      const box=document.getElementById("kbSetupStatus");
+      if(show){
+        box.className="kbank-status "+(err.length?"bad":"ok");
+        box.textContent=err.length?("⚠ "+err.join(" • ")):"✓ ข้อมูลตั้งต้นพร้อม";
+      }
+      return {ok:err.length===0,payer,txn,pay,errors:err};
+    }
+    function saveKBankSetup(){
+      const s=validateKBankSetup(true); if(!s.ok) return;
+      localStorage.setItem("divergent_kbank_setup",JSON.stringify({
+        payer_account:s.payer,transaction_date:s.txn,pay_date:s.pay
+      }));
+      const box=document.getElementById("kbSetupStatus");
+      box.className="kbank-status ok"; box.textContent="✓ บันทึกค่าตั้งต้นในอุปกรณ์นี้แล้ว";
+    }
+    function exportKBankDraftTxt(){
+      const s=validateKBankSetup(true); if(!s.ok) return;
+      const rows=(payrollEmployees||[]).filter(x=>x.is_active!==false).slice()
+        .sort((a,b)=>Number(a.source_row||999999)-Number(b.source_row||999999));
+      const bad=rows.filter(e=>!kbankRowStatus(e).ok);
+      if(bad.length){
+        alert(`ยังมีข้อมูลพนักงานไม่ครบ ${bad.length} รายการ กรุณาแก้ให้พร้อมก่อน`);
+        return;
+      }
+      // Diagnostic/interchange draft only. This is intentionally NOT a bank PCT layout.
+      const out=[];
+      out.push(["DRAFT","KBANK_PAYROLL_PREP","PAYER",s.payer,"TXN",s.txn,"PAY",s.pay].join("|"));
+      for(const e of rows){
+        const st=kbankRowStatus(e);
+        out.push([
+          "DETAIL",
+          e.source_row||"",
+          String(e.employee_name||"").replace(/\|/g," "),
+          st.nid,
+          String(e.bank_name||"").replace(/\|/g," "),
+          st.acct
+        ].join("|"));
+      }
+      out.push(["TRAILER","COUNT",rows.length].join("|"));
+      const blob=new Blob(["\ufeff"+out.join("\r\n")],{type:"text/plain;charset=utf-8"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=`DRAFT_KBank_Payroll_${s.txn}_${Date.now()}.txt`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+      alert("สร้าง TXT ทดลองแล้ว ไฟล์นี้ใช้ตรวจสอบข้อมูลเท่านั้น ยังไม่ใช่ PCT สำหรับอัปโหลด KBank");
     }
 
 </script>
