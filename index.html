@@ -615,6 +615,21 @@
     .pnl-note{font-size:12px;color:#83758f;margin-top:8px}
     @media(max-width:1000px){.pnl-grid{grid-template-columns:repeat(2,1fr)}.pnl-layout{grid-template-columns:1fr}.pnl-cost-row{grid-template-columns:1fr 130px}}
 
+
+    .staffpay-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+    .staffpay-kpi{background:#fff;border:1px solid #e8dff1;border-radius:16px;padding:15px}
+    .staffpay-kpi span{display:block;font-size:12px;color:#796b86}
+    .staffpay-kpi b{display:block;margin-top:6px;font-size:22px;color:#45206b}
+    .staffpay-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+    .staffpay-table-wrap{overflow:auto;border:1px solid #e9e1f0;border-radius:14px;background:#fff}
+    .staffpay-table{width:100%;border-collapse:collapse;min-width:1250px;font-size:12px}
+    .staffpay-table th{background:#f3edf9;color:#49256e;padding:9px 7px;text-align:left;white-space:nowrap;position:sticky;top:0}
+    .staffpay-table td{padding:8px 7px;border-top:1px solid #eee8f2;white-space:nowrap}
+    .staffpay-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+    .staffpay-status{margin-top:10px;font-size:12px;color:#756784}
+    .pnl-auto{background:#f4fbf7!important;color:#145a3d!important;font-weight:700}
+    @media(max-width:900px){.staffpay-kpis{grid-template-columns:repeat(2,1fr)}}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -907,6 +922,7 @@
         <div class="nav-item" id="navSearch" onclick="switchWorkspace('search')"><span class="nav-ico">⌕</span><span>ค้นหาข้อมูล</span></div>
         <div class="nav-item" id="navUsers" onclick="openUserManagement()"><span class="nav-ico">👥</span><span>จัดการผู้ใช้งาน</span></div>
         <div class="nav-item" id="navPayroll" onclick="openPayrollManagement()"><span class="nav-ico">฿</span><span>จัดการเงินเดือน</span></div>
+        <div class="nav-item" id="navStaffPayroll" onclick="openStaffPayrollManagement()"><span class="nav-ico">💼</span><span>เงินเดือนสตาฟ</span></div>
         <div class="nav-item" id="navClaim" onclick="openClaimManagement()"><span class="nav-ico">▣</span><span>ตั้งเบิกค่าตอบแทน</span></div>
         <div class="nav-item" id="navPnL" onclick="openProfitLossManagement()"><span class="nav-ico">📊</span><span>กำไร–ขาดทุนรายเดือน</span></div>
         <div class="nav-item" id="navStaffExpense" onclick="openStaffExpenseManagement()"><span class="nav-ico">🧾</span><span>ค่าใช้จ่ายสตาฟ</span></div>
@@ -1149,6 +1165,48 @@
 
 
 
+
+    <section class="payroll-workspace" id="staffPayrollWorkspace" style="display:none">
+      <div class="payroll-head">
+        <div>
+          <h2>เงินเดือนสตาฟ</h2>
+          <p>ตารางใหม่จากไฟล์เงินเดือนสตาฟ.xlsx • แยกยอดสุทธิหลังหัก และประกันสังคมชัดเจน</p>
+        </div>
+        <div class="staffpay-toolbar">
+          <select id="staffPayrollMonth" class="expense-select" onchange="loadStaffPayrollTable()">
+            <option value="2026-01">มกราคม 2569</option>
+            <option value="2026-02">กุมภาพันธ์ 2569</option>
+            <option value="2026-03" selected>มีนาคม 2569</option>
+            <option value="2026-04">เมษายน 2569</option>
+            <option value="2026-05">พฤษภาคม 2569</option>
+            <option value="2026-06">มิถุนายน 2569</option>
+          </select>
+          <button class="expense-soft" onclick="loadStaffPayrollTable()">รีเฟรช</button>
+        </div>
+      </div>
+
+      <div class="staffpay-kpis">
+        <div class="staffpay-kpi"><span>จำนวนสตาฟ</span><b id="staffPayCount">0</b></div>
+        <div class="staffpay-kpi"><span>ฐานเงินเดือนรวม</span><b id="staffPayBase">0.00</b></div>
+        <div class="staffpay-kpi"><span>ประกันสังคมรวม</span><b id="staffPaySocial">0.00</b></div>
+        <div class="staffpay-kpi"><span>ยอดจ่ายสุทธิหลังหักทุกอย่าง</span><b id="staffPayNet">0.00</b></div>
+      </div>
+
+      <div class="staffpay-table-wrap">
+        <table class="staffpay-table">
+          <thead>
+            <tr>
+              <th>ลำดับ</th><th>เลขบัตรประชาชน</th><th>ชื่อ-นามสกุล</th><th>ธนาคาร</th><th>เลขบัญชี</th>
+              <th>วันที่เริ่มงาน</th><th>ฐานเงินเดือน</th><th>ประกันสังคม</th><th>หัก 3%</th>
+              <th>เงินพิเศษ/OT</th><th>หักเบิกล่วงหน้า</th><th>หักอื่นๆ</th><th>จ่ายสุทธิ</th><th>หมายเหตุ</th>
+            </tr>
+          </thead>
+          <tbody id="staffPayrollBody"><tr><td colspan="14">กำลังโหลด...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="staffpay-status" id="staffPayrollStatus"></div>
+    </section>
+
     <section class="payroll-workspace" id="claimWorkspace" style="display:none">
       <div class="payroll-head">
         <div>
@@ -1229,7 +1287,7 @@
           <p id="pnlPeriodText">อ้างอิงรายรับจากไฟล์ตั้งเบิกค่าตอบแทน • เลือกเดือนที่รับเงินครบทุกไซด์ก่อน</p>
         </div>
         <div class="pnl-toolbar">
-          <select id="pnlMonth" class="expense-select" onchange="renderPnL()">
+          <select id="pnlMonth" class="expense-select" onchange="loadPnLRemoteSummary()">
             <option value="มค">มกราคม 2569 • รับครบทุกไซด์</option>
             <option value="กพ">กุมภาพันธ์ 2569 • รับครบทุกไซด์</option>
             <option value="มีค" selected>มีนาคม 2569 • รับครบทุกไซด์</option>
@@ -1257,8 +1315,14 @@
           </div>
 
           <div class="pnl-cost-row">
-            <div><b>เงินเดือนสตาฟ</b><div class="formula">กรอกยอดเงินเดือนสตาฟของเดือนนี้</div></div>
-            <input id="pnlStaffPayroll" type="number" min="0" step="0.01" value="0" oninput="renderPnL()">
+            <div><b>เงินเดือนสตาฟ (จ่ายสุทธิ)</b><div class="formula">ดึงยอดรวมหลังหักทุกอย่างจากตารางเงินเดือนสตาฟอัตโนมัติ</div></div>
+            <input id="pnlStaffPayroll" class="pnl-auto" type="number" value="0" readonly>
+            <span>บาท</span>
+          </div>
+
+          <div class="pnl-cost-row">
+            <div><b>ประกันสังคมสตาฟ</b><div class="formula">ดึงยอดประกันสังคมรวมของเดือนจากตารางเงินเดือนสตาฟ</div></div>
+            <input id="pnlStaffSocialSecurity" class="pnl-auto" type="number" value="0" readonly>
             <span>บาท</span>
           </div>
 
@@ -1269,8 +1333,8 @@
           </div>
 
           <div class="pnl-cost-row">
-            <div><b>ค่าใช้จ่ายสตาฟ</b><div class="formula">รอเชื่อมยอดจากเมนูค่าใช้จ่ายสตาฟ • กรอกชั่วคราวได้</div></div>
-            <input id="pnlStaffExpense" type="number" min="0" step="0.01" value="0" oninput="renderPnL()">
+            <div><b>ค่าใช้จ่ายสตาฟ</b><div class="formula" id="pnlStaffExpenseFormula">รวมทุกรายการของทั้งเดือนจากเมนูค่าใช้จ่ายสตาฟ</div></div>
+            <input id="pnlStaffExpense" class="pnl-auto" type="number" value="0" readonly>
             <span>บาท</span>
           </div>
 
@@ -1316,6 +1380,9 @@
             <tr><td>จำนวนไซด์</td><td id="pnlSiteCount">0</td></tr>
             <tr><td>จำนวนงานจริง</td><td id="pnlActualCount">0</td></tr>
             <tr><td>กระดาษรวมเผื่อเสีย 2%</td><td id="pnlPaperSheets">0</td></tr>
+            <tr><td>เงินเดือนสตาฟสุทธิ</td><td id="pnlSummaryStaffPayroll">0.00</td></tr>
+            <tr><td>ประกันสังคมสตาฟ</td><td id="pnlSummaryStaffSocial">0.00</td></tr>
+            <tr><td>ค่าใช้จ่ายสตาฟทั้งเดือน</td><td id="pnlSummaryStaffExpense">0.00</td></tr>
             <tr class="pnl-total"><td>รวมรายได้</td><td id="pnlSummaryRevenue">0.00</td></tr>
             <tr class="pnl-total"><td>รวมต้นทุน</td><td id="pnlSummaryCost">0.00</td></tr>
             <tr class="pnl-total"><td>กำไร / ขาดทุน</td><td id="pnlSummaryProfit">0.00</td></tr>
@@ -1474,6 +1541,9 @@
     const PAYROLL_UI_BUILD = "V18_ROOTCAUSE_FIXED_API7";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
+    const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
+    let pnlRemoteSummary={staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0};
+    let staffPayrollRows=[];
     let payrollEmployees=[]; let payrollCanManage=false;
     let staffExpenseCycles=[]; let staffExpenseCategories=[]; let staffExpenseItems=[]; let staffExpenseCanManage=false;
     let staffExpenseLoadedAt=0; let staffExpenseSelectedCycleId=0; let staffExpenseBootstrapPromise=null;
@@ -1486,7 +1556,7 @@
     let currentUserManagementPermissions = {};
 
     function setNavActive(activeId) {
-      ["navHome","navQc","navSearch","navUsers","navPayroll","navClaim","navPnL","navStaffExpense"].forEach(id => {
+      ["navHome","navQc","navSearch","navUsers","navPayroll","navStaffPayroll","navClaim","navPnL","navStaffExpense"].forEach(id => {
         const el=document.getElementById(id); if(!el) return;
         el.classList.toggle("active", id===activeId);
         el.classList.toggle("muted", id!==activeId);
@@ -1512,7 +1582,7 @@
       if(users) users.style.display=name==="users"?"block":"none";
       if(payroll) payroll.style.display=name==="payroll"?"block":"none";
       if(expense) expense.style.display=name==="expense"?"block":"none";
-      setNavActive(name==="home"?"navHome":name==="search"||name==="location"?"navSearch":name==="users"?"navUsers":name==="payroll"?"navPayroll":name==="expense"?"navStaffExpense":"navQc");
+      setNavActive(name==="home"?"navHome":name==="search"||name==="location"?"navSearch":name==="users"?"navUsers":name==="payroll"?"navPayroll":name==="staffpayroll"?"navStaffPayroll":name==="expense"?"navStaffExpense":"navQc");
       if(name==="search") setTimeout(()=>document.getElementById("caSearchInput")?.focus(),30);
       if(name==="location") setTimeout(()=>document.getElementById("locationCaInput")?.focus(),30);
       if(name==="users") applyUserManagementPermissions();
@@ -1823,22 +1893,34 @@
     }
 
 
+
+    function openStaffPayrollManagement(){
+      document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
+      const nav=document.getElementById("navStaffPayroll"); if(nav)nav.classList.add("active");
+      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","claimWorkspace","pnlWorkspace"].forEach(id=>{
+        const el=document.getElementById(id); if(el)el.style.display="none";
+      });
+      const w=document.getElementById("staffPayrollWorkspace"); if(w)w.style.display="block";
+      loadStaffPayrollTable();
+    }
+
     function openProfitLossManagement(){
       document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
       const nav=document.getElementById("navPnL"); if(nav)nav.classList.add("active");
-      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","claimWorkspace"].forEach(id=>{
+      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimWorkspace"].forEach(id=>{
         const el=document.getElementById(id); if(el)el.style.display="none";
       });
       const pnl=document.getElementById("pnlWorkspace");
       if(pnl)pnl.style.display="block";
       renderPnL();
+      loadPnLRemoteSummary();
     }
 
     function openClaimManagement(){
       document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
       const nav=document.getElementById("navClaim"); if(nav)nav.classList.add("active");
 
-      const ids=["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","pnlWorkspace"];
+      const ids=["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","pnlWorkspace"];
       ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});
       const claim=document.getElementById("claimWorkspace");
       if(claim)claim.style.display="block";
@@ -3947,6 +4029,79 @@
     }
 
 
+
+    function pnlMonthIso(){
+      const m={มค:"2026-01",กพ:"2026-02",มีค:"2026-03",เมย:"2026-04",พค:"2026-05",มิย:"2026-06",กค:"2026-07",สค:"2026-08",กย:"2026-09",ตค:"2026-10",พย:"2026-11",ธค:"2026-12"};
+      return m[document.getElementById("pnlMonth")?.value||"มีค"]||"2026-03";
+    }
+
+    async function profitLossApi(action,payload={}){
+      if(!accessToken)throw new Error("ยังไม่ได้เข้าสู่ระบบ LINE");
+      const r=await fetch(PROFIT_LOSS_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
+      const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PROFIT_LOSS_INVALID_RESPONSE")}
+      if(!r.ok)throw new Error(d.error||("HTTP_"+r.status)); return d;
+    }
+
+    async function loadPnLRemoteSummary(){
+      const month=pnlMonthIso();
+      const f=document.getElementById("pnlStaffExpenseFormula");
+      if(f)f.textContent="กำลังรวมค่าใช้จ่ายสตาฟทั้งเดือน...";
+      try{
+        const d=await profitLossApi("summary",{month});
+        pnlRemoteSummary=d.summary||{};
+        const sp=document.getElementById("pnlStaffPayroll");
+        const ss=document.getElementById("pnlStaffSocialSecurity");
+        const se=document.getElementById("pnlStaffExpense");
+        if(sp)sp.value=Number(pnlRemoteSummary.staff_payroll_net||0).toFixed(2);
+        if(ss)ss.value=Number(pnlRemoteSummary.staff_social_security||0).toFixed(2);
+        if(se)se.value=Number(pnlRemoteSummary.staff_expense_total||0).toFixed(2);
+        if(f)f.textContent=`รวม ${Number(pnlRemoteSummary.staff_expense_count||0).toLocaleString("th-TH")} รายการของทั้งเดือนจากเมนูค่าใช้จ่ายสตาฟ`;
+      }catch(e){
+        pnlRemoteSummary={staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0};
+        if(f)f.textContent="ดึงข้อมูลอัตโนมัติไม่สำเร็จ: "+e.message;
+      }
+      renderPnL();
+    }
+
+    function staffPayrollNationalId(v){
+      const d=String(v||"").replace(/\D/g,"");
+      return d.length===13?`${d.slice(0,1)} ${d.slice(1,5)} ${d.slice(5,10)} ${d.slice(10,12)} ${d.slice(12)}`:(v||"-");
+    }
+
+    async function loadStaffPayrollTable(){
+      const month=document.getElementById("staffPayrollMonth")?.value||"2026-03";
+      const body=document.getElementById("staffPayrollBody"),st=document.getElementById("staffPayrollStatus");
+      if(body)body.innerHTML='<tr><td colspan="14">กำลังโหลด...</td></tr>';
+      try{
+        const d=await profitLossApi("staff_payroll_rows",{month});
+        staffPayrollRows=d.rows||[]; const s=d.summary||{};
+        staffPayCount.textContent=Number(s.staff_count||0).toLocaleString("th-TH")+" คน";
+        staffPayBase.textContent=claimMoney(s.staff_base_salary);
+        staffPaySocial.textContent=claimMoney(s.staff_social_security);
+        staffPayNet.textContent=claimMoney(s.staff_payroll_net);
+        if(body)body.innerHTML=staffPayrollRows.length?staffPayrollRows.map(r=>`<tr>
+          <td>${Number(r.source_row||0)}</td>
+          <td>${escapeHtml(staffPayrollNationalId(r.national_id))}</td>
+          <td><b>${escapeHtml(r.employee_name||"")}</b></td>
+          <td>${escapeHtml(r.bank_name||"-")}</td>
+          <td>${escapeHtml(r.bank_account||"-")}</td>
+          <td>${escapeHtml(r.start_date_text||"-")}</td>
+          <td class="num">${claimMoney(r.base_salary)}</td>
+          <td class="num">${claimMoney(r.social_security)}</td>
+          <td class="num">${claimMoney(r.tax_3_percent)}</td>
+          <td class="num">${claimMoney(r.special_ot)}</td>
+          <td class="num">${claimMoney(r.advance_deduction)}</td>
+          <td class="num">${claimMoney(r.other_deduction)}</td>
+          <td class="num"><b>${claimMoney(r.net_paid)}</b></td>
+          <td>${escapeHtml(r.note||"-")}</td>
+        </tr>`).join(""):'<tr><td colspan="14">ยังไม่มีข้อมูลเดือนนี้</td></tr>';
+        if(st)st.textContent=`ข้อมูลจาก เงินเดือนสตาฟ.xlsx • ยอดจ่ายสุทธิ ${claimMoney(s.staff_payroll_net)} บาท • ประกันสังคม ${claimMoney(s.staff_social_security)} บาท`;
+      }catch(e){
+        if(body)body.innerHTML='<tr><td colspan="14">โหลดข้อมูลไม่สำเร็จ</td></tr>';
+        if(st)st.textContent="โหลดข้อมูลไม่สำเร็จ: "+e.message;
+      }
+    }
+
     function pnlData(){
       const key=document.getElementById("pnlMonth")?.value||"มีค";
       const meta=CLAIM_SOURCE_DATA[key]||{records:[],label:key,title:"",period:""};
@@ -3968,6 +4123,7 @@
       const paperCost=paperSheets*0.25;
       const employeePayroll=pnlValue("pnlEmployeePayroll");
       const staffPayroll=pnlValue("pnlStaffPayroll");
+      const staffSocialSecurity=pnlValue("pnlStaffSocialSecurity");
       const staffExpense=pnlValue("pnlStaffExpense");
       const accounting=pnlValue("pnlAccounting");
       const office=pnlValue("pnlOffice");
@@ -3976,7 +4132,7 @@
       const shirtPeople=Math.floor(pnlValue("pnlShirtPeople"));
       const printerCost=printerPeople*3500*1.10;
       const shirtCost=shirtPeople*250;
-      const totalCost=employeePayroll+staffPayroll+paperCost+staffExpense+accounting+office+hospitality+printerCost+shirtCost;
+      const totalCost=employeePayroll+staffPayroll+staffSocialSecurity+paperCost+staffExpense+accounting+office+hospitality+printerCost+shirtCost;
       const profit=d.received-totalCost;
       const margin=d.received>0?(profit/d.received*100):0;
 
@@ -3998,6 +4154,9 @@
       pnlSiteCount.textContent=d.rows.length.toLocaleString("th-TH")+" ไซด์";
       pnlActualCount.textContent=d.actual.toLocaleString("th-TH")+" ราย";
       pnlPaperSheets.textContent=paperSheets.toLocaleString("th-TH")+" ใบ";
+      pnlSummaryStaffPayroll.textContent=claimMoney(staffPayroll);
+      pnlSummaryStaffSocial.textContent=claimMoney(staffSocialSecurity);
+      pnlSummaryStaffExpense.textContent=claimMoney(staffExpense);
       pnlSummaryRevenue.textContent=claimMoney(d.received);
       pnlSummaryCost.textContent=claimMoney(totalCost);
       pnlSummaryProfit.textContent=(profit<0?"-":"")+claimMoney(Math.abs(profit));
@@ -4005,7 +4164,7 @@
       pnlPeriodText.textContent=`${d.meta.label||""} • ${d.meta.period||""}`;
       pnlSourceNote.innerHTML=`<b>ฐานรายได้:</b> ยอดรับจากการไฟฟ้าตามไฟล์ตั้งเบิกค่าตอบแทน<br>
         <b>เดือนนี้:</b> ${escapeHtml(d.meta.title||d.meta.label||"")}<br>
-        <b>หมายเหตุ:</b> เงินเดือนพนักงาน / เงินเดือนสตาฟ / ค่าใช้จ่ายสตาฟ ยังเป็นช่องกรอกชั่วคราวจนกว่าจะเชื่อม API จริง`;
+        <b>หมายเหตุ:</b> เงินเดือนสตาฟสุทธิ + ประกันสังคม + ค่าใช้จ่ายสตาฟ ดึงจากฐานข้อมูลอัตโนมัติ • เงินเดือนพนักงานยังเป็นช่องชั่วคราว`;
     }
 
     function downloadPnLCsv(){
@@ -4015,7 +4174,8 @@
       const paperCost=paperSheets*0.25;
       const costs=[
         ["เงินเดือนพนักงาน",pnlValue("pnlEmployeePayroll")],
-        ["เงินเดือนสตาฟ",pnlValue("pnlStaffPayroll")],
+        ["เงินเดือนสตาฟ (จ่ายสุทธิ)",pnlValue("pnlStaffPayroll")],
+        ["ประกันสังคมสตาฟ",pnlValue("pnlStaffSocialSecurity")],
         ["ค่ากระดาษ",paperCost],
         ["ค่าใช้จ่ายสตาฟ",pnlValue("pnlStaffExpense")],
         ["ค่าทำบัญชี",pnlValue("pnlAccounting")],
