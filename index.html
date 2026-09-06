@@ -1801,7 +1801,7 @@
           <div class="permission-grid">
             <label class="perm-item"><input type="checkbox" id="permActive" checked /> เปิดใช้งานบัญชี</label>
             <label class="perm-item"><input type="checkbox" id="permQc" /> เข้า QC</label>
-            <label class="perm-item"><input type="checkbox" id="permUpload" /> เข้าเมนูจัดทำใบตั้งหนี้</label>
+            <label class="perm-item"><input type="checkbox" id="permInvoice" /> เข้าเมนูจัดทำใบตั้งหนี้</label>
             <label class="perm-item"><input type="checkbox" id="permBilling" /> เข้าเมนูจัดทำใบวางบิล</label>
             <label class="perm-item"><input type="checkbox" id="permCreate" /> สร้างผู้ใช้</label>
             <label class="perm-item"><input type="checkbox" id="permEdit" /> แก้ไขผู้ใช้</label>
@@ -1842,7 +1842,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V37_BILLING_PRINT_A4";
+    const PAYROLL_UI_BUILD = "V38_PERMISSION_FIXED";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -2170,11 +2170,10 @@
       const role=document.getElementById("userFormRole");
       role.value=u?.role||"staff"; role.disabled=self;
       document.getElementById("userFormExpiry").value=toLocalInput(u?.expires_at);
-      const map={permBilling:"can_access_billing",permActive:"is_active",permQc:"can_access_qc",permUpload:"can_upload_data",permCreate:"can_create_users",permEdit:"can_edit_users",permExpiry:"can_set_expiry",permToggle:"can_toggle_users",permDelete:"can_delete_users",permDisconnect:"can_disconnect_users",permManage:"can_manage_permissions",permUserMgmt:"can_access_user_management",permPayrollAccess:"can_access_payroll",permPayrollManage:"can_manage_payroll"};
+      const map={permBilling:"can_access_billing",permActive:"is_active",permQc:"can_access_qc",permInvoice:"can_access_invoice",permCreate:"can_create_users",permEdit:"can_edit_users",permExpiry:"can_set_expiry",permToggle:"can_toggle_users",permDelete:"can_delete_users",permDisconnect:"can_disconnect_users",permManage:"can_manage_permissions",permUserMgmt:"can_access_user_management",permPayrollAccess:"can_access_payroll",permPayrollManage:"can_manage_payroll"};
       for(const [eid,k] of Object.entries(map)){
         const el=document.getElementById(eid); el.checked=u?!!u[k]:(eid==="permActive"); el.disabled=false;
       }
-      if(u){ try{ const br=await billingPermissionApi("get",{id:u.id}); const be=document.getElementById("permBilling"); if(be) be.checked=!!br.can_access_billing; }catch(_){ } }
       const cp=currentUserManagementPermissions||{};
       if(!cp.can_edit_users){
         role.disabled=true;
@@ -2184,7 +2183,7 @@
       if(!cp.can_set_expiry) document.getElementById("userFormExpiry").disabled=true;
       if(!cp.can_toggle_users) document.getElementById("permActive").disabled=true;
       if(!cp.can_manage_permissions){
-        ["permQc","permUpload","permBilling","permCreate","permEdit","permExpiry","permToggle","permDelete","permDisconnect","permManage","permUserMgmt"].forEach(eid=>{const el=document.getElementById(eid); if(el) el.disabled=true;});
+        ["permQc","permInvoice","permBilling","permCreate","permEdit","permExpiry","permToggle","permDelete","permDisconnect","permManage","permUserMgmt"].forEach(eid=>{const el=document.getElementById(eid); if(el) el.disabled=true;});
       }
       if(self){
         ["permActive","permUserMgmt"].forEach(eid=>{const el=document.getElementById(eid); if(el) el.disabled=true;});
@@ -2200,7 +2199,7 @@
     }
     function closeUserModal(){document.getElementById("userModal")?.classList.remove("show")}
     function collectUserPayload(){
-      const expiry=document.getElementById("userFormExpiry").value; return {can_access_billing:document.getElementById("permBilling")?.checked===true,username:document.getElementById("userFormUsername").value.trim(),password:document.getElementById("userFormPassword").value,role:document.getElementById("userFormRole").value,expires_at:expiry?new Date(expiry).toISOString():null,is_active:document.getElementById("permActive").checked,can_access_qc:document.getElementById("permQc").checked,can_upload_data:document.getElementById("permUpload").checked,can_create_users:document.getElementById("permCreate").checked,can_edit_users:document.getElementById("permEdit").checked,can_set_expiry:document.getElementById("permExpiry").checked,can_toggle_users:document.getElementById("permToggle").checked,can_delete_users:document.getElementById("permDelete").checked,can_disconnect_users:document.getElementById("permDisconnect").checked,can_manage_permissions:document.getElementById("permManage").checked,can_access_user_management:document.getElementById("permUserMgmt").checked,can_access_payroll:document.getElementById("permPayrollAccess").checked,can_manage_payroll:document.getElementById("permPayrollManage").checked};
+      const expiry=document.getElementById("userFormExpiry").value; return {can_access_billing:document.getElementById("permBilling")?.checked===true,username:document.getElementById("userFormUsername").value.trim(),password:document.getElementById("userFormPassword").value,role:document.getElementById("userFormRole").value,expires_at:expiry?new Date(expiry).toISOString():null,is_active:document.getElementById("permActive").checked,can_access_qc:document.getElementById("permQc").checked,can_access_invoice:document.getElementById("permInvoice")?.checked===true,can_create_users:document.getElementById("permCreate").checked,can_edit_users:document.getElementById("permEdit").checked,can_set_expiry:document.getElementById("permExpiry").checked,can_toggle_users:document.getElementById("permToggle").checked,can_delete_users:document.getElementById("permDelete").checked,can_disconnect_users:document.getElementById("permDisconnect").checked,can_manage_permissions:document.getElementById("permManage").checked,can_access_user_management:document.getElementById("permUserMgmt").checked,can_access_payroll:document.getElementById("permPayrollAccess").checked,can_manage_payroll:document.getElementById("permPayrollManage").checked};
     }
     function userAdminErrorText(code){
       const m={INVALID_USERNAME:"ชื่อผู้ใช้ต้องมี 3–60 ตัว และใช้ a-z, 0-9, จุด, ขีดกลาง หรือ _ เท่านั้น",PASSWORD_TOO_SHORT:"รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",USERNAME_EXISTS:"Username นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น",CREATE_NOT_PERSISTED:"สร้างบัญชีไม่สำเร็จ ข้อมูลไม่ถูกบันทึกในฐานข้อมูล",PERMISSION_DENIED:"บัญชีนี้ไม่มีสิทธิ์ดำเนินการ",ADMIN_ACCESS_DENIED:"เฉพาะผู้ดูแลระบบเท่านั้น",USER_MANAGEMENT_ACCESS_DENIED:"คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน",CANNOT_DISABLE_SELF:"ไม่สามารถระงับบัญชีของตัวเองได้",CANNOT_DELETE_SELF:"ไม่สามารถลบบัญชีของตัวเองได้",USER_NOT_FOUND:"ไม่พบบัญชีผู้ใช้งาน",SERVER_ERROR:"เซิร์ฟเวอร์ไม่สามารถบันทึกข้อมูลได้"};
@@ -2232,7 +2231,6 @@
           if(!saved) throw new Error("CREATE_NOT_PERSISTED");
           savedBillingId=Number(saved.id);
         }
-        if(savedBillingId) await billingPermissionApi("set",{id:savedBillingId,can_access_billing:p.can_access_billing});
         closeUserModal();
         const st=document.getElementById("userAdminStatus");
         if(st){
@@ -5490,7 +5488,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.4</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.5</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
