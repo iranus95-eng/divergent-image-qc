@@ -1,0 +1,58 @@
+name: Session authority hotfix
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/session-authority-hotfix.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch session-first boot and login
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          old='''        if (!liff.isLoggedIn()) {\n          // V1.8.8: ถ้าเปิดเว็บจาก Chrome/Safari แล้ว LINE ยังไม่ login'''
+          new='''        if (!liff.isLoggedIn()) {\n          // CLEAN V2.1.1: Username/Password session is authoritative even when LINE is not logged in.\n          if(getFallbackSessionToken()){\n            status.textContent = "กำลังตรวจสอบบัญชีพนักงาน...";\n            await refreshAllMenuAccess();\n            await refreshProfitLossMenuAccess().catch(()=>{});\n            await refreshInvoiceMenuAccess().catch(()=>{});\n            await refreshBillingAccess().catch(()=>{});\n            const su=window.currentMenuUser||{};\n            const loginBtn=document.getElementById("topLoginButton");\n            if(loginBtn) loginBtn.textContent=(su.username||"บัญชีพนักงาน")+" · เข้าสู่ระบบแล้ว";\n            status.textContent="เข้าสู่ระบบด้วยบัญชีพนักงานแล้ว ✓ "+(su.username||"");\n            applyMenuAccess();\n            return;\n          }\n          // V1.8.8: ถ้าเปิดเว็บจาก Chrome/Safari แล้ว LINE ยังไม่ login'''
+          assert old in s, 'LIFF not-logged-in anchor not found'
+          s=s.replace(old,new,1)
+
+          old2='''        if(data?.line_status==="linked"){\n          menuLineLinked=true;\n          if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}\n          await new Promise(r=>setTimeout(r,250));\n          try{await checkQcAccess();}catch(_){ }\n        }else{'''
+          new2='''        if(data?.line_status==="linked"){\n          menuLineLinked=true;\n          if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}\n          // CLEAN V2.1.1: do not let LINE QC checks mutate a valid session permission snapshot.\n        }else{'''
+          assert old2 in s, 'fallback linked anchor not found'
+          s=s.replace(old2,new2,1)
+
+          s=s.replace('Version 2.1.0 CLEAN</div>','Version 2.1.1 SESSION</div>',1)
+          s=s.replace('const PAYROLL_UI_BUILD = "CLEAN_V2_AUTH_SINGLE_SOURCE";','const PAYROLL_UI_BUILD = "CLEAN_V2_1_SESSION_AUTHORITATIVE";',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',s,re.I)
+          Path('/tmp/all-inline.js').write_text('\n;\n'.join(b for b in blocks if b.strip()),encoding='utf-8')
+          assert 'CLEAN_V2_1_SESSION_AUTHORITATIVE' in s
+          assert 'if(getFallbackSessionToken())' in s
+          PY
+          node --check /tmp/all-inline.js
+      - name: Commit hotfix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Make employee session authoritative before LINE login'
+          git push origin HEAD:main
