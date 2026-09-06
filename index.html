@@ -1928,7 +1928,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V5_WEB_LOGIN_FIRST";
+    const PAYROLL_UI_BUILD = "V6_WEB_DIRECT_LOGIN";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -3539,8 +3539,35 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
       if(document.visibilityState==="visible") sendPresenceHeartbeat();
     });
 
+    const WEB_DIRECT_LOGIN_MODE = new URLSearchParams(window.location.search).get("web") === "1";
+
+    function enterDirectWebLoginMode(){
+      try{sessionStorage.removeItem("divergent_line_auto_login_attempted");}catch(_){ }
+      const status=document.getElementById("lineUserStatus");
+      if(status) status.textContent="โหมดเว็บโดยตรง · เข้าสู่ระบบด้วย Username / Password";
+      try{showRegistrationBox(true);}catch(_){
+        const box=document.getElementById("registrationBox");
+        if(box) box.style.display="";
+      }
+      try{setQcEnabled(false);}catch(_){ }
+      try{switchWorkspace("home");}catch(_){ }
+    }
+
     async function initLiff() {
       const status = document.getElementById("lineUserStatus");
+      // V6: ?web=1 is a hard direct-login route. Never initialize or invoke LINE on this route.
+      if(WEB_DIRECT_LOGIN_MODE){
+        if(getFallbackSessionToken()){
+          status.textContent="กำลังตรวจสอบบัญชีพนักงาน...";
+          await refreshAllMenuAccess().catch(()=>{});
+          await refreshProfitLossMenuAccess().catch(()=>{});
+          await refreshInvoiceMenuAccess().catch(()=>{});
+          await refreshBillingAccess().catch(()=>{});
+        }else{
+          enterDirectWebLoginMode();
+        }
+        return;
+      }
       try{localStorage.removeItem("divergent_menu_access_cache_v2");const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache_v3")||"null");const hasSession=!!getFallbackSessionToken();if(c?.access&&((hasSession&&c.auth_mode==="session")||(!hasSession&&c.auth_mode==="line"))){menuAccess=normalizeMenuAccess(c.access);authoritativeMenuAccess=Object.freeze({...menuAccess});authoritativeAuthMode=c.auth_mode||"";window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }
 
       try {
@@ -5771,7 +5798,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.4.0 WEB LOGIN FIRST</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.5.0 WEB DIRECT LOGIN</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
