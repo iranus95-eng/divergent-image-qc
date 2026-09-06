@@ -630,6 +630,25 @@
     .pnl-auto{background:#f4fbf7!important;color:#145a3d!important;font-weight:700}
     @media(max-width:900px){.staffpay-kpis{grid-template-columns:repeat(2,1fr)}}
 
+
+    .pending-claim-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+    .pending-claim-kpi{background:#fff;border:1px solid #eadff3;border-radius:16px;padding:15px}
+    .pending-claim-kpi span{display:block;font-size:12px;color:#7a6c87}
+    .pending-claim-kpi b{display:block;margin-top:6px;font-size:23px;color:#47206e}
+    .pending-claim-kpi.warn b{color:#c06b00}
+    .pending-claim-kpi.bad b{color:#bf3347}
+    .pending-claim-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+    .pending-claim-table-wrap{overflow:auto;border:1px solid #e9e0f1;border-radius:14px;background:#fff}
+    .pending-claim-table{width:100%;border-collapse:collapse;min-width:1180px;font-size:12px}
+    .pending-claim-table th{background:#f5effa;color:#4b2a6c;padding:10px 8px;text-align:left;white-space:nowrap}
+    .pending-claim-table td{padding:9px 8px;border-top:1px solid #eee7f3;vertical-align:top}
+    .pending-claim-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+    .pending-missing{display:inline-block;background:#fff0df;color:#a65b00;border-radius:999px;padding:4px 8px;font-weight:800;margin:2px 4px 2px 0}
+    .pending-bad{display:inline-block;background:#ffe8ec;color:#bd2f47;border-radius:999px;padding:4px 8px;font-weight:800}
+    .pending-ok{display:inline-block;background:#e8f8ee;color:#168348;border-radius:999px;padding:4px 8px;font-weight:800}
+    .pending-note{font-size:12px;color:#766783;background:#faf7fd;border:1px solid #eee4f5;border-radius:12px;padding:11px 12px;margin-top:12px;line-height:1.6}
+    @media(max-width:900px){.pending-claim-kpis{grid-template-columns:repeat(2,1fr)}}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -924,6 +943,7 @@
         <div class="nav-item" id="navPayroll" onclick="openPayrollManagement()"><span class="nav-ico">฿</span><span>จัดการเงินเดือน</span></div>
         <div class="nav-item" id="navStaffPayroll" onclick="openStaffPayrollManagement()"><span class="nav-ico">💼</span><span>เงินเดือนสตาฟ</span></div>
         <div class="nav-item" id="navClaim" onclick="openClaimManagement()"><span class="nav-ico">▣</span><span>ตั้งเบิกค่าตอบแทน</span></div>
+        <div class="nav-item" id="navClaimPending" style="display:none" onclick="openClaimPendingManagement()"><span class="nav-ico">⚠</span><span>การไฟฟ้าที่ยังเบิกไม่ได้</span></div>
         <div class="nav-item" id="navPnL" style="display:none" onclick="openProfitLossManagement()"><span class="nav-ico">📊</span><span>กำไร–ขาดทุนรายเดือน</span></div>
         <div class="nav-item" id="navStaffExpense" onclick="openStaffExpenseManagement()"><span class="nav-ico">🧾</span><span>ค่าใช้จ่ายสตาฟ</span></div>
       </nav>
@@ -1280,6 +1300,63 @@
     </div>
 
 
+
+    <section class="payroll-workspace" id="claimPendingWorkspace" style="display:none">
+      <div class="payroll-head">
+        <div>
+          <h2>การไฟฟ้าที่ยังเบิกเงินไม่ได้</h2>
+          <p>ตรวจจากไฟล์ตั้งเบิกค่าตอบแทน • ต้องมีทั้ง “(จน.ราย) ตั้งเบิกตามใบเสร็จ” และ “จำนวนเงินตั้งเบิก”</p>
+        </div>
+        <div class="pending-claim-toolbar">
+          <select id="claimPendingMonth" class="expense-select" onchange="renderClaimPendingWorkspace()">
+            <option value="ALL">ทุกเดือน</option>
+            <option value="มค">มกราคม 2569</option>
+            <option value="กพ">กุมภาพันธ์ 2569</option>
+            <option value="มีค">มีนาคม 2569</option>
+            <option value="เมย">เมษายน 2569</option>
+            <option value="พค">พฤษภาคม 2569</option>
+            <option value="มิย">มิถุนายน 2569</option>
+            <option value="กค">กรกฎาคม 2569</option>
+            <option value="สค" selected>สิงหาคม 2569</option>
+          </select>
+          <input id="claimPendingSearch" placeholder="ค้นหาการไฟฟ้า / ผู้ติดต่อ" oninput="renderClaimPendingWorkspace()"
+                 style="min-width:260px;border:1px solid #ded1ee;border-radius:10px;padding:10px 12px">
+          <button class="expense-soft" onclick="renderClaimPendingWorkspace()">รีเฟรช</button>
+        </div>
+      </div>
+
+      <div class="pending-claim-kpis">
+        <div class="pending-claim-kpi bad"><span>ยังเบิกไม่ได้</span><b id="claimPendingCount">0</b></div>
+        <div class="pending-claim-kpi warn"><span>ขาดทั้ง 2 ช่อง</span><b id="claimPendingBoth">0</b></div>
+        <div class="pending-claim-kpi"><span>ขาดจำนวนราย</span><b id="claimPendingBillCount">0</b></div>
+        <div class="pending-claim-kpi"><span>ขาดจำนวนเงินตั้งเบิก</span><b id="claimPendingAmountCount">0</b></div>
+      </div>
+
+      <div class="pending-claim-table-wrap">
+        <table class="pending-claim-table">
+          <thead>
+            <tr>
+              <th>เดือน</th>
+              <th>ลำดับ</th>
+              <th>การไฟฟ้า</th>
+              <th>ผู้ติดต่อ</th>
+              <th>เบอร์โทร</th>
+              <th>(จน.ราย) ตั้งเบิกตามใบเสร็จ</th>
+              <th>จำนวนเงินตั้งเบิก</th>
+              <th>ข้อมูลที่ขาด</th>
+              <th>สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="claimPendingBody"><tr><td colspan="9">กำลังตรวจสอบ...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pending-note">
+        เงื่อนไข: รายการจะขึ้นในหน้านี้เมื่อมีชื่อการไฟฟ้า แต่ข้อมูลอย่างน้อย 1 ช่องไม่ครบ ได้แก่
+        <b>(จน.ราย) ตั้งเบิกตามใบเสร็จ</b> หรือ <b>จำนวนเงินตั้งเบิก</b> โดยระบบจะแจ้งให้ชัดเจนว่าขาดช่องใด
+      </div>
+      <div class="payroll-status" id="claimPendingStatus"></div>
+    </section>
+
     <section class="payroll-workspace" id="pnlWorkspace" style="display:none">
       <div class="payroll-head">
         <div>
@@ -1525,7 +1602,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V18_ROOTCAUSE_FIXED_API7";
+    const PAYROLL_UI_BUILD = "V25_UNBILLABLE_PEA_STAFF_ACCESS";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -1543,7 +1620,7 @@
     let currentUserManagementPermissions = {};
 
     function setNavActive(activeId) {
-      ["navHome","navQc","navSearch","navUsers","navPayroll","navStaffPayroll","navClaim","navPnL","navStaffExpense"].forEach(id => {
+      ["navHome","navQc","navSearch","navUsers","navPayroll","navStaffPayroll","navClaim","navClaimPending","navPnL","navStaffExpense"].forEach(id => {
         const el=document.getElementById(id); if(!el) return;
         el.classList.toggle("active", id===activeId);
         el.classList.toggle("muted", id!==activeId);
@@ -1891,6 +1968,92 @@
       loadStaffPayrollTable();
     }
 
+
+    function claimRequiredValuePresent(v){
+      const n=Number(v);
+      return Number.isFinite(n) && n>0;
+    }
+
+    function claimPendingRows(monthKey){
+      const keys=monthKey==="ALL"?["มค","กพ","มีค","เมย","พค","มิย","กค","สค"]:[monthKey];
+      const out=[];
+      for(const key of keys){
+        const meta=CLAIM_SOURCE_DATA[key];
+        if(!meta)continue;
+        for(const r of meta.records||[]){
+          if(!String(r.branch||"").trim())continue;
+          const hasBill=claimRequiredValuePresent(r.bill_count);
+          const hasAmount=claimRequiredValuePresent(r.claim_amount);
+          if(hasBill&&hasAmount)continue;
+          const missing=[];
+          if(!hasBill)missing.push("(จน.ราย) ตั้งเบิกตามใบเสร็จ");
+          if(!hasAmount)missing.push("จำนวนเงินตั้งเบิก");
+          out.push({...r,month_key:key,month_label:meta.label||key,missing});
+        }
+      }
+      return out;
+    }
+
+    function renderClaimPendingWorkspace(){
+      const month=document.getElementById("claimPendingMonth")?.value||"สค";
+      const q=String(document.getElementById("claimPendingSearch")?.value||"").trim().toLowerCase();
+      let rows=claimPendingRows(month);
+      const totalRows=rows.length;
+      const both=rows.filter(r=>r.missing.length===2).length;
+      const missBill=rows.filter(r=>r.missing.includes("(จน.ราย) ตั้งเบิกตามใบเสร็จ")).length;
+      const missAmount=rows.filter(r=>r.missing.includes("จำนวนเงินตั้งเบิก")).length;
+
+      claimPendingCount.textContent=totalRows.toLocaleString("th-TH")+" แห่ง";
+      claimPendingBoth.textContent=both.toLocaleString("th-TH");
+      claimPendingBillCount.textContent=missBill.toLocaleString("th-TH");
+      claimPendingAmountCount.textContent=missAmount.toLocaleString("th-TH");
+
+      if(q){
+        rows=rows.filter(r=>
+          String(r.branch||"").toLowerCase().includes(q)||
+          String(r.contact||"").toLowerCase().includes(q)||
+          String(r.phone||"").toLowerCase().includes(q)
+        );
+      }
+
+      const body=document.getElementById("claimPendingBody");
+      if(!rows.length){
+        body.innerHTML='<tr><td colspan="9" style="padding:24px;text-align:center;color:#6f617c">ข้อมูลครบ ไม่มีการไฟฟ้าที่ติดเงื่อนไข “ยังเบิกไม่ได้” ในเดือนที่เลือก</td></tr>';
+      }else{
+        body.innerHTML=rows.map(r=>{
+          const miss=r.missing.map(x=>`<span class="pending-missing">ขาด: ${escapeHtml(x)}</span>`).join("");
+          return `<tr>
+            <td>${escapeHtml(r.month_label||r.month_key)}</td>
+            <td>${Number(r.seq||0)||"-"}</td>
+            <td><b>${escapeHtml(r.branch||"-")}</b></td>
+            <td>${escapeHtml(r.contact||"-")}</td>
+            <td>${escapeHtml(r.phone||"-")}</td>
+            <td class="num">${claimRequiredValuePresent(r.bill_count)?Number(r.bill_count).toLocaleString("th-TH"):"-"}</td>
+            <td class="num">${claimRequiredValuePresent(r.claim_amount)?claimMoney(r.claim_amount):"-"}</td>
+            <td>${miss}</td>
+            <td><span class="pending-bad">ยังเบิกไม่ได้</span></td>
+          </tr>`;
+        }).join("");
+      }
+      const s=document.getElementById("claimPendingStatus");
+      if(s)s.textContent=`ตรวจจากไฟล์ตั้งเบิกค่าตอบแทน • พบ ${totalRows.toLocaleString("th-TH")} การไฟฟ้าที่ข้อมูลไม่ครบตามเงื่อนไข`;
+    }
+
+    function openClaimPendingManagement(){
+      if(!window.qcAccessAllowed){
+        alert("กรุณาเข้าสู่ระบบด้วยบัญชีที่ได้รับอนุญาตก่อน");
+        return;
+      }
+      document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
+      const nav=document.getElementById("navClaimPending"); if(nav)nav.classList.add("active");
+      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimWorkspace","pnlWorkspace"].forEach(id=>{
+        const el=document.getElementById(id);if(el)el.style.display="none";
+      });
+      const w=document.getElementById("claimPendingWorkspace");
+      if(w)w.style.display="block";
+      renderClaimPendingWorkspace();
+    }
+
     async function openProfitLossManagement(){
       if(!window.profitLossAccessAllowed){
         await refreshProfitLossMenuAccess();
@@ -1901,7 +2064,7 @@
       }
       document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
       const nav=document.getElementById("navPnL"); if(nav)nav.classList.add("active");
-      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimWorkspace"].forEach(id=>{
+      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimWorkspace","claimPendingWorkspace"].forEach(id=>{
         const el=document.getElementById(id); if(el)el.style.display="none";
       });
       const pnl=document.getElementById("pnlWorkspace");
@@ -1914,7 +2077,7 @@
       document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
       const nav=document.getElementById("navClaim"); if(nav)nav.classList.add("active");
 
-      const ids=["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","pnlWorkspace"];
+      const ids=["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimPendingWorkspace","pnlWorkspace"];
       ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});
       const claim=document.getElementById("claimWorkspace");
       if(claim)claim.style.display="block";
@@ -2861,6 +3024,12 @@
       }
     }
 
+
+    function showClaimPendingNav(show){
+      const nav=document.getElementById("navClaimPending");
+      if(nav)nav.style.display=show?"":"none";
+    }
+
     function setQcEnabled(enabled) {
       document.getElementById("siteSelect").disabled = !enabled;
       document.getElementById("loadButton").disabled = !enabled;
@@ -2906,6 +3075,7 @@
       showRegistrationBox(false);
       showAdminBox(false);
       showUserAdminNav(false);
+      showClaimPendingNav(false);
 
       if (!profile || !profile.userId) {
         status.textContent = "ยังไม่สามารถอ่านบัญชี LINE ได้";
@@ -2926,6 +3096,7 @@
 
           window.qcAuthorizedUser = info;
           setQcEnabled(true);
+          showClaimPendingNav(true);
           showRegistrationBox(false);
           const isAdmin = String(info.user_role || "").toLowerCase() === "admin";
           showAdminBox(isAdmin);
