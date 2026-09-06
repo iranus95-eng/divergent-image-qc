@@ -924,7 +924,7 @@
         <div class="nav-item" id="navPayroll" onclick="openPayrollManagement()"><span class="nav-ico">฿</span><span>จัดการเงินเดือน</span></div>
         <div class="nav-item" id="navStaffPayroll" onclick="openStaffPayrollManagement()"><span class="nav-ico">💼</span><span>เงินเดือนสตาฟ</span></div>
         <div class="nav-item" id="navClaim" onclick="openClaimManagement()"><span class="nav-ico">▣</span><span>ตั้งเบิกค่าตอบแทน</span></div>
-        <div class="nav-item" id="navPnL" onclick="openProfitLossManagement()"><span class="nav-ico">📊</span><span>กำไร–ขาดทุนรายเดือน</span></div>
+        <div class="nav-item" id="navPnL" style="display:none" onclick="openProfitLossManagement()"><span class="nav-ico">📊</span><span>กำไร–ขาดทุนรายเดือน</span></div>
         <div class="nav-item" id="navStaffExpense" onclick="openStaffExpenseManagement()"><span class="nav-ico">🧾</span><span>ค่าใช้จ่ายสตาฟ</span></div>
       </nav>
       <div class="side-spacer"></div>
@@ -1284,7 +1284,7 @@
       <div class="payroll-head">
         <div>
           <h2>รายงานกำไร–ขาดทุนประจำเดือน</h2>
-          <p id="pnlPeriodText">อ้างอิงรายรับจากไฟล์ตั้งเบิกค่าตอบแทน • เลือกเดือนที่รับเงินครบทุกไซด์ก่อน</p>
+          <p id="pnlPeriodText">อ้างอิงรายรับจากไฟล์ตั้งเบิกค่าตอบแทน • เลือกเดือนที่รับเงินครบทุกไซด์ก่อน</p><p style="margin:4px 0 0;font-size:11px;color:#806f8d">🔒 เมนูนี้จำกัดสิทธิ์เฉพาะเจ้าของระบบ</p>
         </div>
         <div class="pnl-toolbar">
           <select id="pnlMonth" class="expense-select" onchange="loadPnLRemoteSummary()">
@@ -1904,7 +1904,14 @@
       loadStaffPayrollTable();
     }
 
-    function openProfitLossManagement(){
+    async function openProfitLossManagement(){
+      if(!window.profitLossAccessAllowed){
+        await refreshProfitLossMenuAccess();
+        if(!window.profitLossAccessAllowed){
+          alert("เมนูรายงานกำไร–ขาดทุนจำกัดสิทธิ์เฉพาะเจ้าของระบบ");
+          return;
+        }
+      }
       document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
       const nav=document.getElementById("navPnL"); if(nav)nav.classList.add("active");
       ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimWorkspace"].forEach(id=>{
@@ -2855,6 +2862,7 @@
         if (loginBtn) loginBtn.textContent = (profile.displayName || "Admin") + " · เข้าสู่ระบบแล้ว";
 
         await checkQcAccess();
+        await refreshProfitLossMenuAccess();
 
       } catch (error) {
         status.textContent =
@@ -4036,10 +4044,27 @@
     }
 
     async function profitLossApi(action,payload={}){
+      const accessToken=await getLineAccessToken();
       if(!accessToken)throw new Error("ยังไม่ได้เข้าสู่ระบบ LINE");
       const r=await fetch(PROFIT_LOSS_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
       const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PROFIT_LOSS_INVALID_RESPONSE")}
       if(!r.ok)throw new Error(d.error||("HTTP_"+r.status)); return d;
+    }
+
+    async function refreshProfitLossMenuAccess(){
+      const nav=document.getElementById("navPnL");
+      if(nav)nav.style.display="none";
+      window.profitLossAccessAllowed=false;
+      try{
+        const d=await profitLossApi("permissions");
+        if(d?.ok && d?.can_access===true){
+          window.profitLossAccessAllowed=true;
+          if(nav)nav.style.display="";
+        }
+      }catch(_){
+        window.profitLossAccessAllowed=false;
+        if(nav)nav.style.display="none";
+      }
     }
 
     async function loadPnLRemoteSummary(){
@@ -4058,7 +4083,7 @@
         if(f)f.textContent=`รวม ${Number(pnlRemoteSummary.staff_expense_count||0).toLocaleString("th-TH")} รายการของทั้งเดือนจากเมนูค่าใช้จ่ายสตาฟ`;
       }catch(e){
         pnlRemoteSummary={staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0};
-        if(f)f.textContent="ดึงข้อมูลอัตโนมัติไม่สำเร็จ: "+e.message;
+        if(f)f.textContent="ดึงข้อมูลอัตโนมัติไม่สำเร็จ • "+(e.message||e);
       }
       renderPnL();
     }
