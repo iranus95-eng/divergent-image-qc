@@ -1928,7 +1928,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "SIDEBAR_V4_CSS_SESSION_LOCK";
+    const PAYROLL_UI_BUILD = "V5_WEB_LOGIN_FIRST";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -3572,6 +3572,14 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
 
           setQcEnabled(false);
           switchWorkspace("home");
+
+          // V5 WEB LOGIN FIRST: do not force LINE before employee username/password login.
+          status.textContent = "เข้าสู่ระบบด้วย Username / Password ได้ทันที โดยไม่ต้องผ่าน LINE";
+          try{
+            const box=document.getElementById("registrationBox");
+            if(box) box.style.display="";
+          }catch(_){ }
+          return;
 
           // V1.8.8: ถ้าเปิดเว็บจาก Chrome/Safari แล้ว LINE ยังไม่ login
           // ให้เปิด LINE Login อัตโนมัติ 1 ครั้ง แทนการรอผู้ใช้กดปุ่มเอง
@@ -5763,7 +5771,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.3.0 SIDEBAR LOCK</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.4.0 WEB LOGIN FIRST</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
