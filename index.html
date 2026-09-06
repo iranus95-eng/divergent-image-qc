@@ -1877,7 +1877,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V43_FALLBACK_LOGIN_LINE_REPAIR";
+    const PAYROLL_UI_BUILD = "V48_USER_MANAGEMENT_FAST";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -1893,6 +1893,26 @@
     let adminUsers = [];
     let currentAdminId = null;
     let currentUserManagementPermissions = {};
+    let userAdminLoadedAt = 0;
+    let userAdminLoadPromise = null;
+    const USER_ADMIN_CACHE_KEY = "divergent_user_admin_cache_v1";
+    const USER_ADMIN_CACHE_MS = 120000;
+
+    function hydrateUserAdminCache(){
+      try{
+        const c=JSON.parse(localStorage.getItem(USER_ADMIN_CACHE_KEY)||"null");
+        if(!c || !Array.isArray(c.users)) return false;
+        adminUsers=c.users;
+        currentAdminId=c.currentAdminId||null;
+        currentUserManagementPermissions=c.permissions||{};
+        userAdminLoadedAt=Number(c.at||0);
+        return adminUsers.length>0;
+      }catch(_){ return false; }
+    }
+    function saveUserAdminCache(){
+      try{localStorage.setItem(USER_ADMIN_CACHE_KEY,JSON.stringify({users:adminUsers,currentAdminId,permissions:currentUserManagementPermissions,at:userAdminLoadedAt||Date.now()}));}catch(_){ }
+    }
+    hydrateUserAdminCache();
 
     function setNavActive(activeId) {
       ["navHome","navQc","navSearch","navUsers","navPayroll","navStaffPayroll","navClaim","navClaimPending","navPnL","navStaffExpense","navInvoice","navBilling"].forEach(id => {
@@ -2128,10 +2148,12 @@
           adminUsers=data.users||[];
           currentAdminId=data.current_user_id||data.current_admin_id||null;
           currentUserManagementPermissions=data.current_permissions||{};
+          userAdminLoadedAt=Date.now();
+          saveUserAdminCache();
           renderUserStats();
           renderUserTable();
         }catch(_){}
-      },30000);
+      },60000);
     }
 
     function lastSeenText(v){
@@ -2178,25 +2200,31 @@
     async function openUserManagement(){
       if(!requireMenuAccess("user_management","เมนูจัดการผู้ใช้งาน"))return;
       const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";const pw=document.getElementById("pnlWorkspace");if(pw)pw.style.display="none";
-      // V42: เปลี่ยนหน้าให้ผู้ใช้เห็นทันที ไม่รอ network ก่อน
+      // V48: เปลี่ยนหน้าทันทีและใช้ข้อมูล cache ก่อน ไม่รอ LINE/Supabase
       switchWorkspace("users");
+      if(!adminUsers.length) hydrateUserAdminCache();
       if(adminUsers.length){renderUserStats();renderUserTable();applyUserManagementPermissions();}
+      else{
+        const body=document.getElementById("userTableBody");
+        if(body) body.innerHTML='<tr><td colspan="8" class="user-loading">กำลังโหลดข้อมูลผู้ใช้งานเบื้องหลัง...</td></tr>';
+      }
       const n=document.getElementById("navUsers"); if(n)n.classList.add("checking-access");
-      const fresh=Date.now()-userAdminLoadedAt<30000 && adminUsers.length;
+      const fresh=Date.now()-userAdminLoadedAt<USER_ADMIN_CACHE_MS && adminUsers.length;
       if(fresh){if(n)n.classList.remove("checking-access");return;}
       if(userAdminLoadPromise)return;
       userAdminLoadPromise=(async()=>{
         try{
           const data=await userAdminApi("list");
           adminUsers=data.users||[];currentAdminId=data.current_user_id||data.current_admin_id||null;currentUserManagementPermissions=data.current_permissions||{};
-          userAdminLoadedAt=Date.now();renderUserStats();renderUserTable();applyUserManagementPermissions();
+          userAdminLoadedAt=Date.now();saveUserAdminCache();renderUserStats();renderUserTable();applyUserManagementPermissions();
         }catch(e){
           const code=e?.message||String(e);
-          if(code==="USER_MANAGEMENT_ACCESS_DENIED"||code==="PERMISSION_DENIED"){switchWorkspace("home");alert("คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน");}
-          else{const st=document.getElementById("userAdminStatus");if(st)st.textContent="โหลดข้อมูลผู้ใช้ไม่สำเร็จ: "+userAdminErrorText(code);}
+          // ถ้ามี cache อยู่ ให้ใช้งานต่อ ไม่เด้งออกจากเมนูเพียงเพราะ network ช้า
+          if(!adminUsers.length && (code==="USER_MANAGEMENT_ACCESS_DENIED"||code==="PERMISSION_DENIED")){switchWorkspace("home");alert("คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน");}
+          else if(!adminUsers.length){const st=document.getElementById("userAdminStatus");if(st)st.textContent="โหลดข้อมูลผู้ใช้ไม่สำเร็จ: "+userAdminErrorText(code);}
         }finally{if(n)n.classList.remove("checking-access");userAdminLoadPromise=null;}
       })();
-      await userAdminLoadPromise;
+      // intentionally do not await: navigation must stay instant
     }
 
     function applyUserManagementPermissions(){
@@ -2220,6 +2248,7 @@
         adminUsers=data.users||[];
         currentAdminId=data.current_user_id||data.current_admin_id||null;
         currentUserManagementPermissions=data.current_permissions||{};
+        userAdminLoadedAt=Date.now(); saveUserAdminCache();
         renderUserStats(); renderUserTable(); applyUserManagementPermissions();
       }catch(e){if(body) body.innerHTML='<tr><td colspan="8" class="user-empty">โหลดข้อมูลไม่สำเร็จ: '+escapeHtml(e.message||String(e))+'</td></tr>';}
     }
@@ -3452,6 +3481,11 @@
         await refreshInvoiceMenuAccess();
         await refreshBillingAccess();
         applyMenuAccess();
+        // V48: เตรียมข้อมูลจัดการผู้ใช้หลังหน้าเว็บพร้อม เพื่อลดเวลารอเมื่อกดเมนูครั้งแรก
+        if(menuAccess.user_management && !adminUsers.length){
+          const preload=()=>{ if(!userAdminLoadPromise) userAdminLoadPromise=(async()=>{try{const data=await userAdminApi("list");adminUsers=data.users||[];currentAdminId=data.current_user_id||data.current_admin_id||null;currentUserManagementPermissions=data.current_permissions||{};userAdminLoadedAt=Date.now();saveUserAdminCache();}catch(_){}finally{userAdminLoadPromise=null;}})(); };
+          if("requestIdleCallback" in window) requestIdleCallback(preload,{timeout:1800}); else setTimeout(preload,700);
+        }
 
       } catch (error) {
         status.textContent =
@@ -5596,7 +5630,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.4</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.5</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
