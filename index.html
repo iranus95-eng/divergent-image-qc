@@ -1680,6 +1680,13 @@
       }catch(e){st.textContent="โหลดไม่สำเร็จ: "+e.message}
     }
     function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
+    function formatNationalId(v){
+      const d=String(v||"").replace(/\D/g,"");
+      if(d.length===13) return "*********"+d.slice(-4);
+      if(d.length===4) return "*********"+d;
+      return d ? "ข้อมูลไม่ครบ" : "-";
+    }
+
     function filterPayrollEmployees(){
       const q=String(document.getElementById("payrollSearch")?.value||"").toLowerCase().trim();
       const rows=payrollEmployees
@@ -3423,7 +3430,7 @@
       let ready=0;
       body.innerHTML=rows.map(e=>{
         const s=kbankRowStatus(e); if(s.ok) ready++;
-        const nid=s.nid.length===13 ? s.nid.slice(0,1)+"-"+s.nid.slice(1,5)+"-"+s.nid.slice(5,10)+"-"+s.nid.slice(10,12)+"-"+s.nid.slice(12) : (s.nid||"-");
+        const nid=s.nid.length===13 ? "*********"+s.nid.slice(-4) : (s.nid.length===4 ? "*********"+s.nid : "-");
         return `<tr>
           <td>${esc(e.source_row||"-")}</td>
           <td>${esc(e.employee_name||"-")}</td>
