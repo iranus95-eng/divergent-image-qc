@@ -2028,6 +2028,12 @@
       if(el.style.display!==want)el.style.display=want;
     }
     function applyMenuAccess(){
+      // V61: once the clean permission kernel is active, every legacy caller delegates
+      // to the single sidebar renderer instead of recalculating permissions itself.
+      if(window.DivergentState?.build==="V61" && typeof window.__renderSidebarV61==="function"){
+        window.__renderSidebarV61();
+        return;
+      }
       if(applyingMenuAccess)return;
       applyingMenuAccess=true;
       try{
@@ -5819,7 +5825,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.0.0</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.0.1</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
@@ -5835,22 +5841,22 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 </div>
 
 <script>
-/* DIVERGENT V60 CLEAN REBUILD KERNEL
+/* DIVERGENT V61 CLEAN REBUILD AUTH/PERMISSION KERNEL
    One Auth Owner -> One Permission State -> One Sidebar Renderer */
 (() => {
   'use strict';
   const ACCESS_CONTROL_API_URL = 'https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
-  const CACHE_KEY = 'divergent_v60_permission_state';
+  const CACHE_KEY = 'divergent_v61_permission_state';
   const BUILD_KEY = 'divergent_clean_build';
   const EMPTY = {home:true,claim:false,claim_pending:false,payroll:false,staff_expense:false,qc:false,search:false,user_management:false,invoice:false,billing:false,pnl:false};
   const NAV = {navHome:'home',navClaim:'claim',navClaimPending:'claim_pending',navPayroll:'payroll',navStaffExpense:'staff_expense',navQc:'qc',navSearch:'search',navUsers:'user_management',navInvoice:'invoice',navBilling:'billing',navPnL:'pnl'};
   const WORKSPACES=['homeWorkspace','claimWorkspace','claimPendingWorkspace','payrollWorkspace','staffExpenseWorkspace','qcWorkspace','searchWorkspace','userWorkspace','invoiceWorkspace','billingWorkspace','pnlWorkspace','locationWorkspace','staffPayrollWorkspace'];
-  const state=window.DivergentState={build:'V60',authMode:'',user:null,access:{...EMPTY},manage:{},rawPermissions:{},confirmed:false,loading:false,requestId:0};
+  const state=window.DivergentState={build:'V61',authMode:'',user:null,access:{...EMPTY},manage:{},rawPermissions:{},confirmed:false,loading:false,requestId:0};
 
   try{
-    if(localStorage.getItem(BUILD_KEY)!=='V60'){
-      ['divergent_menu_access_cache','divergent_permission_cache_build','divergent_v57_permission_cache','divergent_v58_permission_cache'].forEach(k=>localStorage.removeItem(k));
-      localStorage.setItem(BUILD_KEY,'V60');
+    if(localStorage.getItem(BUILD_KEY)!=='V61'){
+      ['divergent_menu_access_cache','divergent_permission_cache_build','divergent_v57_permission_cache','divergent_v58_permission_cache','divergent_v60_permission_state'].forEach(k=>localStorage.removeItem(k));
+      localStorage.setItem(BUILD_KEY,'V61');
     }
   }catch(_){}
 
@@ -5873,10 +5879,11 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     for(const [id,key] of Object.entries(NAV)){
       const el=document.getElementById(id); if(!el)continue;
       el.style.setProperty('display',key==='home'||state.access[key]?'flex':'none','important');
-      el.dataset.permissionOwner='V60';
+      el.dataset.permissionOwner='V61';
     }
     const sp=document.getElementById('navStaffPayroll'); if(sp)sp.style.setProperty('display','none','important');
   }
+  window.__renderSidebarV61=renderSidebar;
   function cacheWrite(){try{localStorage.setItem(CACHE_KEY,JSON.stringify({at:Date.now(),authMode:state.authMode,user:state.user,access:state.access,manage:state.manage,rawPermissions:state.rawPermissions}))}catch(_){}}
   function cacheRead(){
     try{
