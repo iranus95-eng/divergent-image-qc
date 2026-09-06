@@ -2225,7 +2225,80 @@
       if(!requireMenuAccess("billing","เมนูจัดทำใบวางบิล"))return;
       billingAccess=true;switchWorkspace("__billing__");const b=document.getElementById("billingWorkspace");if(b)b.style.display="block";setNavActive("navBilling");renderBilling();window.scrollTo(0,0);
     }
-    function printHtmlA4(html,title){const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 portrait;margin:0}body{margin:0;background:#fff}.invoice-paper{width:210mm;min-height:297mm;box-sizing:border-box;padding:0 9mm 7mm;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.08;color:#000;page-break-after:always}.invoice-paper:last-child{page-break-after:auto}.invoice-paper *{font-family:inherit}.invoice-head-img{width:100%;height:38mm;object-fit:cover;object-position:center top}.invoice-foot-img{width:100%;height:26mm;object-fit:cover;object-position:center bottom;margin-top:3mm}.invoice-doc-title{text-align:center;font-size:24pt;font-weight:700}.invoice-meta{display:flex;justify-content:flex-end;margin-top:-9mm;margin-bottom:6mm}.invoice-meta td{font-size:15pt;padding:0 1mm}.invoice-customer div{display:grid;grid-template-columns:24mm 1fr}.invoice-table{width:100%;border-collapse:collapse;font-size:14pt}.invoice-table th,.invoice-table td{border:1px solid #555;padding:1.5mm;background:#fff}.num{text-align:right}.center{text-align:center}.sumlabel{text-align:right;font-weight:700}.invoice-baht{text-align:center;font-weight:700;margin:3mm}.invoice-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:10mm;text-align:center;font-size:13pt}.sigline{margin-top:8mm}.siglabel{margin-top:2mm}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},500)}
+    function printHtmlA4(html,title){const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 portrait;margin:0}body{margin:0;background:#fff}.invoice-paper{width:210mm;min-height:297mm;box-sizing:border-box;padding:0 9mm 7mm;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.08;color:#000;page-break-after:always}.invoice-paper:last-child{page-break-after:auto}.invoice-paper *{font-family:inherit}.invoice-head-img{width:100%;height:38mm;object-fit:cover;object-position:center top}.invoice-foot-img{width:100%;height:26mm;object-fit:cover;object-position:center bottom;margin-top:3mm}.invoice-doc-title{text-align:center;font-size:24pt;font-weight:700}.invoice-meta{display:flex;justify-content:flex-end;margin-top:-9mm;margin-bottom:6mm}.invoice-meta td{font-size:15pt;padding:0 1mm}.invoice-customer div{display:grid;grid-template-columns:24mm 1fr}.invoice-table{width:100%;border-collapse:collapse;font-size:14pt}.invoice-table th,.invoice-table td{border:1px solid #555;padding:1.5mm;background:#fff}.num{text-align:right}.center{text-align:center}.sumlabel{text-align:right;font-weight:700}.invoice-baht{text-align:center;font-weight:700;margin:3mm}.invoice-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:10mm;text-align:center;font-size:13pt}.sigline{margin-top:8mm}.siglabel{margin-top:2mm}</style></head><body>${html}
+<script>
+/* V62 direct auth repair: login and permission come from the SAME backend response. */
+(() => {
+  'use strict';
+  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
+  const SESSION_KEY='divergent_web_session_token_v1';
+  const PREF_KEY='divergent_auth_preference_v1';
+
+  function acceptV62(j){
+    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
+    if(window.DivergentState){
+      const st=window.DivergentState;
+      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
+    }
+    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
+    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
+    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
+    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
+    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
+    try{window.__renderSidebarV61?.();}catch(_){ }
+    try{window.applyMenuAccess?.();}catch(_){ }
+    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
+    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
+  }
+
+  async function directLogin(username,password){
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
+      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
+      return j;
+    }finally{clearTimeout(tm)}
+  }
+
+  window.bindEmployeeAccount=async function(){
+    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
+    const password=document.getElementById('employeeBindPassword')?.value||'';
+    const result=document.getElementById('employeeBindResult');
+    const btn=document.getElementById('employeeBindButton');
+    if(result){result.className='registration-result';result.textContent='';}
+    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
+    try{
+      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
+      const j=await directLogin(username,password);
+      acceptV62(j);
+      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
+      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
+      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
+    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
+    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
+  };
+  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
+
+  // When a valid staff session exists, use only that identity on bootstrap.
+  window.__v62Boot=async function(){
+    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
+    if(!tok)return false;
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+      acceptV62(j);return true;
+    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
+  };
+
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
+})();
+</script>
+
+</body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},500)}
     function printInvoiceA4(){const p=document.getElementById("invoicePaper");if(p)printHtmlA4(p.outerHTML,"ใบตั้งหนี้")}
     let billingActiveDoc="tax";
     const BILL_DOCS={tax:["ใบเสร็จรับเงิน/ใบกำกับภาษี","ต้นฉบับ"],taxcopy:["ใบเสร็จรับเงิน/ใบกำกับภาษี","สำเนา"],invoice:["ใบแจ้งหนี้/ใบวางบิล","ต้นฉบับ"],invoicecopy:["ใบแจ้งหนี้/ใบวางบิล","สำเนา"]};
@@ -3034,7 +3107,153 @@
   </div>
 </div>
 
-</body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table></body></html>`}
+
+<script>
+/* V62 direct auth repair: login and permission come from the SAME backend response. */
+(() => {
+  'use strict';
+  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
+  const SESSION_KEY='divergent_web_session_token_v1';
+  const PREF_KEY='divergent_auth_preference_v1';
+
+  function acceptV62(j){
+    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
+    if(window.DivergentState){
+      const st=window.DivergentState;
+      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
+    }
+    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
+    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
+    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
+    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
+    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
+    try{window.__renderSidebarV61?.();}catch(_){ }
+    try{window.applyMenuAccess?.();}catch(_){ }
+    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
+    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
+  }
+
+  async function directLogin(username,password){
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
+      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
+      return j;
+    }finally{clearTimeout(tm)}
+  }
+
+  window.bindEmployeeAccount=async function(){
+    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
+    const password=document.getElementById('employeeBindPassword')?.value||'';
+    const result=document.getElementById('employeeBindResult');
+    const btn=document.getElementById('employeeBindButton');
+    if(result){result.className='registration-result';result.textContent='';}
+    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
+    try{
+      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
+      const j=await directLogin(username,password);
+      acceptV62(j);
+      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
+      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
+      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
+    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
+    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
+  };
+  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
+
+  // When a valid staff session exists, use only that identity on bootstrap.
+  window.__v62Boot=async function(){
+    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
+    if(!tok)return false;
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+      acceptV62(j);return true;
+    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
+  };
+
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
+})();
+</script>
+
+</body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table>
+<script>
+/* V62 direct auth repair: login and permission come from the SAME backend response. */
+(() => {
+  'use strict';
+  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
+  const SESSION_KEY='divergent_web_session_token_v1';
+  const PREF_KEY='divergent_auth_preference_v1';
+
+  function acceptV62(j){
+    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
+    if(window.DivergentState){
+      const st=window.DivergentState;
+      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
+    }
+    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
+    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
+    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
+    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
+    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
+    try{window.__renderSidebarV61?.();}catch(_){ }
+    try{window.applyMenuAccess?.();}catch(_){ }
+    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
+    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
+  }
+
+  async function directLogin(username,password){
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
+      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
+      return j;
+    }finally{clearTimeout(tm)}
+  }
+
+  window.bindEmployeeAccount=async function(){
+    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
+    const password=document.getElementById('employeeBindPassword')?.value||'';
+    const result=document.getElementById('employeeBindResult');
+    const btn=document.getElementById('employeeBindButton');
+    if(result){result.className='registration-result';result.textContent='';}
+    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
+    try{
+      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
+      const j=await directLogin(username,password);
+      acceptV62(j);
+      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
+      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
+      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
+    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
+    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
+  };
+  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
+
+  // When a valid staff session exists, use only that identity on bootstrap.
+  window.__v62Boot=async function(){
+    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
+    if(!tok)return false;
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+      acceptV62(j);return true;
+    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
+  };
+
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
+})();
+</script>
+
+</body></html>`}
     async function createMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="CSV"){const blob=new Blob([buildMoneyCsv()],{type:"text/csv;charset=utf-8"});moneyReportLastFile=new File([blob],moneyReportFilename("csv"),{type:blob.type});alert("สร้างไฟล์ Excel (CSV) พร้อมแล้ว") }else{const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างรายงาน กรุณาอนุญาต Pop-up");return}w.document.open();w.document.write(buildMoneyPrintHtml());w.document.close();setTimeout(()=>{w.focus();w.print()},300)}}
     async function downloadMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){await createMoneyReport();return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(moneyReportLastFile);a.download=moneyReportLastFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
     async function generateMoneyReportShareLink(){
@@ -5825,7 +6044,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.0.1</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.0.2</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
@@ -5846,17 +6065,17 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 (() => {
   'use strict';
   const ACCESS_CONTROL_API_URL = 'https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
-  const CACHE_KEY = 'divergent_v61_permission_state';
+  const CACHE_KEY = 'divergent_v62_permission_state';
   const BUILD_KEY = 'divergent_clean_build';
   const EMPTY = {home:true,claim:false,claim_pending:false,payroll:false,staff_expense:false,qc:false,search:false,user_management:false,invoice:false,billing:false,pnl:false};
   const NAV = {navHome:'home',navClaim:'claim',navClaimPending:'claim_pending',navPayroll:'payroll',navStaffExpense:'staff_expense',navQc:'qc',navSearch:'search',navUsers:'user_management',navInvoice:'invoice',navBilling:'billing',navPnL:'pnl'};
   const WORKSPACES=['homeWorkspace','claimWorkspace','claimPendingWorkspace','payrollWorkspace','staffExpenseWorkspace','qcWorkspace','searchWorkspace','userWorkspace','invoiceWorkspace','billingWorkspace','pnlWorkspace','locationWorkspace','staffPayrollWorkspace'];
-  const state=window.DivergentState={build:'V61',authMode:'',user:null,access:{...EMPTY},manage:{},rawPermissions:{},confirmed:false,loading:false,requestId:0};
+  const state=window.DivergentState={build:'V62',authMode:'',user:null,access:{...EMPTY},manage:{},rawPermissions:{},confirmed:false,loading:false,requestId:0};
 
   try{
-    if(localStorage.getItem(BUILD_KEY)!=='V61'){
+    if(localStorage.getItem(BUILD_KEY)!=='V62'){
       ['divergent_menu_access_cache','divergent_permission_cache_build','divergent_v57_permission_cache','divergent_v58_permission_cache','divergent_v60_permission_state'].forEach(k=>localStorage.removeItem(k));
-      localStorage.setItem(BUILD_KEY,'V61');
+      localStorage.setItem(BUILD_KEY,'V62');
     }
   }catch(_){}
 
@@ -5879,7 +6098,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     for(const [id,key] of Object.entries(NAV)){
       const el=document.getElementById(id); if(!el)continue;
       el.style.setProperty('display',key==='home'||state.access[key]?'flex':'none','important');
-      el.dataset.permissionOwner='V61';
+      el.dataset.permissionOwner='V62';
     }
     const sp=document.getElementById('navStaffPayroll'); if(sp)sp.style.setProperty('display','none','important');
   }
@@ -5995,5 +6214,78 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 })();
 
 </script>
+
+<script>
+/* V62 direct auth repair: login and permission come from the SAME backend response. */
+(() => {
+  'use strict';
+  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
+  const SESSION_KEY='divergent_web_session_token_v1';
+  const PREF_KEY='divergent_auth_preference_v1';
+
+  function acceptV62(j){
+    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
+    if(window.DivergentState){
+      const st=window.DivergentState;
+      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
+    }
+    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
+    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
+    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
+    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
+    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
+    try{window.__renderSidebarV61?.();}catch(_){ }
+    try{window.applyMenuAccess?.();}catch(_){ }
+    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
+    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
+  }
+
+  async function directLogin(username,password){
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
+      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
+      return j;
+    }finally{clearTimeout(tm)}
+  }
+
+  window.bindEmployeeAccount=async function(){
+    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
+    const password=document.getElementById('employeeBindPassword')?.value||'';
+    const result=document.getElementById('employeeBindResult');
+    const btn=document.getElementById('employeeBindButton');
+    if(result){result.className='registration-result';result.textContent='';}
+    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
+    try{
+      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
+      const j=await directLogin(username,password);
+      acceptV62(j);
+      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
+      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
+      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
+    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
+    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
+  };
+  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
+
+  // When a valid staff session exists, use only that identity on bootstrap.
+  window.__v62Boot=async function(){
+    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
+    if(!tok)return false;
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+      acceptV62(j);return true;
+    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
+  };
+
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
+})();
+</script>
+
 </body>
 </html>
