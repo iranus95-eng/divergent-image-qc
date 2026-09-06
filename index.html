@@ -1914,7 +1914,7 @@
     let pnlRemoteSummary={employee_payroll_net:0,employee_payroll_count:0,employee_data_available:false,staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0,staff_expense_data_available:false};
     let staffPayrollRows=[];
     let payrollEmployees=[]; let payrollCanManage=false;
-    let payrollPage=1; const PAYROLL_PAGE_SIZE=60; let payrollFilterTimer=null; let payrollVisibleRows=[];
+    let payrollPage=1; const PAYROLL_PAGE_SIZE=200; let payrollFilterTimer=null; let payrollVisibleRows=[];
     const PAYROLL_CACHE_KEY="divergent_payroll_list_cache_v2"; const PAYROLL_CACHE_TTL=5*60*1000;
     function readPayrollCache(){try{const x=JSON.parse(localStorage.getItem(PAYROLL_CACHE_KEY)||"null");if(!x||!Array.isArray(x.employees))return null;return x}catch(_){return null}}
     function writePayrollCache(d){try{localStorage.setItem(PAYROLL_CACHE_KEY,JSON.stringify({employees:d.employees||[],can_manage:!!d.can_manage,source_month:d.source_month||"",at:Date.now()}))}catch(_){}}
