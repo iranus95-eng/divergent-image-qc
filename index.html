@@ -1112,6 +1112,7 @@
         <input type="hidden" id="payrollEmployeeId">
         <div class="payroll-form">
           <div class="payroll-field"><label>ชื่อพนักงาน</label><input id="peName"></div>
+          <div class="payroll-field"><label>เลขบัตรประชาชน</label><input id="peNationalId" inputmode="numeric" maxlength="13" placeholder="13 หลัก"></div>
           <div class="payroll-field"><label>พื้นที่หลัก</label><input id="peSite"></div>
           <div class="payroll-field"><label>ธนาคาร</label><input id="peBank"></div>
           <div class="payroll-field"><label>เลขบัญชี</label><input id="peAccount"></div>
@@ -1232,6 +1233,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
+    const PAYROLL_NATIONAL_ID_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-national-id-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     let payrollEmployees=[]; let payrollCanManage=false;
     let staffExpenseCycles=[]; let staffExpenseCategories=[]; let staffExpenseItems=[]; let staffExpenseCanManage=false;
@@ -1567,6 +1569,24 @@
       const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PAYROLL_INVALID_RESPONSE")}
       if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d;
     }
+    async function savePayrollNationalId(id,nationalId){
+      const accessToken=await getLineAccessToken();
+      const r=await fetch(PAYROLL_NATIONAL_ID_API_URL,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
+        body:JSON.stringify({id:Number(id),national_id:nationalId||""})
+      });
+      const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("NATIONAL_ID_INVALID_RESPONSE")}
+      if(!r.ok){
+        const map={
+          NATIONAL_ID_MUST_BE_13_DIGITS:"เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก",
+          NATIONAL_ID_DUPLICATE:"เลขบัตรประชาชนนี้มีอยู่ในรายชื่อพนักงานแล้ว"
+        };
+        throw new Error(map[d.error]||d.error||("HTTP "+r.status));
+      }
+      return d;
+    }
+
     async function openPayrollManagement(){
       try{
         const p=await payrollApi("permissions"); payrollCanManage=!!p.can_manage;
@@ -1620,15 +1640,32 @@
       document.getElementById("payrollModal").classList.add("show");document.getElementById("peStatus").textContent="";
       let e={rates:[],adjustments:[]};if(id){const d=await payrollApi("get_employee",{id});e=d.employee;payrollCanManage=!!d.can_manage}
       document.getElementById("payrollEmployeeId").value=e.id||"";document.getElementById("payrollModalTitle").textContent=id?"ข้อมูลพนักงาน":"เพิ่มพนักงานใหม่";
-      for(const [k,v] of [["peName",e.employee_name],["peSite",e.site_name],["peBank",e.bank_name],["peAccount",e.bank_account],["pePhone",e.phone],["peRate",e.rate_per_unit],["peNotes",e.notes]])document.getElementById(k).value=v??"";
+      for(const [k,v] of [["peName",e.employee_name],["peNationalId",e.national_id],["peSite",e.site_name],["peBank",e.bank_name],["peAccount",e.bank_account],["pePhone",e.phone],["peRate",e.rate_per_unit],["peNotes",e.notes]])document.getElementById(k).value=v??"";
       document.getElementById("rateSection").style.display=id?"":"none";document.getElementById("adjustSection").style.display=id?"":"none";document.getElementById("peSaveBtn").style.display=payrollCanManage?"":"none";
       document.getElementById("peRates").innerHTML=(e.rates||[]).map(r=>`<div class="payroll-rate-row"><div>${escapeHtml(r.site_name)}</div><b>${Number(r.rate_amount).toFixed(2)}</b><span>${r.is_active?"ใช้งาน":"ปิด"}</span></div>`).join("")||"ยังไม่มีเรต";
       document.getElementById("peAdjustments").innerHTML=(e.adjustments||[]).map(a=>`<div style="padding:8px 0;border-bottom:1px solid #eee">${a.adjustment_type==="BONUS"?"เงินพิเศษ":a.adjustment_type==="DEDUCTION"?"รายการหัก":"อื่นๆ"} <b>${Number(a.amount).toFixed(2)} บาท</b> • ${a.period_start} ถึง ${a.period_end} ${a.note?"• "+escapeHtml(a.note):""}</div>`).join("")||"ยังไม่มีรายการ";
     }
     function closePayrollModal(){document.getElementById("payrollModal").classList.remove("show")}
     async function savePayrollEmployee(){
-      const id=document.getElementById("payrollEmployeeId").value,p={employee_name:peName.value.trim(),site_name:peSite.value.trim(),bank_name:peBank.value.trim(),bank_account:peAccount.value.trim(),phone:pePhone.value.trim(),rate_per_unit:peRate.value,notes:peNotes.value.trim()};
-      const st=document.getElementById("peStatus");try{st.textContent="กำลังบันทึก...";if(id)await payrollApi("update_employee",{id:Number(id),...p});else await payrollApi("create_employee",p);st.textContent="บันทึกสำเร็จ ✓";await loadPayrollEmployees();if(!id)setTimeout(closePayrollModal,500)}catch(e){st.textContent="บันทึกไม่สำเร็จ: "+e.message}
+      const id=document.getElementById("payrollEmployeeId").value;
+      const nid=peNationalId.value.replace(/\D/g,"");
+      const st=document.getElementById("peStatus");
+      if(nid && nid.length!==13){st.textContent="เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";peNationalId.focus();return}
+      const p={employee_name:peName.value.trim(),national_id:nid,site_name:peSite.value.trim(),bank_name:peBank.value.trim(),bank_account:peAccount.value.trim(),phone:pePhone.value.trim(),rate_per_unit:peRate.value,notes:peNotes.value.trim()};
+      try{
+        st.textContent="กำลังบันทึก...";
+        let rowId=Number(id)||0;
+        if(id){
+          await payrollApi("update_employee",{id:Number(id),...p});
+        }else{
+          const created=await payrollApi("create_employee",p);
+          rowId=Number(created?.employee?.id||created?.employee?.master_row_id||0);
+        }
+        if(rowId) await savePayrollNationalId(rowId,nid);
+        st.textContent="บันทึกสำเร็จ ✓";
+        await loadPayrollEmployees();
+        if(!id)setTimeout(closePayrollModal,500)
+      }catch(e){st.textContent="บันทึกไม่สำเร็จ: "+e.message}
     }
     async function addPayrollRate(){
       const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_rate",{id:id,site_name:newRateSite.value.trim(),rate_amount:Number(newRateAmount.value)});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มเรตไม่สำเร็จ: "+e.message}
