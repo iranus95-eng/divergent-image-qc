@@ -1231,6 +1231,7 @@
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     let payrollEmployees=[]; let payrollCanManage=false;
     let staffExpenseCycles=[]; let staffExpenseCategories=[]; let staffExpenseItems=[]; let staffExpenseCanManage=false;
+    let staffExpenseLoadedAt=0; let staffExpenseSelectedCycleId=0; let staffExpenseBootstrapPromise=null;
 
 
     let caSearchPayload = null;
@@ -1640,23 +1641,56 @@
       if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d;
     }
     function expenseCycleLabel(c){const ty=c.cycle_type==="DAY3"?"รอบวันที่ 3":c.cycle_type==="DAY7"?"รอบวันที่ 7":"รอบพิเศษ";return `${ty} • ${c.scheduled_date} • ${c.status}`}
+    function applyStaffExpenseBootstrap(d,{preserveSelection=true}={}){
+      staffExpenseCycles=d.cycles||[];staffExpenseCategories=d.categories||[];staffExpenseCanManage=!!d.can_manage;
+      const cs=document.getElementById("expenseCycleSelect");
+      const previous=preserveSelection?Number(cs?.value||staffExpenseSelectedCycleId||0):0;
+      if(cs){
+        cs.innerHTML=staffExpenseCycles.map(c=>`<option value="${c.id}">${escapeHtml(expenseCycleLabel(c))}</option>`).join("")||'<option value="">ยังไม่มีรอบเบิก</option>';
+        const wanted=previous||Number(d.initial_cycle_id||0);
+        if(wanted&&staffExpenseCycles.some(c=>Number(c.id)===wanted))cs.value=String(wanted);
+      }
+      const fo=document.getElementById("expenseCategoryFilter"), ex=document.getElementById("exCategory");
+      const opts=staffExpenseCategories.map(c=>`<option value="${c.id}">${escapeHtml(c.category_name)}</option>`).join("");
+      if(fo)fo.innerHTML='<option value="">ทุกหมวด</option>'+opts;if(ex)ex.innerHTML=opts+'<option value="">อื่นๆ</option>';
+      ["expenseAddBtn","expenseReadyBtn","expensePaidBtn","expenseClosedBtn"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=staffExpenseCanManage?"":"none"});
+      const selected=Number(cs?.value||d.initial_cycle_id||0);staffExpenseSelectedCycleId=selected;
+      if(Array.isArray(d.initial_items)&&Number(d.initial_cycle_id||0)===selected){staffExpenseItems=d.initial_items;renderStaffExpenseItems();updateStaffExpenseCycleUi(selected);}
+      staffExpenseLoadedAt=Date.now();
+    }
+    function updateStaffExpenseCycleUi(cycleId){
+      const c=staffExpenseCycles.find(x=>Number(x.id)===Number(cycleId));if(!c)return;
+      const t=document.getElementById("expenseCycleStatus");if(t)t.textContent=c.status;
+      const b=document.getElementById("expenseCycleBadge");if(b){b.textContent=c.status;b.className="expense-status "+c.status}
+    }
     async function openStaffExpenseManagement(){
-      try{const p=await staffExpenseApi("permissions");staffExpenseCanManage=!!p.can_manage;switchWorkspace("expense");await loadStaffExpenseBootstrap();}
-      catch(e){const c=String(e?.message||e);if(c==="LINE_NOT_LINKED"){window.payrollLinkPending=true;switchWorkspace("home");showRegistrationBox(true);return}if(c.includes("DENIED")){alert("บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าเมนูค่าใช้จ่ายสตาฟ");return}alert("เปิดระบบค่าใช้จ่ายสตาฟไม่สำเร็จ: "+c)}
+      switchWorkspace("expense");
+      const st=document.getElementById("expenseStatus");
+      if(staffExpenseCycles.length){
+        if(st)st.textContent=`แสดงข้อมูลล่าสุด ${staffExpenseItems.length} รายการ • กำลังตรวจสอบข้อมูลใหม่...`;
+        renderStaffExpenseItems();updateStaffExpenseCycleUi(Number(document.getElementById("expenseCycleSelect")?.value||staffExpenseSelectedCycleId||0));
+      }else if(st)st.textContent="กำลังเปิดระบบค่าใช้จ่ายสตาฟ...";
+      try{await loadStaffExpenseBootstrap(true)}
+      catch(e){const c=String(e?.message||e);if(c==="LINE_NOT_LINKED"){window.payrollLinkPending=true;switchWorkspace("home");showRegistrationBox(true);return}if(c.includes("DENIED")){switchWorkspace("home");alert("บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าเมนูค่าใช้จ่ายสตาฟ");return}if(st)st.textContent="เปิดระบบค่าใช้จ่ายสตาฟไม่สำเร็จ: "+c}
     }
-    async function loadStaffExpenseBootstrap(){
-      const st=document.getElementById("expenseStatus"); if(st)st.textContent="กำลังโหลดรอบเบิก...";
-      try{const d=await staffExpenseApi("bootstrap");staffExpenseCycles=d.cycles||[];staffExpenseCategories=d.categories||[];staffExpenseCanManage=!!d.can_manage;
-        const cs=document.getElementById("expenseCycleSelect");cs.innerHTML=staffExpenseCycles.map(c=>`<option value="${c.id}">${escapeHtml(expenseCycleLabel(c))}</option>`).join("")||'<option value="">ยังไม่มีรอบเบิก</option>';
-        const fo=document.getElementById("expenseCategoryFilter"), ex=document.getElementById("exCategory");const opts=staffExpenseCategories.map(c=>`<option value="${c.id}">${escapeHtml(c.category_name)}</option>`).join("");fo.innerHTML='<option value="">ทุกหมวด</option>'+opts;ex.innerHTML=opts+'<option value="">อื่นๆ</option>';
-        ["expenseAddBtn","expenseReadyBtn","expensePaidBtn","expenseClosedBtn"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=staffExpenseCanManage?"":"none"});
-        if(st)st.textContent=`พบ ${staffExpenseCycles.length} รอบเบิก`; await loadStaffExpenseItems();
-      }catch(e){if(st)st.textContent="โหลดรอบเบิกไม่สำเร็จ: "+e.message}
+    async function loadStaffExpenseBootstrap(background=false){
+      if(staffExpenseBootstrapPromise)return staffExpenseBootstrapPromise;
+      const st=document.getElementById("expenseStatus");if(st&&!background)st.textContent="กำลังโหลดข้อมูลค่าใช้จ่าย...";
+      const selected=Number(document.getElementById("expenseCycleSelect")?.value||staffExpenseSelectedCycleId||0);
+      staffExpenseBootstrapPromise=(async()=>{
+        const d=await staffExpenseApi("bootstrap",selected?{cycle_id:selected}:{});
+        applyStaffExpenseBootstrap(d,{preserveSelection:true});
+        const chosen=Number(document.getElementById("expenseCycleSelect")?.value||d.initial_cycle_id||0);
+        if(!(Array.isArray(d.initial_items)&&Number(d.initial_cycle_id||0)===chosen))await loadStaffExpenseItems(false);
+        if(st)st.textContent=`พร้อมใช้งาน • ${staffExpenseItems.length} รายการ`;
+      })();
+      try{return await staffExpenseBootstrapPromise}finally{staffExpenseBootstrapPromise=null}
     }
-    async function loadStaffExpenseItems(){
+    async function loadStaffExpenseItems(showLoading=true){
       const cycleId=Number(document.getElementById("expenseCycleSelect")?.value||0), st=document.getElementById("expenseStatus");
+      staffExpenseSelectedCycleId=cycleId;
       if(!cycleId){staffExpenseItems=[];renderStaffExpenseItems();return}
-      try{if(st)st.textContent="กำลังโหลดรายการ...";const d=await staffExpenseApi("list_items",{cycle_id:cycleId});staffExpenseItems=d.items||[];staffExpenseCanManage=!!d.can_manage;renderStaffExpenseItems();const c=staffExpenseCycles.find(x=>Number(x.id)===cycleId);if(c){document.getElementById("expenseCycleStatus").textContent=c.status;const b=document.getElementById("expenseCycleBadge");b.textContent=c.status;b.className="expense-status "+c.status}if(st)st.textContent=`โหลด ${staffExpenseItems.length} รายการแล้ว`}
+      try{if(st&&showLoading)st.textContent="กำลังโหลดรายการ...";const d=await staffExpenseApi("list_items",{cycle_id:cycleId});staffExpenseItems=d.items||[];staffExpenseCanManage=!!d.can_manage;renderStaffExpenseItems();updateStaffExpenseCycleUi(cycleId);if(st)st.textContent=`พร้อมใช้งาน • ${staffExpenseItems.length} รายการ`}
       catch(e){if(st)st.textContent="โหลดรายการไม่สำเร็จ: "+e.message}
     }
     function renderStaffExpenseItems(){
@@ -1677,7 +1711,7 @@
       const p={cycle_id:cycleId,staff_name:document.getElementById("exStaffName").value.trim(),expense_date:document.getElementById("exDate").value,category_id:catId||null,amount:Number(document.getElementById("exAmount").value||0),bank_name:document.getElementById("exBank").value.trim(),bank_account:document.getElementById("exAccount").value.trim(),payment_method:document.getElementById("exPayment").value,other_detail:document.getElementById("exOther").value.trim(),note:document.getElementById("exNote").value.trim()};
       try{st.textContent="กำลังบันทึก...";if(id)await staffExpenseApi("update_item",{id,...p});else await staffExpenseApi("create_item",p);st.textContent="บันทึกสำเร็จ ✓";await loadStaffExpenseItems();setTimeout(closeExpenseItemModal,350)}catch(e){st.textContent="บันทึกไม่สำเร็จ: "+e.message}
     }
-    async function setExpenseCycleStatus(status){const id=Number(document.getElementById("expenseCycleSelect")?.value||0);if(!id||!staffExpenseCanManage)return;if(!confirm(`เปลี่ยนสถานะรอบเป็น ${status} ?`))return;try{await staffExpenseApi("set_cycle_status",{cycle_id:id,status});await loadStaffExpenseBootstrap()}catch(e){alert("เปลี่ยนสถานะไม่สำเร็จ: "+e.message)}}
+    async function setExpenseCycleStatus(status){const id=Number(document.getElementById("expenseCycleSelect")?.value||0);if(!id||!staffExpenseCanManage)return;if(!confirm(`เปลี่ยนสถานะรอบเป็น ${status} ?`))return;try{await staffExpenseApi("set_cycle_status",{cycle_id:id,status});await loadStaffExpenseBootstrap(true)}catch(e){alert("เปลี่ยนสถานะไม่สำเร็จ: "+e.message)}}
 
     async function qcSearchApi(action, payload = {}) {
       const accessToken = await getLineAccessToken();
