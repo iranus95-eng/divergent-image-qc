@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Divergent Web Login</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,"Noto Sans Thai",sans-serif;background:#f4f1f8;color:#2d2435;min-height:100vh;display:grid;place-items:center;padding:20px}.card{width:min(420px,100%);background:#fff;border-radius:20px;box-shadow:0 16px 45px rgba(55,31,75,.14);padding:28px}.brand{font-weight:800;font-size:22px;color:#6d3c91;margin-bottom:6px}.sub{font-size:13px;color:#756b7d;margin-bottom:24px}.badge{display:inline-block;font-size:11px;font-weight:700;background:#eef8ef;color:#267a35;border:1px solid #cfe8d3;padding:5px 9px;border-radius:999px;margin-bottom:16px}.field{margin:12px 0}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}.field input{width:100%;padding:12px 13px;border:1px solid #d9d2df;border-radius:12px;font-size:15px;outline:none}.field input:focus{border-color:#8c5aae;box-shadow:0 0 0 3px rgba(140,90,174,.12)}button{width:100%;border:0;border-radius:12px;padding:13px 16px;background:#704296;color:#fff;font-weight:800;font-size:15px;cursor:pointer;margin-top:8px}button:disabled{opacity:.6;cursor:wait}.status{min-height:20px;margin-top:12px;font-size:12px;color:#b32323}.note{margin-top:18px;padding-top:14px;border-top:1px solid #eee8f1;font-size:11px;color:#7c7381;line-height:1.55}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="badge">WEB DIRECT · LINE OFF</div>
+  <div class="brand">Divergent Corporation</div>
+  <div class="sub">เข้าสู่ระบบด้วย Username / Password โดยไม่ใช้ LINE</div>
+  <form id="loginForm">
+    <div class="field"><label for="username">Username</label><input id="username" autocomplete="username" required></div>
+    <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
+    <button id="loginBtn" type="submit">เข้าสู่ระบบ</button>
+    <div id="status" class="status"></div>
+  </form>
+  <div class="note">หน้านี้ไม่มี LINE SDK และจะไม่เปิด LINE Login เมื่อเข้าสู่ระบบสำเร็จ ระบบจะพาไปหน้า Divergent ในโหมด Web Direct โดยอัตโนมัติ</div>
+</main>
+<script>
+const AUTH_URL='https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth';
+const SESSION_KEY='divergent_web_session_token_v1';
+const form=document.getElementById('loginForm'),btn=document.getElementById('loginBtn'),statusEl=document.getElementById('status');
+form.addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  statusEl.textContent='';
+  const username=document.getElementById('username').value.trim();
+  const password=document.getElementById('password').value;
+  if(!username||!password){statusEl.textContent='กรอก Username และ Password ให้ครบ';return;}
+  btn.disabled=true;btn.textContent='กำลังตรวจสอบบัญชี...';
+  try{
+    const r=await fetch(AUTH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password})});
+    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){ }
+    if(!r.ok){const m={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_DISABLED:'บัญชีถูกระงับ',USER_EXPIRED:'บัญชีหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(m[d?.error]||d?.detail||d?.error||('HTTP '+r.status));}
+    const token=d.session_token||d.token||d.session?.token||'';
+    if(!token)throw new Error('LOGIN_TOKEN_MISSING');
+    localStorage.setItem(SESSION_KEY,token);
+    localStorage.removeItem('divergent_menu_access_cache_v2');
+    sessionStorage.removeItem('divergent_line_auto_login_attempted');
+    location.replace('./?web=1&direct=1&v=7');
+  }catch(err){statusEl.textContent=err?.message==='LOGIN_TOKEN_MISSING'?'เข้าสู่ระบบสำเร็จแต่ไม่พบ Session Token':(err?.message||String(err));btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
+});
+</script>
+</body>
+</html>
