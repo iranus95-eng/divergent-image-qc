@@ -1833,9 +1833,19 @@
         if(!rowId) throw new Error("CREATE_EMPLOYEE_ID_MISSING");
         const savedNid=String(saved?.employee?.national_id||"").replace(/\D/g,"");
         if(savedNid.length!==13) throw new Error("NATIONAL_ID_SAVE_FAILED");
-        st.textContent="บันทึกสำเร็จ ✓";
+        st.textContent="กำลังตรวจสอบข้อมูลที่บันทึก...";
         await loadPayrollEmployees();
-        if(!id)setTimeout(closePayrollModal,500)
+        const verify=await payrollApi("get_employee",{id:rowId});
+        const ve=verify?.employee||null;
+        const verifyNid=String(ve?.national_id||"").replace(/\D/g,"");
+        if(!ve || Number(ve.id||ve.master_row_id)!==rowId) throw new Error("VERIFY_EMPLOYEE_NOT_FOUND");
+        if(verifyNid.length!==13) throw new Error("VERIFY_NATIONAL_ID_INCOMPLETE");
+        if(String(ve.employee_name||"").trim()!==String(p.employee_name||"").trim()) throw new Error("VERIFY_NAME_MISMATCH");
+        st.textContent=`บันทึกและตรวจสอบสำเร็จ ✓ ลำดับ ${ve.source_row||"-"} • เลขบัตรครบ 13 หลัก`;
+        if(!id){
+          peId.value=String(rowId);
+          document.getElementById("payrollModalTitle").textContent=`แก้ไขพนักงาน • ลำดับ ${ve.source_row||"-"}`;
+        }
       }catch(e){
         const msg=String(e?.message||e);
         const map={
@@ -1845,7 +1855,10 @@
           BANK_REQUIRED:"กรุณากรอกธนาคาร",
           BANK_ACCOUNT_REQUIRED:"กรุณากรอกเลขบัญชี",
           RATE_REQUIRED:"กรุณากรอกเรต",
-          NATIONAL_ID_SAVE_FAILED:"ระบบไม่ได้บันทึกเลขบัตรครบ 13 หลัก"
+          NATIONAL_ID_SAVE_FAILED:"ระบบไม่ได้บันทึกเลขบัตรครบ 13 หลัก",
+          VERIFY_EMPLOYEE_NOT_FOUND:"บันทึกแล้วแต่ตรวจสอบไม่พบพนักงานในฐานข้อมูล",
+          VERIFY_NATIONAL_ID_INCOMPLETE:"บันทึกแล้วแต่ตรวจสอบพบเลขบัตรไม่ครบ 13 หลัก",
+          VERIFY_NAME_MISMATCH:"บันทึกแล้วแต่ชื่อที่ตรวจสอบกลับมาไม่ตรง"
         };
         st.textContent="บันทึกไม่สำเร็จ: "+(map[msg]||msg);
       }
