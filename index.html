@@ -1875,10 +1875,10 @@
     // V56: purge only stale permission caches from older builds; keep the authenticated web session.
     try{
       const k="divergent_permission_cache_build";
-      if(localStorage.getItem(k)!=="V57"){
+      if(localStorage.getItem(k)!=="V58"){
         localStorage.removeItem("divergent_menu_access_cache");
         localStorage.removeItem(USER_ADMIN_CACHE_KEY);
-        localStorage.setItem(k,"V57");
+        localStorage.setItem(k,"V58");
       }
     }catch(_){ }
     let menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
@@ -1893,7 +1893,7 @@
       if(!access||typeof access!=="object") return false;
       const incomingMode=authMode||"";
       if(!force && authoritativeAuthMode==="session" && incomingMode && incomingMode!=="session") {
-        console.info("V57 ignored non-authoritative permission update",incomingMode);
+        console.info("V58 ignored non-authoritative permission update",incomingMode);
         return false;
       }
       if(incomingMode==="session"){authoritativeAuthMode="session";authoritativeUserId=user?.id??authoritativeUserId;}
@@ -1922,7 +1922,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V57_SINGLE_PERMISSION_STATE";
+    const PAYROLL_UI_BUILD = "V58_STABILIZED_PERMISSION_ARCHITECTURE";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -2008,19 +2008,48 @@
 
 
 
-    function setMenuVisible(id,show){const el=document.getElementById(id);if(el)el.style.display=show?"flex":"none";}
-    function applyMenuAccess(){
-      setMenuVisible("navClaim",!!menuAccess.claim);
-      setMenuVisible("navClaimPending",!!menuAccess.claim_pending);
-      setMenuVisible("navStaffPayroll",false);
-      setMenuVisible("navPayroll",!!menuAccess.payroll);
-      setMenuVisible("navStaffExpense",!!menuAccess.staff_expense);
-      setMenuVisible("navQc",!!menuAccess.qc);
-      setMenuVisible("navSearch",!!menuAccess.qc);
-      setMenuVisible("navUsers",!!menuAccess.user_management);
-      setMenuVisible("navInvoice",!!menuAccess.invoice);
-      setMenuVisible("navBilling",!!menuAccess.billing);
+    // V58 STABILIZE: Sidebar has exactly one owner. No feature/API may decide menu visibility itself.
+    const MENU_VISIBILITY_RULES={
+      navHome:()=>true,
+      navClaim:()=>!!menuAccess.claim,
+      navClaimPending:()=>!!menuAccess.claim_pending,
+      navStaffPayroll:()=>false,
+      navPayroll:()=>!!menuAccess.payroll,
+      navStaffExpense:()=>!!menuAccess.staff_expense,
+      navQc:()=>!!menuAccess.qc,
+      navSearch:()=>!!menuAccess.qc,
+      navUsers:()=>!!menuAccess.user_management,
+      navInvoice:()=>!!menuAccess.invoice,
+      navBilling:()=>!!menuAccess.billing,
+      navPnL:()=>!!window.profitLossAccessAllowed
+    };
+    let applyingMenuAccess=false;
+    function setMenuVisible(id,show){
+      const el=document.getElementById(id); if(!el)return;
+      const want=show?"flex":"none";
+      if(el.style.display!==want)el.style.display=want;
     }
+    function applyMenuAccess(){
+      if(applyingMenuAccess)return;
+      applyingMenuAccess=true;
+      try{
+        for(const [id,rule] of Object.entries(MENU_VISIBILITY_RULES)){
+          let show=false; try{show=!!rule();}catch(_){show=false;}
+          setMenuVisible(id,show);
+        }
+      }finally{applyingMenuAccess=false;}
+    }
+    // Any legacy async callback that touches nav styles is immediately normalized back to state.
+    let menuGuardQueued=false;
+    function queueMenuGuard(){
+      if(menuGuardQueued||applyingMenuAccess)return; menuGuardQueued=true;
+      queueMicrotask(()=>{menuGuardQueued=false;applyMenuAccess();});
+    }
+    document.addEventListener("DOMContentLoaded",()=>{
+      const nav=document.querySelector(".side-nav");
+      if(nav)new MutationObserver(queueMenuGuard).observe(nav,{subtree:true,attributes:true,attributeFilter:["style","class"]});
+      applyMenuAccess();
+    });
     function showAccountLinkRequired(message){
       switchWorkspace("home");
       showRegistrationBox(true);
@@ -2344,9 +2373,8 @@
     }
 
     function showUserAdminNav(show){
-      // V1.6.9: เมนูจัดการผู้ใช้งานต้องมองเห็นได้สำหรับทุกคน
-      const n=document.getElementById("navUsers");
-      if(n) n.style.display="flex";
+      // V58 compatibility shim: authoritative menu state decides visibility.
+      applyMenuAccess();
     }
 
     async function openUserManagement(){
@@ -3665,8 +3693,9 @@
 
 
     function showClaimPendingNav(show){
-      const nav=document.getElementById("navClaimPending");
-      if(nav)nav.style.display=show?"":"none";
+      // V58 compatibility shim: never write sidebar DOM directly.
+      if(authoritativeAuthMode!=="session" && typeof show==="boolean") menuAccess.claim_pending=!!show;
+      applyMenuAccess();
     }
 
     function setQcEnabled(enabled) {
@@ -4844,19 +4873,14 @@
     }
 
     async function refreshProfitLossMenuAccess(){
-      const nav=document.getElementById("navPnL");
-      if(nav)nav.style.display="none";
+      // V58: update state only; applyMenuAccess is the sole sidebar writer.
       window.profitLossAccessAllowed=false;
       try{
         const d=await profitLossApi("permissions");
-        if(d?.ok && d?.can_access===true){
-          window.profitLossAccessAllowed=true;
-          if(nav)nav.style.display="";
-        }
-      }catch(_){
-        window.profitLossAccessAllowed=false;
-        if(nav)nav.style.display="none";
-      }
+        window.profitLossAccessAllowed=!!(d?.ok && d?.can_access===true);
+      }catch(_){window.profitLossAccessAllowed=false;}
+      applyMenuAccess();
+      return window.profitLossAccessAllowed;
     }
 
     async function loadPnLRemoteSummary(){
@@ -5797,7 +5821,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.4</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.11.0</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
