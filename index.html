@@ -649,6 +649,75 @@
     .pending-note{font-size:12px;color:#766783;background:#faf7fd;border:1px solid #eee4f5;border-radius:12px;padding:11px 12px;margin-top:12px;line-height:1.6}
     @media(max-width:900px){.pending-claim-kpis{grid-template-columns:repeat(2,1fr)}}
 
+
+    .pnl-report-hero{
+      position:relative;overflow:hidden;
+      background:linear-gradient(135deg,#3c1764 0%,#6c39a5 55%,#8b62bc 100%);
+      color:#fff;border-radius:22px;padding:24px;margin:8px 0 16px;
+      box-shadow:0 14px 35px rgba(72,36,111,.18)
+    }
+    .pnl-report-hero:after{
+      content:"";position:absolute;right:-70px;top:-70px;width:230px;height:230px;
+      border-radius:50%;background:rgba(255,255,255,.08)
+    }
+    .pnl-report-hero-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;position:relative;z-index:1}
+    .pnl-report-brand{font-size:12px;letter-spacing:.4px;opacity:.86}
+    .pnl-report-title{font-size:27px;font-weight:900;margin-top:4px}
+    .pnl-report-period{font-size:13px;opacity:.92;margin-top:4px}
+    .pnl-report-status{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:7px 11px;font-size:11px;white-space:nowrap}
+    .pnl-report-hero-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:20px;position:relative;z-index:1}
+    .pnl-hero-kpi{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:15px;padding:13px}
+    .pnl-hero-kpi span{display:block;font-size:11px;opacity:.82}
+    .pnl-hero-kpi b{display:block;font-size:20px;margin-top:5px}
+    .pnl-report-actions{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+    .pnl-report-actions button{border:0;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer}
+    .pnl-btn-primary{background:#5e2d91;color:#fff}
+    .pnl-btn-soft{background:#f1e9f8;color:#512376}
+    .pnl-btn-green{background:#e9f8ef;color:#157847}
+    .pnl-btn-dark{background:#2f2638;color:#fff}
+    .pnl-report-section{background:#fff;border:1px solid #e8dff0;border-radius:18px;padding:17px;margin-bottom:14px}
+    .pnl-report-section h3{margin:0 0 12px;color:#432162;font-size:16px}
+    .pnl-report-lines{display:grid;gap:7px}
+    .pnl-report-line{display:flex;justify-content:space-between;gap:20px;padding:8px 0;border-bottom:1px dashed #ece5f1}
+    .pnl-report-line:last-child{border-bottom:0}
+    .pnl-report-line span{color:#64566e}
+    .pnl-report-line b{color:#31184a;font-variant-numeric:tabular-nums}
+    .pnl-report-line.total{margin-top:5px;padding-top:11px;border-top:2px solid #dfd0ec;border-bottom:0}
+    .pnl-report-line.total span,.pnl-report-line.total b{font-size:16px;font-weight:900}
+    .pnl-report-profit{
+      display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+      background:#f5fbf7;border:1px solid #cfe9d8;border-radius:16px;padding:16px;margin-top:12px
+    }
+    .pnl-report-profit.loss{background:#fff5f5;border-color:#efd0d0}
+    .pnl-report-profit small{display:block;color:#6f6477;margin-top:4px}
+    .pnl-report-profit b{font-size:26px;color:#177b4b}
+    .pnl-report-profit.loss b{color:#b33442}
+    .pnl-report-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .pnl-report-note{font-size:12px;color:#6d6176;line-height:1.65;background:#faf7fc;border-left:4px solid #8558ad;border-radius:10px;padding:12px}
+    .pnl-data-chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#f1eafa;color:#57307c;font-size:11px;font-weight:700;margin:2px 4px 2px 0}
+    .pnl-mini-bar{height:9px;background:#eee8f2;border-radius:999px;overflow:hidden;margin-top:6px}
+    .pnl-mini-bar > i{display:block;height:100%;background:linear-gradient(90deg,#7442a5,#9c77c5);border-radius:999px}
+    .pnl-print-only{display:none}
+
+    @media(max-width:900px){
+      .pnl-report-hero-kpis{grid-template-columns:repeat(2,1fr)}
+      .pnl-report-two{grid-template-columns:1fr}
+      .pnl-report-hero-top{flex-direction:column}
+    }
+
+    @media print{
+      body{background:#fff!important}
+      .sidebar,.topbar,.pnl-toolbar,.pnl-report-actions,.payroll-head>div:last-child{display:none!important}
+      .main{margin:0!important;padding:0!important}
+      #pnlWorkspace{display:block!important}
+      #pnlWorkspace > .payroll-head{display:none!important}
+      .pnl-layout,.pnl-grid{display:none!important}
+      .pnl-report-printable{display:block!important}
+      .pnl-report-hero{box-shadow:none;break-inside:avoid}
+      .pnl-report-section{break-inside:avoid}
+      .pnl-print-only{display:block}
+    }
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -1370,7 +1439,96 @@
             <option value="มีค" selected>มีนาคม 2569 • รับครบทุกไซด์</option>
           </select>
           <button class="primary-admin-btn" onclick="downloadPnLCsv()">⬇ ดาวน์โหลดรายงาน CSV</button>
-          <button class="expense-soft" onclick="sharePnLFilePlaceholder()">📤 ส่งไฟล์</button>
+          <button class="expense-soft" onclick="sharePnLReport()">📤 ส่ง / แชร์ไฟล์</button>
+        </div>
+      </div>
+
+
+      <div class="pnl-report-printable" id="pnlExecutiveReport">
+        <div class="pnl-report-hero">
+          <div class="pnl-report-hero-top">
+            <div>
+              <div class="pnl-report-brand">DIVERGENT CORPORATION CO., LTD.</div>
+              <div class="pnl-report-title">รายงานสรุปกำไร–ขาดทุน</div>
+              <div class="pnl-report-period" id="pnlReportPeriod">ประจำเดือน -</div>
+            </div>
+            <div class="pnl-report-status">🔒 รายงานสำหรับผู้บริหาร</div>
+          </div>
+          <div class="pnl-report-hero-kpis">
+            <div class="pnl-hero-kpi"><span>รายได้รับจริง</span><b id="pnlReportRevenue">0.00</b></div>
+            <div class="pnl-hero-kpi"><span>ต้นทุนรวม</span><b id="pnlReportCost">0.00</b></div>
+            <div class="pnl-hero-kpi"><span>กำไร / ขาดทุนสุทธิ</span><b id="pnlReportProfit">0.00</b></div>
+            <div class="pnl-hero-kpi"><span>Net Margin</span><b id="pnlReportMargin">0.00%</b></div>
+          </div>
+        </div>
+
+        <div class="pnl-report-actions">
+          <button class="pnl-btn-primary" onclick="downloadPnLCsv()">⬇ ดาวน์โหลด CSV</button>
+          <button class="pnl-btn-dark" onclick="printPnLReport()">🖨 พิมพ์ / บันทึก PDF</button>
+          <button class="pnl-btn-green" onclick="sharePnLReport()">📤 แชร์ไฟล์รายงาน</button>
+          <button class="pnl-btn-soft" onclick="copyPnLSummary()">📋 คัดลอกสรุป</button>
+        </div>
+
+        <div class="pnl-report-two">
+          <div class="pnl-report-section">
+            <h3>รายได้</h3>
+            <div class="pnl-report-lines">
+              <div class="pnl-report-line"><span>ยอดตั้งเบิก</span><b id="pnlReportClaim">0.00</b></div>
+              <div class="pnl-report-line"><span>หักค่าปรับ / ยอดหัก</span><b id="pnlReportPenalty">0.00</b></div>
+              <div class="pnl-report-line total"><span>รายได้รับจริงจากการไฟฟ้า</span><b id="pnlReportReceived">0.00</b></div>
+            </div>
+          </div>
+
+          <div class="pnl-report-section">
+            <h3>ภาพรวมการดำเนินงาน</h3>
+            <div class="pnl-report-lines">
+              <div class="pnl-report-line"><span>จำนวนไซด์</span><b id="pnlReportSites">0</b></div>
+              <div class="pnl-report-line"><span>จำนวนงานจริง</span><b id="pnlReportActual">0</b></div>
+              <div class="pnl-report-line"><span>กระดาษรวมเผื่อเสีย 2%</span><b id="pnlReportPaperSheets">0</b></div>
+              <div class="pnl-report-line"><span>ต้นทุนต่อราย</span><b id="pnlReportCostPerJob">0.00</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pnl-report-section">
+          <h3>รายละเอียดต้นทุน</h3>
+          <div class="pnl-report-lines">
+            <div class="pnl-report-line"><span>เงินเดือนพนักงาน — ยอดเงินโอนเข้าบัญชี</span><b id="pnlReportEmployeePayroll">0.00</b></div>
+            <div class="pnl-report-line"><span>เงินเดือนสตาฟสุทธิ</span><b id="pnlReportStaffPayroll">0.00</b></div>
+            <div class="pnl-report-line"><span>ประกันสังคมสตาฟ</span><b id="pnlReportSocial">0.00</b></div>
+            <div class="pnl-report-line"><span>ค่ากระดาษ + เสีย 2%</span><b id="pnlReportPaperCost">0.00</b></div>
+            <div class="pnl-report-line"><span>ค่าใช้จ่ายสตาฟทั้งเดือน</span><b id="pnlReportStaffExpense">0.00</b></div>
+            <div class="pnl-report-line"><span>ค่าทำบัญชี</span><b id="pnlReportAccounting">0.00</b></div>
+            <div class="pnl-report-line"><span>ค่าอุปกรณ์สำนักงาน</span><b id="pnlReportOffice">0.00</b></div>
+            <div class="pnl-report-line"><span>ค่ารับรอง</span><b id="pnlReportHospitality">0.00</b></div>
+            <div class="pnl-report-line total"><span>รวมต้นทุนทั้งหมด</span><b id="pnlReportTotalCost">0.00</b></div>
+          </div>
+
+          <div class="pnl-report-profit" id="pnlReportProfitBox">
+            <div>
+              <strong>กำไร / ขาดทุนสุทธิ</strong>
+              <small id="pnlReportProfitCaption">รายได้รับจริง - ต้นทุนทั้งหมด</small>
+            </div>
+            <b id="pnlReportProfitFinal">0.00</b>
+          </div>
+        </div>
+
+        <div class="pnl-report-section">
+          <h3>แหล่งข้อมูล</h3>
+          <div id="pnlReportSources">
+            <span class="pnl-data-chip">ตั้งเบิกค่าตอบแทน</span>
+            <span class="pnl-data-chip">เงินเดือนพนักงาน</span>
+            <span class="pnl-data-chip">เงินเดือนสตาฟ</span>
+            <span class="pnl-data-chip">ค่าใช้จ่ายสตาฟ</span>
+          </div>
+          <div class="pnl-report-note" style="margin-top:12px">
+            <b>หลักการเงินเดือนพนักงาน:</b> ใช้ยอดรวมจากคอลัมน์ “ยอดเงินโอนเข้าบัญชี” เท่านั้น
+            และไม่นำเงินเบิกล่วงหน้ามาบวกซ้ำ เนื่องจากถูกบันทึกเป็นค่าใช้จ่ายแล้ว
+          </div>
+        </div>
+
+        <div class="pnl-print-only" style="margin-top:12px;font-size:10px;color:#777">
+          รายงานสร้างจากระบบ Divergent Corporation
         </div>
       </div>
 
@@ -1602,7 +1760,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V25_UNBILLABLE_PEA_STAFF_ACCESS";
+    const PAYROLL_UI_BUILD = "V26_BEAUTIFUL_PNL_REPORT_SHARE";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -4355,6 +4513,34 @@
       pnlSummaryCost.textContent=claimMoney(totalCost);
       pnlSummaryProfit.textContent=(profit<0?"-":"")+claimMoney(Math.abs(profit));
 
+      const reportMonthText=(d.meta.label||d.key||"")+" "+(d.meta.period?("• "+d.meta.period):"");
+      const setTxt=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+      setTxt("pnlReportPeriod","ประจำเดือน "+reportMonthText);
+      setTxt("pnlReportRevenue",claimMoney(d.received));
+      setTxt("pnlReportCost",claimMoney(totalCost));
+      setTxt("pnlReportProfit",(profit<0?"-":"")+claimMoney(Math.abs(profit)));
+      setTxt("pnlReportMargin",margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+"%");
+      setTxt("pnlReportClaim",claimMoney(d.claim));
+      setTxt("pnlReportPenalty",claimMoney(d.penalty));
+      setTxt("pnlReportReceived",claimMoney(d.received));
+      setTxt("pnlReportSites",d.rows.length.toLocaleString("th-TH")+" ไซด์");
+      setTxt("pnlReportActual",d.actual.toLocaleString("th-TH")+" ราย");
+      setTxt("pnlReportPaperSheets",paperSheets.toLocaleString("th-TH")+" ใบ");
+      setTxt("pnlReportCostPerJob",d.actual>0?claimMoney(totalCost/d.actual)+" บาท/ราย":"0.00 บาท/ราย");
+      setTxt("pnlReportEmployeePayroll",claimMoney(employeePayroll));
+      setTxt("pnlReportStaffPayroll",claimMoney(staffPayroll));
+      setTxt("pnlReportSocial",claimMoney(staffSocialSecurity));
+      setTxt("pnlReportPaperCost",claimMoney(paperCost));
+      setTxt("pnlReportStaffExpense",claimMoney(staffExpense));
+      setTxt("pnlReportAccounting",claimMoney(accounting));
+      setTxt("pnlReportOffice",claimMoney(office));
+      setTxt("pnlReportHospitality",claimMoney(hospitality));
+      setTxt("pnlReportTotalCost",claimMoney(totalCost));
+      setTxt("pnlReportProfitFinal",(profit<0?"-":"")+claimMoney(Math.abs(profit)));
+      const reportProfitBox=document.getElementById("pnlReportProfitBox");
+      if(reportProfitBox)reportProfitBox.classList.toggle("loss",profit<0);
+
+
       pnlPeriodText.textContent=`${d.meta.label||""} • ${d.meta.period||""}`;
       const missing=[];
       if(!pnlRemoteSummary.employee_data_available)missing.push("เงินเดือนพนักงาน");
@@ -4404,8 +4590,120 @@
       setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }
 
+
+    function pnlReportSnapshot(){
+      renderPnL();
+      const d=pnlData();
+      const paperSheets=Math.ceil(d.actual*1.02);
+      const paperCost=paperSheets*0.25;
+      const employeePayroll=pnlValue("pnlEmployeePayroll");
+      const staffPayroll=pnlValue("pnlStaffPayroll");
+      const staffSocialSecurity=pnlValue("pnlStaffSocialSecurity");
+      const staffExpense=pnlValue("pnlStaffExpense");
+      const accounting=pnlValue("pnlAccounting");
+      const office=pnlValue("pnlOffice");
+      const hospitality=pnlValue("pnlHospitality");
+      const totalCost=employeePayroll+staffPayroll+staffSocialSecurity+paperCost+staffExpense+accounting+office+hospitality;
+      const profit=d.received-totalCost;
+      const margin=d.received>0?profit/d.received*100:0;
+      return {d,paperSheets,paperCost,employeePayroll,staffPayroll,staffSocialSecurity,staffExpense,accounting,office,hospitality,totalCost,profit,margin};
+    }
+
+    function pnlSummaryText(){
+      const s=pnlReportSnapshot();
+      const label=s.d.meta?.label||s.d.key||"";
+      return `Divergent Corporation จำกัด
+รายงานสรุปกำไร–ขาดทุน ${label}
+
+รายได้รับจริง: ${claimMoney(s.d.received)} บาท
+ต้นทุนรวม: ${claimMoney(s.totalCost)} บาท
+กำไร/ขาดทุนสุทธิ: ${s.profit<0?"-":""}${claimMoney(Math.abs(s.profit))} บาท
+Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}%
+
+ต้นทุน:
+- เงินเดือนพนักงาน: ${claimMoney(s.employeePayroll)}
+- เงินเดือนสตาฟสุทธิ: ${claimMoney(s.staffPayroll)}
+- ประกันสังคมสตาฟ: ${claimMoney(s.staffSocialSecurity)}
+- ค่ากระดาษ: ${claimMoney(s.paperCost)}
+- ค่าใช้จ่ายสตาฟ: ${claimMoney(s.staffExpense)}
+- ค่าทำบัญชี: ${claimMoney(s.accounting)}
+- ค่าอุปกรณ์สำนักงาน: ${claimMoney(s.office)}
+- ค่ารับรอง: ${claimMoney(s.hospitality)}
+
+หมายเหตุ: เงินเดือนพนักงานใช้ยอดเงินโอนเข้าบัญชีเท่านั้น`;
+    }
+
+    function pnlCsvBlob(){
+      const s=pnlReportSnapshot();
+      const lines=[
+        ["Divergent Corporation จำกัด"],
+        ["รายงานสรุปกำไร-ขาดทุน",s.d.meta?.label||s.d.key||""],
+        [],
+        ["รายการ","จำนวนเงิน (บาท)"],
+        ["ยอดตั้งเบิก",s.d.claim.toFixed(2)],
+        ["ค่าปรับ/ยอดหัก",s.d.penalty.toFixed(2)],
+        ["รายได้รับจริง",s.d.received.toFixed(2)],
+        [],
+        ["เงินเดือนพนักงาน",s.employeePayroll.toFixed(2)],
+        ["เงินเดือนสตาฟสุทธิ",s.staffPayroll.toFixed(2)],
+        ["ประกันสังคมสตาฟ",s.staffSocialSecurity.toFixed(2)],
+        ["ค่ากระดาษ + เสีย 2%",s.paperCost.toFixed(2)],
+        ["ค่าใช้จ่ายสตาฟทั้งเดือน",s.staffExpense.toFixed(2)],
+        ["ค่าทำบัญชี",s.accounting.toFixed(2)],
+        ["ค่าอุปกรณ์สำนักงาน",s.office.toFixed(2)],
+        ["ค่ารับรอง",s.hospitality.toFixed(2)],
+        ["รวมต้นทุน",s.totalCost.toFixed(2)],
+        ["กำไร/ขาดทุนสุทธิ",s.profit.toFixed(2)],
+        ["Net Margin",s.margin.toFixed(2)+"%"]
+      ];
+      const csv="\ufeff"+lines.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+      return new Blob([csv],{type:"text/csv;charset=utf-8"});
+    }
+
+    function printPnLReport(){
+      renderPnL();
+      window.print();
+    }
+
+    async function sharePnLReport(){
+      const s=pnlReportSnapshot();
+      const label=s.d.meta?.label||s.d.key||"";
+      const fileName=`Divergent_Profit_Loss_${String(label).replace(/\s+/g,"_")}.csv`;
+      const blob=pnlCsvBlob();
+      const file=new File([blob],fileName,{type:"text/csv"});
+      const shareData={title:`รายงานกำไร–ขาดทุน ${label}`,text:pnlSummaryText(),files:[file]};
+      try{
+        if(navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
+          await navigator.share(shareData);
+          return;
+        }
+        if(navigator.share){
+          await navigator.share({title:shareData.title,text:shareData.text});
+          return;
+        }
+        const a=document.createElement("a");
+        a.href=URL.createObjectURL(blob);a.download=fileName;document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(a.href),1200);
+        alert("เบราว์เซอร์นี้ไม่รองรับการแชร์ไฟล์โดยตรง จึงดาวน์โหลดไฟล์ CSV ให้แทน");
+      }catch(e){
+        if(e?.name==="AbortError")return;
+        alert("แชร์รายงานไม่สำเร็จ: "+(e?.message||e));
+      }
+    }
+
+    async function copyPnLSummary(){
+      const t=pnlSummaryText();
+      try{
+        await navigator.clipboard.writeText(t);
+        alert("คัดลอกสรุปรายงานแล้ว");
+      }catch(_){
+        const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();
+        alert("คัดลอกสรุปรายงานแล้ว");
+      }
+    }
+
     function sharePnLFilePlaceholder(){
-      alert("เมนูส่งไฟล์ยังคงไว้ก่อนตามที่กำหนด • ขั้นถัดไปค่อยเชื่อมการส่งไฟล์จริง");
+      return sharePnLReport();
     }
 
 </script>
