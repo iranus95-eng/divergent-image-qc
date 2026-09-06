@@ -1798,7 +1798,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V33_LINE_SHARE_DIAGNOSTICS";
+    const PAYROLL_UI_BUILD = "V34_ALL_REPORT_LINE_DIAGNOSTICS";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -2610,23 +2610,40 @@
     async function shareMoneyReportToLine(){
       const btn=document.querySelector('.money-report-actions button[onclick="shareMoneyReportToLine()"]');
       const oldText=btn?.textContent||"ส่ง LINE";
+      let stage="เริ่มต้น";
       try{
-        if(btn){btn.disabled=true;btn.textContent="กำลังสร้างไฟล์...";}
+        if(btn){btn.disabled=true;btn.textContent="กำลังเตรียม LINE...";}
+
+        stage="ตรวจสอบ LINE Login";
+        if(!(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()))throw new Error("LINE_LOGIN_REQUIRED");
+
+        stage="ตรวจสอบ shareTargetPicker";
+        if(!(liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker")))throw new Error("SHARE_TARGET_PICKER_NOT_AVAILABLE");
+
+        stage="สร้างไฟล์รายงานชั่วคราว";
+        if(btn)btn.textContent="กำลังสร้างไฟล์...";
         const d=await generateMoneyReportShareLink();
+        if(!d?.url)throw new Error("REPORT_SHARE_URL_MISSING");
+
+        stage="สร้าง LINE Flex Message";
         const title=moneyReportType==="expense"?"รายงานเบิกค่าใช้จ่าย":"รายงานจัดการเงินเดือน";
-        const detail=moneyReportType==="expense"&&d.total!=null?`\nยอดรวม ${Number(d.total).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท`:"";
-        const message=`${title} • Divergent Corporation\nจำนวน ${Number(d.count||0).toLocaleString("th-TH")} รายการ${detail}\n\nเปิดไฟล์รายงาน:\n${d.url}\n\nลิงก์นี้ใช้งานได้ 1 ชั่วโมง`;
-        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker")){
-          await liff.shareTargetPicker([{type:"text",text:message}],{isMultiple:true});
-          return;
-        }
-        if(navigator.share){
-          await navigator.share({title,text:message,url:d.url});
-          return;
-        }
-        window.open("https://line.me/R/msg/text/?"+encodeURIComponent(message),"_blank","noopener");
+        const count=Number(d.count||0).toLocaleString("th-TH");
+        const totalText=moneyReportType==="expense"&&d.total!=null
+          ?`ยอดรวม ${Number(d.total).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท`
+          :`จำนวน ${count} รายการ`;
+        const flex={type:"flex",altText:`${title} - Divergent Corporation`,contents:{type:"bubble",header:{type:"box",layout:"vertical",backgroundColor:"#5B2A86",paddingAll:"18px",contents:[{type:"text",text:"DIVERGENT CORPORATION",color:"#FFFFFF",size:"xs",weight:"bold"},{type:"text",text:title,color:"#FFFFFF",size:"xl",weight:"bold",margin:"md",wrap:true}]},body:{type:"box",layout:"vertical",spacing:"md",paddingAll:"18px",contents:[{type:"text",text:`จำนวน ${count} รายการ`,size:"md",weight:"bold",wrap:true,color:"#2D1745"},{type:"text",text:totalText,size:"sm",wrap:true,color:"#756681"},{type:"text",text:"ไฟล์รายงานพร้อมเปิดดูและดาวน์โหลด",size:"sm",wrap:true,color:"#756681"}]},footer:{type:"box",layout:"vertical",spacing:"sm",paddingAll:"18px",contents:[{type:"button",style:"primary",color:"#06C755",height:"sm",action:{type:"uri",label:"เปิดไฟล์รายงาน",uri:d.url}},{type:"text",text:"ลิงก์ไฟล์มีอายุ 1 ชั่วโมง",size:"xs",align:"center",color:"#9A8EA4",margin:"md"}]}}};
+
+        stage="เปิดรายชื่อผู้รับ LINE";
+        if(btn)btn.textContent="เลือกรายชื่อใน LINE...";
+        const result=await liff.shareTargetPicker([flex],{isMultiple:true});
+        console.log("money shareTargetPicker result",result);
       }catch(e){
-        if(String(e?.name||"")!=="AbortError")alert("ส่ง LINE ไม่สำเร็จ: "+(e?.message||e));
+        if(String(e?.name||"")==="AbortError")return;
+        console.error("MONEY_LINE_SHARE_ERROR",{stage,error:e});
+        const m=String(e?.message||e||"");
+        if(m==="LINE_LOGIN_REQUIRED")alert("กรุณาเข้าสู่ระบบ LINE ก่อน แล้วกดปุ่ม LINE อีกครั้ง");
+        else if(m==="SHARE_TARGET_PICKER_NOT_AVAILABLE")alert("อุปกรณ์/เบราว์เซอร์นี้ยังเปิดหน้ารายชื่อผู้รับ LINE ไม่ได้ กรุณาเปิดผ่าน LIFF หรือ LINE แล้วลองใหม่");
+        else showLineShareDiagnostic(e,stage);
       }finally{
         if(btn){btn.disabled=false;btn.textContent=oldText;}
       }
@@ -5356,7 +5373,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.0</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.1</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
@@ -5367,7 +5384,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     </div>
     <div class="money-report-preview" id="moneyReportPreview"></div>
     <div class="money-report-actions"><button class="money-report-btn primary" onclick="createMoneyReport()">สร้างรายงาน</button><button class="money-report-btn" onclick="shareMoneyReportToLine()">ส่ง LINE</button><button class="money-report-btn" onclick="downloadMoneyReport()">ดาวน์โหลด</button></div>
-    <div class="money-report-note">ปุ่ม “ส่ง LINE” จะสร้างไฟล์รายงานชั่วคราวบน Server แล้วเปิดตัวเลือกผู้รับใน LINE ทันที ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
+    <div class="money-report-note">ปุ่ม “ส่ง LINE” จะเปิดตัวเลือกเพื่อน/กลุ่มใน LINE โดยตรง พร้อมระบบวินิจฉัยหากส่งไม่สำเร็จ • ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
   </div>
 </div>
 </body>
