@@ -1052,7 +1052,7 @@
         <div class="nav-item" id="navQc" onclick="switchWorkspace('qc')"><span class="nav-ico">✓</span><span>ตรวจสอบงาน</span></div>
         <div class="nav-item" id="navSearch" onclick="switchWorkspace('search')"><span class="nav-ico">⌕</span><span>ค้นหาข้อมูล</span></div>
         <div class="nav-item" id="navUsers" onclick="openUserManagement()"><span class="nav-ico">👥</span><span>จัดการผู้ใช้งาน</span></div>
-        <div class="nav-item" id="navInvoice" onclick="openInvoiceManagement()"><span class="nav-ico">▤</span><span>จัดทำใบตั้งหนี้</span></div>
+        <div class="nav-item" id="navInvoice" style="display:none" onclick="openInvoiceManagement()"><span class="nav-ico">▤</span><span>จัดทำใบตั้งหนี้</span></div>
         <div class="nav-item" id="navPnL" style="display:none" onclick="openProfitLossManagement()"><span class="nav-ico">📊</span><span>กำไร–ขาดทุนรายเดือน</span></div>
       </nav>
       <div class="side-spacer"></div>
@@ -1796,7 +1796,7 @@
           <div class="permission-grid">
             <label class="perm-item"><input type="checkbox" id="permActive" checked /> เปิดใช้งานบัญชี</label>
             <label class="perm-item"><input type="checkbox" id="permQc" /> เข้า QC</label>
-            <label class="perm-item"><input type="checkbox" id="permUpload" /> อัปโหลดข้อมูล</label>
+            <label class="perm-item"><input type="checkbox" id="permUpload" /> เข้าเมนูจัดทำใบตั้งหนี้</label>
             <label class="perm-item"><input type="checkbox" id="permCreate" /> สร้างผู้ใช้</label>
             <label class="perm-item"><input type="checkbox" id="permEdit" /> แก้ไขผู้ใช้</label>
             <label class="perm-item"><input type="checkbox" id="permExpiry" /> กำหนดวันหมดอายุ</label>
@@ -1819,6 +1819,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
     const REPORT_PDF_SHARE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/report-pdf-share";
+    const INVOICE_ACCESS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/invoice-access-api";
     const LIFF_ID = "2011407195-ZXPgFEKe";
     const QC_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api";
@@ -1833,7 +1834,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V35_INVOICE_BUILDER";
+    const PAYROLL_UI_BUILD = "V36_INVOICE_PERMISSION";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -1907,7 +1908,23 @@
     function invoiceMoney(n){return Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}
     function thaiBahtText(n){n=Math.round((Number(n)||0)*100)/100;const nums=["ศูนย์","หนึ่ง","สอง","สาม","สี่","ห้า","หก","เจ็ด","แปด","เก้า"],units=["","สิบ","ร้อย","พัน","หมื่น","แสน","ล้าน"];function readInt(x){x=Math.floor(x);if(x===0)return"";if(x>=1000000)return readInt(Math.floor(x/1000000))+"ล้าน"+readInt(x%1000000);let s="",ds=String(x),L=ds.length;for(let i=0;i<L;i++){let d=Number(ds[i]),p=L-i-1;if(!d)continue;if(p===1){if(d===1)s+="สิบ";else if(d===2)s+="ยี่สิบ";else s+=nums[d]+"สิบ"}else if(p===0&&d===1&&L>1)s+="เอ็ด";else s+=nums[d]+units[p]}return s}const baht=Math.floor(n),sat=Math.round((n-baht)*100);let t=(baht?readInt(baht):"ศูนย์")+"บาท";return t+(sat?readInt(sat)+"สตางค์":"ถ้วน")}
     function renderInvoicePreview(){const c=invoiceCustomers()[Number(document.getElementById("invCustomer")?.value||0)]||invoiceDefaultCustomers()[0];const no=document.getElementById("invNo")?.value||"",dt=document.getElementById("invDateText")?.value||"",tax=document.getElementById("invTaxId")?.value||"",addr=document.getElementById("invAddress")?.value||"";const bm=document.getElementById("invBillMonth")?.value||"",sd=invoiceThaiDateShort(document.getElementById("invStartDate")?.value),ed=invoiceThaiDateShort(document.getElementById("invEndDate")?.value),month=invoiceThaiMonth(bm);document.getElementById("pInvNo").textContent=no;document.getElementById("pInvDate").textContent=dt;document.getElementById("pInvCustomer").textContent=c.name;document.getElementById("pInvTax").textContent=tax;document.getElementById("pInvAddress").textContent=addr;let sub=0;document.getElementById("pInvItems").innerHTML=invoiceItems.map((r,i)=>{const amt=Number(r.qty||0)*Number(r.price||0);sub+=amt;const desc=`ค่าจ้างจัดพิมพ์ใบแจ้งเตือนและส่งใบแจ้งเตือนค่าไฟฟ้า<br>รอบบิลเดือน${month} (${sd} - ${ed}) ${escapeHtml(r.area)}`;return `<tr><td class="center">${i+1}</td><td>${desc}</td><td class="num">${Number(r.qty||0).toLocaleString("th-TH")}</td><td class="num">${invoiceMoney(r.price)}</td><td class="num">${invoiceMoney(amt)}</td></tr>`}).join("");const vat=sub*.07,grand=sub+vat;document.getElementById("pInvSubtotal").textContent=invoiceMoney(sub);document.getElementById("pInvVat").textContent=invoiceMoney(vat);document.getElementById("pInvGrand").textContent=invoiceMoney(grand);document.getElementById("pInvBaht").textContent="("+thaiBahtText(grand)+")";document.getElementById("invFormTotals").innerHTML=`รวมราคาสินค้า <b>${invoiceMoney(sub)}</b> บาท<br>ภาษีมูลค่าเพิ่ม 7% <b>${invoiceMoney(vat)}</b> บาท<br>จำนวนเงินรวมทั้งสิ้น <b>${invoiceMoney(grand)}</b> บาท<br><b>${thaiBahtText(grand)}</b>`}
-    function openInvoiceManagement(){switchWorkspace("home");document.getElementById("homeWorkspace").style.display="none";document.getElementById("invoiceWorkspace").style.display="block";setNavActive("navInvoice");invoiceLoadCustomers();renderInvoiceInputs();renderInvoicePreview();window.scrollTo({top:0,behavior:"smooth"})}
+    async function refreshInvoiceMenuAccess(){
+      const nav=document.getElementById("navInvoice");
+      window.invoiceAccessAllowed=false;
+      if(nav)nav.style.display="none";
+      try{
+        if(!(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()))return false;
+        const token=await getLineAccessToken();
+        if(!token)return false;
+        const res=await fetch(INVOICE_ACCESS_API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:"{}"});
+        const data=await res.json().catch(()=>({}));
+        const allowed=!!(res.ok&&data?.allowed);
+        window.invoiceAccessAllowed=allowed;
+        if(nav)nav.style.display=allowed?"":"none";
+        return allowed;
+      }catch(_){return false;}
+    }
+    function openInvoiceManagement(){if(!window.invoiceAccessAllowed){alert("คุณไม่มีสิทธิ์เข้าเมนูจัดทำใบตั้งหนี้");return;}switchWorkspace("home");document.getElementById("homeWorkspace").style.display="none";document.getElementById("invoiceWorkspace").style.display="block";setNavActive("navInvoice");invoiceLoadCustomers();renderInvoiceInputs();renderInvoicePreview();window.scrollTo({top:0,behavior:"smooth"})}
     async function createInvoicePdfBlob(){if(typeof html2canvas!=="function"||!window.jspdf?.jsPDF)throw new Error("PDF_LIBRARY_NOT_READY");const paper=document.getElementById("invoicePaper");const canvas=await html2canvas(paper,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,width:794,height:1123,windowWidth:794,windowHeight:1123});const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});pdf.addImage(canvas.toDataURL("image/jpeg",.96),"JPEG",0,0,210,297);return pdf.output("blob")}
     function invoiceFileName(){return `Divergent_Invoice_${reportSafeFilePart(document.getElementById("invNo")?.value||"invoice")}.pdf`}
     async function downloadInvoicePdf(){try{pnlPdfProgress(true,"กำลังสร้าง PDF","กำลังจัดทำใบแจ้งหนี้...");const blob=await createInvoicePdfBlob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=invoiceFileName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}catch(e){alert("สร้าง PDF ไม่สำเร็จ: "+(e?.message||e))}finally{pnlPdfProgress(false)}}
@@ -3290,6 +3307,7 @@
 
         await checkQcAccess();
         await refreshProfitLossMenuAccess();
+        await refreshInvoiceMenuAccess();
 
       } catch (error) {
         status.textContent =
@@ -3298,6 +3316,8 @@
             ? (error.message || error.code)
             : String(error));
         setQcEnabled(false);
+        window.invoiceAccessAllowed=false;
+        const invoiceNav=document.getElementById("navInvoice"); if(invoiceNav) invoiceNav.style.display="none";
       }
     }
 
@@ -5437,7 +5457,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.2</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.3</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
