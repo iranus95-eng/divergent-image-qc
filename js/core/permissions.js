@@ -20,14 +20,17 @@
     return out;
   }, {}));
 
-  // Temporary compatibility aliases used only while legacy APIs are migrated.
-  // New code must emit canonical keys only.
   const LEGACY_ALIASES = Object.freeze({
     staff_expense: 'staff_expenses',
     staff_payroll: 'payroll'
   });
 
-  function normalize(raw) {
+  // Business rule: operational staff must always be able to work on payroll
+  // and staff expenses. These are core duties, not optional menu grants.
+  const STAFF_CORE_ROLES = Object.freeze(['staff', 'user_creator']);
+  const STAFF_CORE_PERMISSIONS = Object.freeze(['payroll', 'staff_expenses']);
+
+  function normalize(raw, user) {
     raw = raw || {};
     const out = { ...EMPTY };
 
@@ -39,18 +42,29 @@
       }
     }
 
+    const role = String(user && user.role || '').toLowerCase();
+    if (STAFF_CORE_ROLES.includes(role)) {
+      for (const key of STAFF_CORE_PERMISSIONS) out[key] = true;
+    }
+
+    if (role === 'admin') {
+      for (const key of KEYS) out[key] = true;
+    }
+
     return out;
   }
 
-  function has(access, key) {
+  function has(access, key, user) {
     if (!KEYS.includes(key)) return false;
-    return normalize(access)[key] === true;
+    return normalize(access, user)[key] === true;
   }
 
   window.DivergentPermissions = Object.freeze({
     KEYS,
     EMPTY,
     LEGACY_ALIASES,
+    STAFF_CORE_ROLES,
+    STAFF_CORE_PERMISSIONS,
     normalize,
     has
   });
