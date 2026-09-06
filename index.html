@@ -1718,6 +1718,7 @@
     async function setExpenseCycleStatus(status){const id=Number(document.getElementById("expenseCycleSelect")?.value||0);if(!id||!staffExpenseCanManage)return;if(!confirm(`เปลี่ยนสถานะรอบเป็น ${status} ?`))return;try{await staffExpenseApi("set_cycle_status",{cycle_id:id,status});await loadStaffExpenseBootstrap(true)}catch(e){alert("เปลี่ยนสถานะไม่สำเร็จ: "+e.message)}}
 
 
+    const MONEY_REPORT_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/money-report-api";
     let moneyReportType="expense";
     let moneyReportLastFile=null;
     function moneyReportSafe(v){return String(v??"").replace(/\r?\n/g," ").trim()}
@@ -1739,7 +1740,46 @@
     function buildMoneyPrintHtml(){const rows=moneyReportRows(),now=new Date().toLocaleString("th-TH");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0)),total=rows.reduce((s,x)=>s+Number(x.amount||0),0);return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเบิกค่าใช้จ่าย</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8;margin:0 0 4px}small{color:#666}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f3edfb}.num{text-align:right}.total{font-size:18px;font-weight:800;text-align:right;margin-top:14px}</style></head><body><h1>รายงานเบิกค่าใช้จ่าย</h1><small>${moneyReportSafe(c?expenseCycleLabel(c):"-")} • สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>วันที่</th><th>ชื่อสตาฟ</th><th>หมวด</th><th>รายละเอียด</th><th>วิธีจ่าย</th><th class="num">จำนวนเงิน</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.expense_date||"")}</td><td>${escapeHtml(x.staff_name||"")}</td><td>${escapeHtml(x.category_name_snapshot||"")}</td><td>${escapeHtml(x.other_detail||x.note||"-")}</td><td>${escapeHtml(x.payment_method||"-")}</td><td class="num">${Number(x.amount||0).toLocaleString("th-TH",{minimumFractionDigits:2})}</td></tr>`).join("")}</tbody></table><div class="total">ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</div></body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table></body></html>`}
     async function createMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="CSV"){const blob=new Blob([buildMoneyCsv()],{type:"text/csv;charset=utf-8"});moneyReportLastFile=new File([blob],moneyReportFilename("csv"),{type:blob.type});alert("สร้างไฟล์ Excel (CSV) พร้อมแล้ว") }else{const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างรายงาน กรุณาอนุญาต Pop-up");return}w.document.open();w.document.write(buildMoneyPrintHtml());w.document.close();setTimeout(()=>{w.focus();w.print()},300)}}
     async function downloadMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){await createMoneyReport();return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(moneyReportLastFile);a.download=moneyReportLastFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
-    async function shareMoneyReportToLine(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){alert("สำหรับ PDF ให้กดสร้างรายงาน → บันทึกเป็น PDF จากหน้าพิมพ์ แล้วแชร์ไฟล์เข้า LINE ได้ทันทีจากเครื่อง\n\nหากต้องการส่งจากปุ่มนี้โดยตรง ให้เลือก Excel (CSV)");return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const text=moneyReportType==="expense"?"รายงานเบิกค่าใช้จ่ายจาก Divergent Corporation":"รายงานจัดการเงินเดือนจาก Divergent Corporation";try{if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[moneyReportLastFile]}))){await navigator.share({title:text,text,files:[moneyReportLastFile]});return}alert("อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับการส่งไฟล์โดยตรง กรุณากดดาวน์โหลดแล้วแนบไฟล์ใน LINE") }catch(e){if(String(e?.name||"")!=="AbortError")alert("ส่ง LINE ไม่สำเร็จ: "+(e.message||e))}}
+    async function generateMoneyReportShareLink(){
+      const accessToken=await getLineAccessToken();
+      const payload={action:"generate",type:moneyReportType};
+      if(moneyReportType==="expense"){
+        const cid=Number(document.getElementById("expenseCycleSelect")?.value||0);
+        if(cid) payload.cycle_id=cid;
+      }
+      const r=await fetch(MONEY_REPORT_API_URL,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
+        body:JSON.stringify(payload)
+      });
+      const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){}
+      if(!r.ok||!d?.url)throw new Error(d?.error||("HTTP "+r.status));
+      return d;
+    }
+    async function shareMoneyReportToLine(){
+      const btn=document.querySelector('.money-report-actions button[onclick="shareMoneyReportToLine()"]');
+      const oldText=btn?.textContent||"ส่ง LINE";
+      try{
+        if(btn){btn.disabled=true;btn.textContent="กำลังสร้างไฟล์...";}
+        const d=await generateMoneyReportShareLink();
+        const title=moneyReportType==="expense"?"รายงานเบิกค่าใช้จ่าย":"รายงานจัดการเงินเดือน";
+        const detail=moneyReportType==="expense"&&d.total!=null?`\nยอดรวม ${Number(d.total).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท`:"";
+        const message=`${title} • Divergent Corporation\nจำนวน ${Number(d.count||0).toLocaleString("th-TH")} รายการ${detail}\n\nเปิดไฟล์รายงาน:\n${d.url}\n\nลิงก์นี้ใช้งานได้ 1 ชั่วโมง`;
+        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker")){
+          await liff.shareTargetPicker([{type:"text",text:message}],{isMultiple:true});
+          return;
+        }
+        if(navigator.share){
+          await navigator.share({title,text:message,url:d.url});
+          return;
+        }
+        window.open("https://line.me/R/msg/text/?"+encodeURIComponent(message),"_blank","noopener");
+      }catch(e){
+        if(String(e?.name||"")!=="AbortError")alert("ส่ง LINE ไม่สำเร็จ: "+(e?.message||e));
+      }finally{
+        if(btn){btn.disabled=false;btn.textContent=oldText;}
+      }
+    }
 
     async function qcSearchApi(action, payload = {}) {
       const accessToken = await getLineAccessToken();
@@ -3223,7 +3263,7 @@
     </div>
     <div class="money-report-preview" id="moneyReportPreview"></div>
     <div class="money-report-actions"><button class="money-report-btn primary" onclick="createMoneyReport()">สร้างรายงาน</button><button class="money-report-btn" onclick="shareMoneyReportToLine()">ส่ง LINE</button><button class="money-report-btn" onclick="downloadMoneyReport()">ดาวน์โหลด</button></div>
-    <div class="money-report-note">บนมือถือ ปุ่มส่ง LINE จะใช้ระบบ Share ของเครื่องและเลือก LINE ได้โดยตรงเมื่อเบราว์เซอร์รองรับการแชร์ไฟล์ ส่วน PDF ใช้หน้าพิมพ์ของเบราว์เซอร์เพื่อบันทึกเป็น PDF ได้</div>
+    <div class="money-report-note">ปุ่ม “ส่ง LINE” จะสร้างไฟล์รายงานชั่วคราวบน Server แล้วเปิดตัวเลือกผู้รับใน LINE ทันที ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
   </div>
 </div>
 </body>
