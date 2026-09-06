@@ -1870,6 +1870,7 @@
     const WEB_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/web-list-api";
     const FALLBACK_AUTH_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth";
     const FALLBACK_SESSION_KEY = "divergent_web_session_token_v1";
+    const AUTH_PREFERENCE_KEY = "divergent_auth_preference_v1";
     let billingAccess=false;
     let menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
     let menuLineLinked=false;
@@ -1900,14 +1901,14 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V52_MENU_ACCESS_STABLE";
+    const PAYROLL_UI_BUILD = "V54_PERMISSION_IDENTITY_PRIORITY_FIXED";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
     let pnlRemoteSummary={employee_payroll_net:0,employee_payroll_count:0,employee_data_available:false,staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0,staff_expense_data_available:false};
     let staffPayrollRows=[];
     let payrollEmployees=[]; let payrollCanManage=false;
-    let payrollPage=1; const PAYROLL_PAGE_SIZE=60; let payrollFilterTimer=null; let payrollVisibleRows=[];
+    let payrollPage=1; const PAYROLL_PAGE_SIZE=200; let payrollFilterTimer=null; let payrollVisibleRows=[];
     const PAYROLL_CACHE_KEY="divergent_payroll_list_cache_v2"; const PAYROLL_CACHE_TTL=5*60*1000;
     function readPayrollCache(){try{const x=JSON.parse(localStorage.getItem(PAYROLL_CACHE_KEY)||"null");if(!x||!Array.isArray(x.employees))return null;return x}catch(_){return null}}
     function writePayrollCache(d){try{localStorage.setItem(PAYROLL_CACHE_KEY,JSON.stringify({employees:d.employees||[],can_manage:!!d.can_manage,source_month:d.source_month||"",at:Date.now()}))}catch(_){}}
@@ -2024,6 +2025,7 @@
       }catch(_){ }
       try{if(presenceTimer){clearInterval(presenceTimer);presenceTimer=null;}}catch(_){ }
       try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }
+      try{localStorage.removeItem(AUTH_PREFERENCE_KEY)}catch(_){ }
       try{localStorage.removeItem("divergent_web_session_user")}catch(_){ }
       try{localStorage.removeItem("divergent_menu_access_cache")}catch(_){ }
       try{localStorage.removeItem(USER_ADMIN_CACHE_KEY)}catch(_){ }
@@ -2078,8 +2080,9 @@
       return {r,j};
     }
     async function refreshAllMenuAccess(){
-      // V52: Sidebar permissions are sticky. Never collapse a known-good menu state because
-      // a LINE/session check is slow, temporarily unavailable, or belongs to a stale fallback session.
+      // V54: An explicit Username/Password login represents the user's chosen account.
+      // When a valid fallback session exists, it must take priority over a LINE identity
+      // that may still be linked to another old account on the same browser/device.
       try{
         const cached=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");
         if(cached&&cached.access){
@@ -2092,8 +2095,26 @@
       }catch(_){ }
 
       let lineResult=null, sessionResult=null;
-      // Prefer the currently logged-in LINE identity. This prevents an old fallback session
-      // from replacing the permissions of the person who is actually using the browser now.
+      const sessionToken=getFallbackSessionToken();
+      let pref="";
+      try{pref=localStorage.getItem(AUTH_PREFERENCE_KEY)||""}catch(_){ }
+
+      // If the user explicitly logged in with Username/Password, validate that account first.
+      if(sessionToken && pref==="session"){
+        try{sessionResult=await fetchMenuAccessWithToken(sessionToken);}catch(e){console.warn("menu session check",e);}
+        if(sessionResult?.r?.ok && sessionResult?.j?.access){
+          const j=sessionResult.j;
+          commitMenuAccess(j.access,j.user,"session");
+          try{localStorage.setItem("divergent_web_session_user",JSON.stringify(j.user||{}))}catch(_){ }
+          if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
+          return true;
+        }
+        if(sessionResult && !sessionResult.r.ok && ["AUTH_INVALID","AUTH_REQUIRED"].includes(sessionResult.j?.error)){
+          try{localStorage.removeItem(FALLBACK_SESSION_KEY);localStorage.removeItem(AUTH_PREFERENCE_KEY);}catch(_){ }
+        }
+      }
+
+      // Otherwise try LINE identity.
       try{
         if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
           const lineToken=await getLineAccessToken();
@@ -2104,35 +2125,33 @@
       if(lineResult?.r?.ok && lineResult?.j?.access){
         const j=lineResult.j;
         commitMenuAccess(j.access,j.user,"line");
+        try{localStorage.setItem(AUTH_PREFERENCE_KEY,"line")}catch(_){ }
         if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;commitMenuAccess(menuAccess,window.currentMenuUser,"line");}
-        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
+        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
         return true;
       }
 
-      // If LINE is not linked (or LINE is unavailable), use the saved web session as fallback.
+      // LINE unavailable/unlinked: use fallback session even when no preference was saved yet.
       const lineErr=lineResult?.j?.error||"";
-      const sessionToken=getFallbackSessionToken();
-      if(sessionToken && (!lineResult || !lineResult.r.ok || lineErr==="LINE_NOT_LINKED" || lineErr==="AUTH_INVALID" || lineErr==="AUTH_REQUIRED")){
+      if(sessionToken && (!sessionResult || pref!=="session") && (!lineResult || !lineResult.r.ok || lineErr==="LINE_NOT_LINKED" || lineErr==="AUTH_INVALID" || lineErr==="AUTH_REQUIRED")){
         try{sessionResult=await fetchMenuAccessWithToken(sessionToken);}catch(e){console.warn("menu session check",e);}
       }
       if(sessionResult?.r?.ok && sessionResult?.j?.access){
         const j=sessionResult.j;
         commitMenuAccess(j.access,j.user,"session");
-        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
-        // If LINE itself is unlinked, keep the fallback menus and offer repair without hiding anything.
-        if(lineErr==="LINE_NOT_LINKED") setTimeout(()=>showAccountLinkRequired("ตรวจพบว่า LINE ยังไม่ได้ผูกกับบัญชีพนักงานนี้ แต่ระบบสำรองยังใช้งานได้ กรุณาเข้าสู่ระบบสำรองเพื่อซ่อมการเชื่อม LINE เมื่อสะดวก"),80);
+        try{localStorage.setItem(AUTH_PREFERENCE_KEY,"session")}catch(_){ }
+        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
+        if(lineErr==="LINE_NOT_LINKED") setTimeout(()=>showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีนี้ แต่ระบบกำลังใช้บัญชี Username / Password ที่ยืนยันแล้ว จึงสามารถใช้เมนูตามสิทธิ์ได้ครบ"),80);
         return true;
       }
 
-      // Invalid fallback session may be cleared, but do not erase the last confirmed permissions.
       if(sessionResult && !sessionResult.r.ok && ["AUTH_INVALID","AUTH_REQUIRED"].includes(sessionResult.j?.error)){
-        try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }
+        try{localStorage.removeItem(FALLBACK_SESSION_KEY);localStorage.removeItem(AUTH_PREFERENCE_KEY);}catch(_){ }
       }
       if(lineErr==="LINE_NOT_LINKED" && !sessionToken){
         menuLineLinked=false;
-        setTimeout(()=>showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาใช้ Username / Password เพื่อเข้าสู่ระบบสำรองและซ่อมการเชื่อม LINE"),80);
+        setTimeout(()=>showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาใช้ Username / Password เพื่อยืนยันบัญชี แล้วระบบจะแสดงเมนูตามสิทธิ์ทั้งหมด"),80);
       }
-      // Critical: no apply of an empty permission object here. Existing menu state remains intact.
       return false;
     }
     function requireMenuAccess(key,label){if(menuAccess[key])return true;if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password ในระบบสำรองเพื่อยืนยันและซ่อมการเชื่อม LINE`);return false;}alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);return false;}
@@ -3807,11 +3826,12 @@
         if(data?.session_token){
           localStorage.setItem(FALLBACK_SESSION_KEY,data.session_token);
           localStorage.setItem("divergent_web_session_user",JSON.stringify(data.user||{}));
+          localStorage.setItem(AUTH_PREFERENCE_KEY,"session");
         }
-        menuAccess={...menuAccess,...(data.access||{})};
-        // Persist permission state immediately so the sidebar does not collapse during LINE repair.
-        try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:data.user||window.currentMenuUser||null,at:Date.now()}))}catch(_){ }
-        applyMenuAccess();
+        // Replace the visible menu state with the permissions of the account just authenticated.
+        // Do not allow a previous LINE user's cached permissions to leak into this account.
+        menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false,...(data.access||{})};
+        commitMenuAccess(menuAccess,data.user||null,"session");
         if(data?.line_status==="linked"){
           menuLineLinked=true;
           if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}
@@ -5739,7 +5759,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.9</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.1</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
