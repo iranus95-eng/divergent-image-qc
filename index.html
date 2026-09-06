@@ -1177,7 +1177,7 @@
           <div style="font-size:12px;color:#756585;margin-bottom:10px">กรอก Username / Password ที่ผู้ดูแลสร้างไว้ ระบบจะผูก LINE นี้กับบัญชีพนักงานให้อัตโนมัติ</div>
           <input id="employeeBindUsername" type="text" maxlength="60" placeholder="Username" autocomplete="username" style="margin-bottom:8px" />
           <input id="employeeBindPassword" type="password" maxlength="120" placeholder="Password" autocomplete="current-password" style="margin-bottom:8px" />
-          <button id="employeeBindButton" onclick="bindEmployeeAccount()" style="width:100%">เข้าสู่ระบบและเชื่อม LINE</button>
+          <button id="employeeBindButton" onclick="bindEmployeeAccount()" style="width:100%">เข้าสู่ระบบสำรอง / ซ่อมการเชื่อม LINE</button>
           <div id="employeeBindResult" class="registration-result" style="margin-top:8px"></div>
         </div>
 
@@ -1824,6 +1824,8 @@
     const INVOICE_ACCESS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/invoice-access-api";
     const BILLING_ACCESS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/billing-access-api";
     const MENU_ACCESS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/menu-access-api";
+    const FALLBACK_AUTH_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth";
+    const FALLBACK_SESSION_KEY = "divergent_web_session_token_v1";
     let billingAccess=false;
     let menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
     let menuLineLinked=false;
@@ -1841,7 +1843,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V39_ALL_MENU_PERMISSIONS_FIXED";
+    const PAYROLL_UI_BUILD = "V43_FALLBACK_LOGIN_LINE_REPAIR";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -1916,23 +1918,43 @@
       switchWorkspace("home");
       showRegistrationBox(true);
       const r=document.getElementById("employeeBindResult");
-      if(r){r.className="registration-result registration-pending";r.textContent=message||"บัญชีนี้มีสิทธิ์ในระบบ แต่ LINE ยังไม่ได้เชื่อมกับบัญชีพนักงาน กรุณากรอก Username / Password เพื่อเชื่อมครั้งเดียว";}
+      if(r){r.className="registration-result registration-pending";r.textContent=message||"บัญชีมีสิทธิ์ในระบบ แต่การเชื่อม LINE ยังไม่สมบูรณ์ กรุณาใช้ Username / Password เพื่อเข้าสู่ระบบสำรองและซ่อมการเชื่อม LINE อัตโนมัติ";}
       const box=document.getElementById("employeeBindBox");if(box)setTimeout(()=>box.scrollIntoView({behavior:"smooth",block:"center"}),120);
+    }
+    function getFallbackSessionToken(){
+      try{return localStorage.getItem(FALLBACK_SESSION_KEY)||""}catch(_){return ""}
+    }
+    async function fetchMenuAccessWithToken(token){
+      if(!token)return null;
+      const r=await fetch(MENU_ACCESS_API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:"{}"});
+      const j=await r.json().catch(()=>({}));
+      return {r,j};
     }
     async function refreshAllMenuAccess(){
       menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};menuLineLinked=false;applyMenuAccess();
       try{
-        if(!(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()))return false;
-        const token=await getLineAccessToken(); if(!token)return false;
-        const r=await fetch(MENU_ACCESS_API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:"{}"});
-        const j=await r.json().catch(()=>({}));
-        if(!r.ok){if(j?.error==="LINE_NOT_LINKED"){menuLineLinked=false;if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;}applyMenuAccess();return false;}throw new Error(j?.error||"MENU_ACCESS_ERROR");}
-        menuLineLinked=true; menuAccess={...menuAccess,...(j.access||{})};
+        let result=null;
+        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
+          try{const lineToken=await getLineAccessToken();result=await fetchMenuAccessWithToken(lineToken)}catch(_){ }
+        }
+        if(!result || !result.r.ok){
+          const sessionToken=getFallbackSessionToken();
+          if(sessionToken) result=await fetchMenuAccessWithToken(sessionToken);
+        }
+        if(!result)return false;
+        const {r,j}=result;
+        if(!r.ok){
+          if(j?.error==="LINE_NOT_LINKED"){menuLineLinked=false;if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;}applyMenuAccess();return false;}
+          if(j?.error==="AUTH_INVALID"||j?.error==="AUTH_REQUIRED"){try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ } return false;}
+          throw new Error(j?.error||"MENU_ACCESS_ERROR");
+        }
+        menuLineLinked=j?.auth_mode==="line"; menuAccess={...menuAccess,...(j.access||{})};
         if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;}
+        window.fallbackAuthMode=j?.auth_mode||"line";
         applyMenuAccess(); return true;
       }catch(e){console.warn("menu access",e);applyMenuAccess();return false;}
     }
-    function requireMenuAccess(key,label){if(menuAccess[key])return true;if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะ LINE นี้ยังไม่เชื่อมกับบัญชีพนักงาน กรุณาเชื่อมบัญชีก่อน`);return false;}alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);return false;}
+    function requireMenuAccess(key,label){if(menuAccess[key])return true;if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password ในระบบสำรองเพื่อยืนยันและซ่อมการเชื่อม LINE`);return false;}alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);return false;}
 
     async function billingPermissionApi(action,payload={}){
       const token=await getLineAccessTokenForApi();
@@ -3550,63 +3572,45 @@
       const password=document.getElementById("employeeBindPassword")?.value||"";
       const result=document.getElementById("employeeBindResult");
       const btn=document.getElementById("employeeBindButton");
-
       if(result){ result.className="registration-result"; result.textContent=""; }
       if(!username || !password){
         if(result){ result.classList.add("registration-rejected"); result.textContent="กรอก Username และ Password ให้ครบ"; }
         return;
       }
-
       try{
-        if(btn){btn.disabled=true;btn.textContent="กำลังตรวจสอบ...";}
-        const accessToken=await getLineAccessToken();
-        const response=await fetch(USER_BIND_LINE_API_URL,{
-          method:"POST",
-          headers:{
-            "Authorization":"Bearer "+accessToken,
-            "Content-Type":"application/json"
-          },
-          body:JSON.stringify({username,password})
-        });
-        const text=await response.text();
-        let data={};
-        try{data=text?JSON.parse(text):{};}catch(_){}
+        if(btn){btn.disabled=true;btn.textContent="กำลังตรวจสอบบัญชี...";}
+        let lineToken="";
+        try{if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()) lineToken=liff.getAccessToken()||"";}catch(_){ }
+        const headers={"Content-Type":"application/json"};
+        if(lineToken)headers["Authorization"]="Bearer "+lineToken;
+        const response=await fetch(FALLBACK_AUTH_API_URL,{method:"POST",headers,body:JSON.stringify({action:"login",username,password})});
+        const text=await response.text();let data={};try{data=text?JSON.parse(text):{};}catch(_){ }
         if(!response.ok){
-          const map={
-            INVALID_CREDENTIALS:"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
-            USER_DISABLED:"บัญชีถูกระงับ",
-            USER_EXPIRED:"บัญชีหมดอายุ",
-            LINE_ALREADY_LINKED:"LINE นี้ถูกเชื่อมกับบัญชีอื่นแล้ว",
-            USER_ALREADY_LINKED:"บัญชีนี้ถูกเชื่อมกับ LINE อื่นแล้ว",
-            LINE_AUTH_FAILED:"ยืนยันบัญชี LINE ไม่สำเร็จ"
-          };
-          throw new Error(map[data?.error]||data?.error||("HTTP "+response.status));
+          const map={INVALID_CREDENTIALS:"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",USER_DISABLED:"บัญชีถูกระงับ",USER_EXPIRED:"บัญชีหมดอายุ",CREDENTIALS_REQUIRED:"กรอก Username และ Password ให้ครบ"};
+          throw new Error(map[data?.error]||data?.detail||data?.error||("HTTP "+response.status));
         }
-
-        if(result){
-          result.classList.add("registration-approved");
-          result.textContent="เชื่อมบัญชีสำเร็จ ✓ กำลังเข้าสู่ระบบ...";
+        if(data?.session_token){localStorage.setItem(FALLBACK_SESSION_KEY,data.session_token);localStorage.setItem("divergent_web_session_user",JSON.stringify(data.user||{}));}
+        menuAccess={...menuAccess,...(data.access||{})};
+        if(data?.line_status==="linked"){
+          menuLineLinked=true;
+          if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}
+          await new Promise(r=>setTimeout(r,250));
+          try{await checkQcAccess();}catch(_){ }
+        }else{
+          menuLineLinked=false;
+          const msg=data?.line_status==="linked_to_other"?"เข้าสู่ระบบสำรองสำเร็จ แต่ LINE นี้เชื่อมกับบัญชีอื่นอยู่ กรุณาแจ้งผู้ดูแล":"เข้าสู่ระบบสำรองสำเร็จ ✓ ระบบเก็บ Session สำรองไว้แล้ว";
+          if(result){result.classList.add("registration-approved");result.textContent=msg;}
         }
-        await new Promise(r=>setTimeout(r,400));
-        await checkQcAccess();
         await refreshAllMenuAccess();
-        await refreshInvoiceMenuAccess();
-        await refreshBillingAccess();
+        await refreshProfitLossMenuAccess().catch(()=>{});
+        await refreshInvoiceMenuAccess().catch(()=>{});
+        await refreshBillingAccess().catch(()=>{});
         applyMenuAccess();
-        if(window.payrollLinkPending===true){
-          window.payrollLinkPending=false;
-          await openPayrollManagement();
-        }else if(window.qcAccessAllowed){
-          switchWorkspace("home");
-        }
+        if(window.payrollLinkPending===true){window.payrollLinkPending=false;await openPayrollManagement();}
+        else switchWorkspace("home");
       }catch(e){
-        if(result){
-          result.classList.add("registration-rejected");
-          result.textContent="เข้าสู่ระบบไม่สำเร็จ: "+(e.message||e);
-        }
-      }finally{
-        if(btn){btn.disabled=false;btn.textContent="เข้าสู่ระบบและเชื่อม LINE";}
-      }
+        if(result){result.classList.add("registration-rejected");result.textContent="เข้าสู่ระบบไม่สำเร็จ: "+(e.message||e);}
+      }finally{if(btn){btn.disabled=false;btn.textContent="เข้าสู่ระบบสำรอง / ซ่อมการเชื่อม LINE";}}
     }
 
     async function submitQcRegistration() {
@@ -5514,7 +5518,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.9</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.0</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
