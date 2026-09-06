@@ -1894,7 +1894,7 @@
       if(name==="search") setTimeout(()=>document.getElementById("caSearchInput")?.focus(),30);
       if(name==="location") setTimeout(()=>document.getElementById("locationCaInput")?.focus(),30);
       if(name==="users") applyUserManagementPermissions();
-      window.scrollTo({top:0,behavior:"smooth"});
+      window.scrollTo(0,0);
     }
 
 
@@ -1978,7 +1978,7 @@
       if(nav)nav.style.display=window.invoiceAccessAllowed?"flex":"none";
       return window.invoiceAccessAllowed;
     }
-    function openInvoiceManagement(){if(!requireMenuAccess("invoice","เมนูจัดทำใบตั้งหนี้"))return;window.invoiceAccessAllowed=true;switchWorkspace("home");document.getElementById("homeWorkspace").style.display="none";document.getElementById("invoiceWorkspace").style.display="block";setNavActive("navInvoice");invoiceLoadCustomers();renderInvoiceInputs();renderInvoicePreview();window.scrollTo({top:0,behavior:"smooth"})}
+    function openInvoiceManagement(){if(!requireMenuAccess("invoice","เมนูจัดทำใบตั้งหนี้"))return;window.invoiceAccessAllowed=true;switchWorkspace("home");document.getElementById("homeWorkspace").style.display="none";document.getElementById("invoiceWorkspace").style.display="block";setNavActive("navInvoice");invoiceLoadCustomers();renderInvoiceInputs();renderInvoicePreview();window.scrollTo(0,0)}
     async function createInvoicePdfBlob(){if(typeof html2canvas!=="function"||!window.jspdf?.jsPDF)throw new Error("PDF_LIBRARY_NOT_READY");const paper=document.getElementById("invoicePaper");const canvas=await html2canvas(paper,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,width:794,height:1123,windowWidth:794,windowHeight:1123});const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});pdf.addImage(canvas.toDataURL("image/jpeg",.96),"JPEG",0,0,210,297);return pdf.output("blob")}
     function invoiceFileName(){return `Divergent_Invoice_${reportSafeFilePart(document.getElementById("invNo")?.value||"invoice")}.pdf`}
     async function downloadInvoicePdf(){try{pnlPdfProgress(true,"กำลังสร้าง PDF","กำลังจัดทำใบแจ้งหนี้...");const blob=await createInvoicePdfBlob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=invoiceFileName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}catch(e){alert("สร้าง PDF ไม่สำเร็จ: "+(e?.message||e))}finally{pnlPdfProgress(false)}}
@@ -2086,27 +2086,25 @@
     async function openUserManagement(){
       if(!requireMenuAccess("user_management","เมนูจัดการผู้ใช้งาน"))return;
       const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";const pw=document.getElementById("pnlWorkspace");if(pw)pw.style.display="none";
-      const n=document.getElementById("navUsers");
-      if(n) n.classList.add("checking-access");
-      try{
-        const data=await userAdminApi("list");
-        adminUsers=data.users||[];
-        currentAdminId=data.current_user_id||data.current_admin_id||null;
-        currentUserManagementPermissions=data.current_permissions||{};
-        switchWorkspace("users");
-        renderUserStats();
-        renderUserTable();
-        applyUserManagementPermissions();
-      }catch(e){
-        const code=e?.message||String(e);
-        if(code==="USER_MANAGEMENT_ACCESS_DENIED"||code==="PERMISSION_DENIED"){
-          alert("คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน");
-        }else{
-          alert("ตรวจสอบสิทธิ์ไม่สำเร็จ: "+userAdminErrorText(code));
-        }
-      }finally{
-        if(n) n.classList.remove("checking-access");
-      }
+      // V42: เปลี่ยนหน้าให้ผู้ใช้เห็นทันที ไม่รอ network ก่อน
+      switchWorkspace("users");
+      if(adminUsers.length){renderUserStats();renderUserTable();applyUserManagementPermissions();}
+      const n=document.getElementById("navUsers"); if(n)n.classList.add("checking-access");
+      const fresh=Date.now()-userAdminLoadedAt<30000 && adminUsers.length;
+      if(fresh){if(n)n.classList.remove("checking-access");return;}
+      if(userAdminLoadPromise)return;
+      userAdminLoadPromise=(async()=>{
+        try{
+          const data=await userAdminApi("list");
+          adminUsers=data.users||[];currentAdminId=data.current_user_id||data.current_admin_id||null;currentUserManagementPermissions=data.current_permissions||{};
+          userAdminLoadedAt=Date.now();renderUserStats();renderUserTable();applyUserManagementPermissions();
+        }catch(e){
+          const code=e?.message||String(e);
+          if(code==="USER_MANAGEMENT_ACCESS_DENIED"||code==="PERMISSION_DENIED"){switchWorkspace("home");alert("คุณไม่มีสิทธิ์เข้าเมนูจัดการผู้ใช้งาน");}
+          else{const st=document.getElementById("userAdminStatus");if(st)st.textContent="โหลดข้อมูลผู้ใช้ไม่สำเร็จ: "+userAdminErrorText(code);}
+        }finally{if(n)n.classList.remove("checking-access");userAdminLoadPromise=null;}
+      })();
+      await userAdminLoadPromise;
     }
 
     function applyUserManagementPermissions(){
@@ -2296,10 +2294,11 @@
       if(!requireMenuAccess("staff_payroll","เมนูเงินเดือนสตาฟ"))return;
       document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
       const nav=document.getElementById("navStaffPayroll"); if(nav)nav.classList.add("active");
-      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","claimWorkspace","pnlWorkspace"].forEach(id=>{
-        const el=document.getElementById(id); if(el)el.style.display="none";
-      });
+      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","claimWorkspace","claimPendingWorkspace","pnlWorkspace","invoiceWorkspace","billingWorkspace"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none";});
       const w=document.getElementById("staffPayrollWorkspace"); if(w)w.style.display="block";
+      window.scrollTo(0,0);
+      const month=document.getElementById("staffPayrollMonth")?.value||"2026-03";
+      if(staffPayrollRows.length && staffPayrollLoadedMonth===month && Date.now()-staffPayrollLoadedAt<30000)return;
       loadStaffPayrollTable();
     }
 
@@ -2419,32 +2418,25 @@
     async function openPayrollManagement(){
       if(!requireMenuAccess("payroll","เมนูจัดการเงินเดือน"))return;
       const cw=document.getElementById("claimWorkspace");if(cw)cw.style.display="none";const pw=document.getElementById("pnlWorkspace");if(pw)pw.style.display="none";
-      try{
-        const p=await payrollApi("permissions"); payrollCanManage=!!p.can_manage;
-        window.payrollLinkPending=false;
-        switchWorkspace("payroll"); document.getElementById("payrollAddBtn").style.display=payrollCanManage?"":"none";
-        await loadPayrollEmployees();
-      }catch(e){
-        const code=String(e?.message||e);
-        if(code==="LINE_NOT_LINKED"){
-          window.payrollLinkPending=true;
-          switchWorkspace("home");
-          showRegistrationBox(true);
-          const r=document.getElementById("employeeBindResult");
-          if(r){
-            r.className="registration-result registration-pending";
-            r.textContent="บัญชีนี้ได้รับสิทธิ์เงินเดือนได้ แต่ LINE ยังไม่เชื่อมกับบัญชีพนักงาน กรุณากรอก Username / Password ด้านล่างเพื่อเชื่อมครั้งเดียว";
-          }
-          const box=document.getElementById("employeeBindBox");
-          if(box) setTimeout(()=>box.scrollIntoView({behavior:"smooth",block:"center"}),150);
-          return;
-        }
-        if(code==="PAYROLL_ACCESS_DENIED"){
-          alert("บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าเมนูเงินเดือน กรุณาให้ผู้ดูแลเปิดสิทธิ์ “เข้าเมนูจัดการเงินเดือน”");
-          return;
-        }
-        alert("เปิดระบบเงินเดือนไม่สำเร็จ: "+code);
-      }
+      // V42: แสดงหน้าและข้อมูล cache ก่อน แล้วค่อย refresh เบื้องหลัง
+      switchWorkspace("payroll");
+      if(payrollEmployees.length)filterPayrollEmployees();
+      const add=document.getElementById("payrollAddBtn");if(add)add.style.display=payrollCanManage?"":"none";
+      if(Date.now()-payrollLoadedAt<30000 && payrollEmployees.length)return;
+      if(payrollLoadPromise)return;
+      payrollLoadPromise=(async()=>{
+        try{
+          const p=await payrollApi("permissions"); payrollCanManage=!!p.can_manage;window.payrollLinkPending=false;
+          if(add)add.style.display=payrollCanManage?"":"none";
+          await loadPayrollEmployees();payrollLoadedAt=Date.now();
+        }catch(e){
+          const code=String(e?.message||e);
+          if(code==="LINE_NOT_LINKED"){window.payrollLinkPending=true;switchWorkspace("home");showRegistrationBox(true);return;}
+          if(code==="PAYROLL_ACCESS_DENIED"){switchWorkspace("home");alert("บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าเมนูเงินเดือน");return;}
+          const st=document.getElementById("payrollStatus");if(st)st.textContent="โหลดข้อมูลไม่สำเร็จ: "+code;
+        }finally{payrollLoadPromise=null;}
+      })();
+      await payrollLoadPromise;
     }
     async function loadPayrollEmployees(){
       const st=document.getElementById("payrollStatus"); st.textContent="กำลังโหลดข้อมูล...";
@@ -3001,7 +2993,7 @@
       document.getElementById("caDetailGrid").innerHTML="";
       area.style.display="block";
       await loadDualCoordinatePanel(ca);
-      window.scrollTo({top:0,behavior:"smooth"});
+      window.scrollTo(0,0);
     }
 
     async function searchCA() {
@@ -4628,9 +4620,10 @@
 
     async function loadStaffPayrollTable(){
       const month=document.getElementById("staffPayrollMonth")?.value||"2026-03";
+      if(staffPayrollLoadPromise)return staffPayrollLoadPromise;
       const body=document.getElementById("staffPayrollBody"),st=document.getElementById("staffPayrollStatus");
-      if(body)body.innerHTML='<tr><td colspan="14">กำลังโหลด...</td></tr>';
-      try{
+      if(body&&!staffPayrollRows.length)body.innerHTML='<tr><td colspan="14">กำลังโหลด...</td></tr>';
+      staffPayrollLoadPromise=(async()=>{try{
         const d=await profitLossApi("staff_payroll_rows",{month});
         staffPayrollRows=d.rows||[]; const s=d.summary||{};
         staffPayCount.textContent=Number(s.staff_count||0).toLocaleString("th-TH")+" คน";
@@ -4653,11 +4646,13 @@
           <td class="num"><b>${claimMoney(r.net_paid)}</b></td>
           <td>${escapeHtml(r.note||"-")}</td>
         </tr>`).join(""):'<tr><td colspan="14">ยังไม่มีข้อมูลเดือนนี้</td></tr>';
+        staffPayrollLoadedAt=Date.now();staffPayrollLoadedMonth=month;
         if(st)st.textContent=`ข้อมูลจาก เงินเดือนสตาฟ.xlsx • ยอดจ่ายสุทธิ ${claimMoney(s.staff_payroll_net)} บาท • ประกันสังคม ${claimMoney(s.staff_social_security)} บาท`;
       }catch(e){
-        if(body)body.innerHTML='<tr><td colspan="14">โหลดข้อมูลไม่สำเร็จ</td></tr>';
+        if(body&&!staffPayrollRows.length)body.innerHTML='<tr><td colspan="14">โหลดข้อมูลไม่สำเร็จ</td></tr>';
         if(st)st.textContent="โหลดข้อมูลไม่สำเร็จ: "+e.message;
-      }
+      }finally{staffPayrollLoadPromise=null;}})();
+      return staffPayrollLoadPromise;
     }
 
     function pnlData(){
@@ -5519,7 +5514,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.8</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.8.9</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
