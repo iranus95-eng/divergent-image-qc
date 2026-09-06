@@ -7,7 +7,7 @@
     'divergent_web_session_token_v1',
     'divergent_fallback_session_token'
   ]);
-  const ACCESS_URL = 'https://neauzvqroaszvqffahkv.functions.supabase.co/menu-access-api';
+  const ACCESS_URL = 'https://neauzvqroaszvqffahkv.functions.supabase.co/menu-access-v3';
 
   let state = {
     status: 'idle',
