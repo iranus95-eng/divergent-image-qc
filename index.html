@@ -1034,6 +1034,7 @@
 </script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 
+<!-- V44_LIST_LOADING_BILLING_FIX -->
 </head>
 
 <body>
@@ -1050,7 +1051,6 @@
         <div class="nav-item active" id="navHome" onclick="switchWorkspace('home')"><span class="nav-ico">⌂</span><span>หน้าหลัก</span></div>
         <div class="nav-item" id="navClaim" onclick="openClaimManagement()"><span class="nav-ico">▣</span><span>ตั้งเบิกค่าตอบแทน</span></div>
         <div class="nav-item" id="navClaimPending" style="display:none" onclick="openClaimPendingManagement()"><span class="nav-ico">⚠</span><span>การไฟฟ้าที่ยังเบิกไม่ได้</span></div>
-        <div class="nav-item" id="navStaffPayroll" onclick="openStaffPayrollManagement()"><span class="nav-ico">💼</span><span>เงินเดือนสตาฟ</span></div>
         <div class="nav-item" id="navPayroll" onclick="openPayrollManagement()"><span class="nav-ico">฿</span><span>จัดการเงินเดือน</span></div>
         <div class="nav-item" id="navStaffExpense" onclick="openStaffExpenseManagement()"><span class="nav-ico">🧾</span><span>ค่าใช้จ่าย</span></div>
         <div class="nav-item" id="navQc" onclick="switchWorkspace('qc')"><span class="nav-ico">✓</span><span>ตรวจสอบงาน</span></div>
@@ -1824,6 +1824,7 @@
     const INVOICE_ACCESS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/invoice-access-api";
     const BILLING_ACCESS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/billing-access-api";
     const MENU_ACCESS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/menu-access-api";
+    const WEB_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/web-list-api";
     const FALLBACK_AUTH_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth";
     const FALLBACK_SESSION_KEY = "divergent_web_session_token_v1";
     let billingAccess=false;
@@ -1905,7 +1906,7 @@
     function applyMenuAccess(){
       setMenuVisible("navClaim",!!menuAccess.claim);
       setMenuVisible("navClaimPending",!!menuAccess.claim_pending);
-      setMenuVisible("navStaffPayroll",!!menuAccess.staff_payroll);
+      setMenuVisible("navStaffPayroll",false);
       setMenuVisible("navPayroll",!!menuAccess.payroll);
       setMenuVisible("navStaffExpense",!!menuAccess.staff_expense);
       setMenuVisible("navQc",!!menuAccess.qc);
@@ -1924,6 +1925,19 @@
     function getFallbackSessionToken(){
       try{return localStorage.getItem(FALLBACK_SESSION_KEY)||""}catch(_){return ""}
     }
+    async function getBestDataToken(){
+      const fallback=getFallbackSessionToken();
+      if(fallback)return fallback;
+      try{if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn())return await getLineAccessToken();}catch(_){ }
+      return "";
+    }
+    async function webListApi(action,payload={}){
+      const token=await getBestDataToken();
+      if(!token)throw new Error("AUTH_REQUIRED");
+      const r=await fetch(WEB_LIST_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
+      const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){throw new Error("WEB_LIST_INVALID_RESPONSE")}
+      if(!r.ok)throw new Error(d.error||("HTTP "+r.status));return d;
+    }
     async function fetchMenuAccessWithToken(token){
       if(!token)return null;
       const r=await fetch(MENU_ACCESS_API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:"{}"});
@@ -1931,27 +1945,31 @@
       return {r,j};
     }
     async function refreshAllMenuAccess(){
-      menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};menuLineLinked=false;applyMenuAccess();
+      try{
+        const cached=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");
+        if(cached&&cached.access){menuAccess={...menuAccess,...cached.access};window.currentMenuUser=cached.user||window.currentMenuUser;applyMenuAccess();}
+      }catch(_){ }
       try{
         let result=null;
-        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
+        const sessionToken=getFallbackSessionToken();
+        if(sessionToken){
+          try{result=await fetchMenuAccessWithToken(sessionToken)}catch(_){ }
+        }
+        if((!result||!result.r.ok) && window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
           try{const lineToken=await getLineAccessToken();result=await fetchMenuAccessWithToken(lineToken)}catch(_){ }
         }
-        if(!result || !result.r.ok){
-          const sessionToken=getFallbackSessionToken();
-          if(sessionToken) result=await fetchMenuAccessWithToken(sessionToken);
-        }
-        if(!result)return false;
+        if(!result){applyMenuAccess();return false;}
         const {r,j}=result;
         if(!r.ok){
-          if(j?.error==="LINE_NOT_LINKED"){menuLineLinked=false;if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;}applyMenuAccess();return false;}
-          if(j?.error==="AUTH_INVALID"||j?.error==="AUTH_REQUIRED"){try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ } return false;}
+          if(j?.error==="LINE_NOT_LINKED"){menuLineLinked=false;applyMenuAccess();return false;}
+          if(j?.error==="AUTH_INVALID"||j?.error==="AUTH_REQUIRED"){try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }applyMenuAccess();return false;}
           throw new Error(j?.error||"MENU_ACCESS_ERROR");
         }
-        menuLineLinked=j?.auth_mode==="line"; menuAccess={...menuAccess,...(j.access||{})};
+        menuLineLinked=j?.auth_mode==="line";menuAccess={...menuAccess,...(j.access||{})};window.currentMenuUser=j?.user||null;
         if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;}
         window.fallbackAuthMode=j?.auth_mode||"line";
-        applyMenuAccess(); return true;
+        try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser,at:Date.now()}))}catch(_){ }
+        applyMenuAccess();return true;
       }catch(e){console.warn("menu access",e);applyMenuAccess();return false;}
     }
     function requireMenuAccess(key,label){if(menuAccess[key])return true;if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password ในระบบสำรองเพื่อยืนยันและซ่อมการเชื่อม LINE`);return false;}alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);return false;}
@@ -1961,8 +1979,12 @@
       const r=await fetch(BILLING_ACCESS_API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({action,...payload})});
       const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||"BILLING_API_ERROR"); return j;
     }
-    async function refreshBillingAccess(){billingAccess=!!menuAccess.billing;const n=document.getElementById("navBilling");if(n)n.style.display=billingAccess?"flex":"none";return billingAccess;}
-    async function openBillingManagement(){if(!requireMenuAccess("billing","เมนูจัดทำใบวางบิล"))return;billingAccess=true;switchWorkspace("__billing__");const b=document.getElementById("billingWorkspace");if(b)b.style.display="block";setNavActive("navBilling");renderBilling();}
+    async function refreshBillingAccess(){billingAccess=!!menuAccess.billing;applyMenuAccess();return billingAccess;}
+    async function openBillingManagement(){
+      if(!menuAccess.billing){await refreshAllMenuAccess();}
+      if(!requireMenuAccess("billing","เมนูจัดทำใบวางบิล"))return;
+      billingAccess=true;switchWorkspace("__billing__");const b=document.getElementById("billingWorkspace");if(b)b.style.display="block";setNavActive("navBilling");renderBilling();window.scrollTo(0,0);
+    }
     function printHtmlA4(html,title){const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 portrait;margin:0}body{margin:0;background:#fff}.invoice-paper{width:210mm;min-height:297mm;box-sizing:border-box;padding:0 9mm 7mm;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.08;color:#000;page-break-after:always}.invoice-paper:last-child{page-break-after:auto}.invoice-paper *{font-family:inherit}.invoice-head-img{width:100%;height:38mm;object-fit:cover;object-position:center top}.invoice-foot-img{width:100%;height:26mm;object-fit:cover;object-position:center bottom;margin-top:3mm}.invoice-doc-title{text-align:center;font-size:24pt;font-weight:700}.invoice-meta{display:flex;justify-content:flex-end;margin-top:-9mm;margin-bottom:6mm}.invoice-meta td{font-size:15pt;padding:0 1mm}.invoice-customer div{display:grid;grid-template-columns:24mm 1fr}.invoice-table{width:100%;border-collapse:collapse;font-size:14pt}.invoice-table th,.invoice-table td{border:1px solid #555;padding:1.5mm;background:#fff}.num{text-align:right}.center{text-align:center}.sumlabel{text-align:right;font-weight:700}.invoice-baht{text-align:center;font-weight:700;margin:3mm}.invoice-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:10mm;text-align:center;font-size:13pt}.sigline{margin-top:8mm}.siglabel{margin-top:2mm}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},500)}
     function printInvoiceA4(){const p=document.getElementById("invoicePaper");if(p)printHtmlA4(p.outerHTML,"ใบตั้งหนี้")}
     let billingActiveDoc="tax";
@@ -2087,6 +2109,7 @@
     }
 
     async function userAdminApi(action, payload = {}) {
+      if(action==="list")return await webListApi("users");
       const accessToken = await getLineAccessToken();
       const response = await fetch(USER_ADMIN_API_URL, {
         method: "POST",
@@ -2298,16 +2321,7 @@
       if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d;
     }
     async function payrollListApi(){
-      const accessToken=await getLineAccessToken();
-      const r=await fetch(PAYROLL_LIST_API_URL,{
-        method:"POST",
-        headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
-        body:JSON.stringify({})
-      });
-      const t=await r.text(); let d={};
-      try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PAYROLL_LIST_INVALID_RESPONSE")}
-      if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
-      return d;
+      return await webListApi("payroll");
     }
 
 
@@ -2448,9 +2462,9 @@
       if(payrollLoadPromise)return;
       payrollLoadPromise=(async()=>{
         try{
-          const p=await payrollApi("permissions"); payrollCanManage=!!p.can_manage;window.payrollLinkPending=false;
-          if(add)add.style.display=payrollCanManage?"":"none";
+          window.payrollLinkPending=false;
           await loadPayrollEmployees();payrollLoadedAt=Date.now();
+          if(add)add.style.display=payrollCanManage?"":"none";
         }catch(e){
           const code=String(e?.message||e);
           if(code==="LINE_NOT_LINKED"){window.payrollLinkPending=true;switchWorkspace("home");showRegistrationBox(true);return;}
@@ -2577,6 +2591,8 @@
 
 
     async function staffExpenseApi(action,payload={}){
+      if(action==="bootstrap")return await webListApi("expense_bootstrap",payload);
+      if(action==="list_items")return await webListApi("expense_items",payload);
       const accessToken=await getLineAccessToken();
       const r=await fetch(STAFF_EXPENSE_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
       const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("EXPENSE_INVALID_RESPONSE")}
@@ -3317,6 +3333,7 @@
 
     async function initLiff() {
       const status = document.getElementById("lineUserStatus");
+      try{const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");if(c?.access){menuAccess={...menuAccess,...c.access};window.currentMenuUser=c.user||null;applyMenuAccess();}}catch(_){ }
 
       try {
         status.textContent = "กำลังเชื่อมต่อ LINE...";
@@ -5518,7 +5535,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.0</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.9.1</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
