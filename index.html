@@ -4087,9 +4087,15 @@
         if(sp)sp.value=Number(pnlRemoteSummary.staff_payroll_net||0).toFixed(2);
         if(ss)ss.value=Number(pnlRemoteSummary.staff_social_security||0).toFixed(2);
         if(se)se.value=Number(pnlRemoteSummary.staff_expense_total||0).toFixed(2);
-        if(f)f.textContent=pnlRemoteSummary.staff_expense_data_available
-          ?`รวม ${Number(pnlRemoteSummary.staff_expense_count||0).toLocaleString("th-TH")} รายการของทั้งเดือนจากเมนูค่าใช้จ่ายสตาฟ`
-          :"ยังไม่มีรอบค่าใช้จ่ายสตาฟของเดือนนี้ในฐานข้อมูล";
+        if(f){
+          if(!pnlRemoteSummary.staff_expense_data_available){
+            f.textContent="ยังไม่มีข้อมูลค่าใช้จ่ายสตาฟของเดือนนี้";
+          }else if(pnlRemoteSummary.staff_expense_source==="HISTORICAL_FILE"){
+            f.textContent=`รวมจากไฟล์ค่าใช้จ่ายสตาฟ ${Number(pnlRemoteSummary.staff_expense_count||0).toLocaleString("th-TH")} รอบในเดือนนี้`;
+          }else{
+            f.textContent=`รวม ${Number(pnlRemoteSummary.staff_expense_count||0).toLocaleString("th-TH")} รายการของทั้งเดือนจากเมนูค่าใช้จ่ายสตาฟ`;
+          }
+        }
       }catch(e){
         pnlRemoteSummary={employee_payroll_net:0,employee_payroll_count:0,employee_data_available:false,staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0,staff_expense_data_available:false};
         const ef=document.getElementById("pnlEmployeePayrollFormula");
@@ -4202,9 +4208,12 @@
       const missing=[];
       if(!pnlRemoteSummary.employee_data_available)missing.push("เงินเดือนพนักงาน");
       if(!pnlRemoteSummary.staff_expense_data_available)missing.push("ค่าใช้จ่ายสตาฟ");
+      const expenseSource=pnlRemoteSummary.staff_expense_source==="HISTORICAL_FILE"
+        ?`<br><b>ค่าใช้จ่ายสตาฟ:</b> ${escapeHtml(pnlRemoteSummary.staff_expense_source_file||"ไฟล์ย้อนหลัง")}`
+        :"";
       pnlSourceNote.innerHTML=`<b>ฐานรายได้:</b> ยอดรับจากการไฟฟ้าตามไฟล์ตั้งเบิกค่าตอบแทน<br>
         <b>เดือนนี้:</b> ${escapeHtml(d.meta.title||d.meta.label||"")}<br>
-        <b>ข้อมูลอัตโนมัติ:</b> เงินเดือนพนักงาน + เงินเดือนสตาฟสุทธิ + ประกันสังคม + ค่าใช้จ่ายสตาฟ<br>
+        <b>ข้อมูลอัตโนมัติ:</b> เงินเดือนพนักงาน + เงินเดือนสตาฟสุทธิ + ประกันสังคม + ค่าใช้จ่ายสตาฟ${expenseSource}<br>
         ${missing.length?`<b>ยังไม่มีข้อมูลเดือนนี้:</b> ${escapeHtml(missing.join(", "))}`:"<b>สถานะ:</b> ข้อมูลต้นทุนอัตโนมัติพร้อม"}`;
     }
 
