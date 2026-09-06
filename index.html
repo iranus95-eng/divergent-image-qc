@@ -1031,7 +1031,9 @@
 .money-report-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #6d36d9;background:#fff;color:#5c28c8;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer}.money-report-btn.primary{background:linear-gradient(135deg,#6d36d9,#8b4ce5);color:#fff;border-color:transparent}.money-report-modal{position:fixed;inset:0;background:rgba(25,12,45,.56);z-index:10120;display:none;align-items:center;justify-content:center;padding:18px}.money-report-modal.show{display:flex}.money-report-card{width:min(620px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 24px 70px rgba(34,12,58,.35)}.money-report-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.money-report-head h3{margin:0;color:#35135e}.money-report-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.money-report-field{border:1px solid #eadff7;border-radius:14px;padding:13px;background:#fcfaff}.money-report-field label{display:block;font-size:12px;color:#6e5a83;margin-bottom:7px}.money-report-field select,.money-report-field input{width:100%;box-sizing:border-box;border:1px solid #ded1ee;border-radius:10px;padding:10px;background:white}.money-report-preview{margin-top:14px;padding:14px;border-radius:14px;background:#f8f4fd;color:#493461;font-size:13px;line-height:1.65}.money-report-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-end;margin-top:16px}.money-report-note{font-size:11px;color:#806e94;margin-top:10px}@media(max-width:650px){.money-report-grid{grid-template-columns:1fr}.money-report-actions>*{flex:1 1 45%}}
 </style>
 
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
+    setTimeout(()=>refreshBillingAccess(),1200);
+</script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 
 <!-- V50_HOME_LOGOUT -->
@@ -1868,41 +1870,19 @@
     const WEB_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/web-list-api";
     const FALLBACK_AUTH_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth";
     const FALLBACK_SESSION_KEY = "divergent_web_session_token_v1";
-    const AUTH_PREFERENCE_KEY = "divergent_auth_preference_v1";
     let billingAccess=false;
-    // V56: purge only stale permission caches from older builds; keep the authenticated web session.
-    try{
-      const k="divergent_permission_cache_build";
-      if(localStorage.getItem(k)!=="V58"){
-        localStorage.removeItem("divergent_menu_access_cache");
-        localStorage.removeItem(USER_ADMIN_CACHE_KEY);
-        localStorage.setItem(k,"V58");
-      }
-    }catch(_){ }
     let menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
     let menuLineLinked=false;
     let menuAccessConfirmed=false;
-    // V57: one authoritative permission state. Once a Username/Password session is valid,
-    // no delayed LINE/QC callback may overwrite its sidebar permissions.
-    let authoritativeAuthMode="";
-    let authoritativeUserId=null;
     function hasAnyMenuAccess(a){return !!(a&&(a.qc||a.claim||a.claim_pending||a.payroll||a.staff_expense||a.user_management||a.invoice||a.billing));}
-    function commitMenuAccess(access,user,authMode,{replace=false,force=false}={}){
+    function commitMenuAccess(access,user,authMode){
       if(!access||typeof access!=="object") return false;
-      const incomingMode=authMode||"";
-      if(!force && authoritativeAuthMode==="session" && incomingMode && incomingMode!=="session") {
-        console.info("V58 ignored non-authoritative permission update",incomingMode);
-        return false;
-      }
-      if(incomingMode==="session"){authoritativeAuthMode="session";authoritativeUserId=user?.id??authoritativeUserId;}
-      else if(!authoritativeAuthMode && incomingMode){authoritativeAuthMode=incomingMode;authoritativeUserId=user?.id??null;}
-      const blank={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
-      menuAccess=replace?{...blank,...access}:{...menuAccess,...access};
+      menuAccess={...menuAccess,...access};
       if(user) window.currentMenuUser=user;
-      if(incomingMode) window.fallbackAuthMode=incomingMode;
-      menuLineLinked=incomingMode==="line";
+      if(authMode) window.fallbackAuthMode=authMode;
+      menuLineLinked=authMode==="line";
       menuAccessConfirmed=true;
-      try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser||null,auth_mode:authoritativeAuthMode||incomingMode||window.fallbackAuthMode||"",at:Date.now()}))}catch(_){ }
+      try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser||null,auth_mode:authMode||window.fallbackAuthMode||"",at:Date.now()}))}catch(_){ }
       applyMenuAccess();
       return true;
     }
@@ -1920,7 +1900,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V60_CLEAN_REBUILD";
+    const PAYROLL_UI_BUILD = "V63_RECOVERY_ROLLBACK_V53";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -1946,7 +1926,7 @@
     let currentUserManagementPermissions = {};
     let userAdminLoadedAt = 0;
     let userAdminLoadPromise = null;
-    const USER_ADMIN_CACHE_KEY = "divergent_user_admin_cache_v2";
+    const USER_ADMIN_CACHE_KEY = "divergent_user_admin_cache_v1";
     const USER_ADMIN_CACHE_MS = 120000;
 
     function hydrateUserAdminCache(){
@@ -2006,54 +1986,19 @@
 
 
 
-    // V58 STABILIZE: Sidebar has exactly one owner. No feature/API may decide menu visibility itself.
-    const MENU_VISIBILITY_RULES={
-      navHome:()=>true,
-      navClaim:()=>!!menuAccess.claim,
-      navClaimPending:()=>!!menuAccess.claim_pending,
-      navStaffPayroll:()=>false,
-      navPayroll:()=>!!menuAccess.payroll,
-      navStaffExpense:()=>!!menuAccess.staff_expense,
-      navQc:()=>!!menuAccess.qc,
-      navSearch:()=>!!menuAccess.qc,
-      navUsers:()=>!!menuAccess.user_management,
-      navInvoice:()=>!!menuAccess.invoice,
-      navBilling:()=>!!menuAccess.billing,
-      navPnL:()=>!!window.profitLossAccessAllowed
-    };
-    let applyingMenuAccess=false;
-    function setMenuVisible(id,show){
-      const el=document.getElementById(id); if(!el)return;
-      const want=show?"flex":"none";
-      if(el.style.display!==want)el.style.display=want;
-    }
+    function setMenuVisible(id,show){const el=document.getElementById(id);if(el)el.style.display=show?"flex":"none";}
     function applyMenuAccess(){
-      // V61: once the clean permission kernel is active, every legacy caller delegates
-      // to the single sidebar renderer instead of recalculating permissions itself.
-      if(window.DivergentState?.build==="V61" && typeof window.__renderSidebarV61==="function"){
-        window.__renderSidebarV61();
-        return;
-      }
-      if(applyingMenuAccess)return;
-      applyingMenuAccess=true;
-      try{
-        for(const [id,rule] of Object.entries(MENU_VISIBILITY_RULES)){
-          let show=false; try{show=!!rule();}catch(_){show=false;}
-          setMenuVisible(id,show);
-        }
-      }finally{applyingMenuAccess=false;}
+      setMenuVisible("navClaim",!!menuAccess.claim);
+      setMenuVisible("navClaimPending",!!menuAccess.claim_pending);
+      setMenuVisible("navStaffPayroll",false);
+      setMenuVisible("navPayroll",!!menuAccess.payroll);
+      setMenuVisible("navStaffExpense",!!menuAccess.staff_expense);
+      setMenuVisible("navQc",!!menuAccess.qc);
+      setMenuVisible("navSearch",!!menuAccess.qc);
+      setMenuVisible("navUsers",!!menuAccess.user_management);
+      setMenuVisible("navInvoice",!!menuAccess.invoice);
+      setMenuVisible("navBilling",!!menuAccess.billing);
     }
-    // Any legacy async callback that touches nav styles is immediately normalized back to state.
-    let menuGuardQueued=false;
-    function queueMenuGuard(){
-      if(menuGuardQueued||applyingMenuAccess)return; menuGuardQueued=true;
-      queueMicrotask(()=>{menuGuardQueued=false;applyMenuAccess();});
-    }
-    document.addEventListener("DOMContentLoaded",()=>{
-      const nav=document.querySelector(".side-nav");
-      if(nav)new MutationObserver(queueMenuGuard).observe(nav,{subtree:true,attributes:true,attributeFilter:["style","class"]});
-      applyMenuAccess();
-    });
     function showAccountLinkRequired(message){
       switchWorkspace("home");
       showRegistrationBox(true);
@@ -2079,7 +2024,6 @@
       }catch(_){ }
       try{if(presenceTimer){clearInterval(presenceTimer);presenceTimer=null;}}catch(_){ }
       try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }
-      try{localStorage.removeItem(AUTH_PREFERENCE_KEY)}catch(_){ }
       try{localStorage.removeItem("divergent_web_session_user")}catch(_){ }
       try{localStorage.removeItem("divergent_menu_access_cache")}catch(_){ }
       try{localStorage.removeItem(USER_ADMIN_CACHE_KEY)}catch(_){ }
@@ -2134,45 +2078,22 @@
       return {r,j};
     }
     async function refreshAllMenuAccess(){
-      // V54: An explicit Username/Password login represents the user's chosen account.
-      // When a valid fallback session exists, it must take priority over a LINE identity
-      // that may still be linked to another old account on the same browser/device.
+      // V52: Sidebar permissions are sticky. Never collapse a known-good menu state because
+      // a LINE/session check is slow, temporarily unavailable, or belongs to a stale fallback session.
       try{
         const cached=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");
         if(cached&&cached.access){
           menuAccess={...menuAccess,...cached.access};
           window.currentMenuUser=cached.user||window.currentMenuUser;
           window.fallbackAuthMode=cached.auth_mode||window.fallbackAuthMode||"";
-          if(cached.auth_mode==="session" && getFallbackSessionToken()){authoritativeAuthMode="session";authoritativeUserId=cached.user?.id??null;}
           menuAccessConfirmed=true;
           applyMenuAccess();
         }
       }catch(_){ }
 
       let lineResult=null, sessionResult=null;
-      const sessionToken=getFallbackSessionToken();
-      let pref="";
-      try{pref=localStorage.getItem(AUTH_PREFERENCE_KEY)||""}catch(_){ }
-
-      // V56: If a valid Username/Password session exists on this browser, that selected account is authoritative.
-      // Do not let an unrelated LINE identity on the same PC overwrite its menu permissions.
-      let storedSessionUser=null;
-      try{storedSessionUser=JSON.parse(localStorage.getItem("divergent_web_session_user")||"null")}catch(_){storedSessionUser=null;}
-      if(sessionToken && storedSessionUser?.username){
-        try{sessionResult=await fetchMenuAccessWithToken(sessionToken);}catch(e){console.warn("menu session check",e);}
-        if(sessionResult?.r?.ok && sessionResult?.j?.access){
-          const j=sessionResult.j;
-          commitMenuAccess(j.access,j.user,"session",{replace:true,force:true});
-          try{localStorage.setItem("divergent_web_session_user",JSON.stringify(j.user||{}))}catch(_){ }
-          if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
-          return true;
-        }
-        if(sessionResult && !sessionResult.r.ok && ["AUTH_INVALID","AUTH_REQUIRED"].includes(sessionResult.j?.error)){
-          try{localStorage.removeItem(FALLBACK_SESSION_KEY);localStorage.removeItem(AUTH_PREFERENCE_KEY);}catch(_){ }
-        }
-      }
-
-      // Otherwise try LINE identity.
+      // Prefer the currently logged-in LINE identity. This prevents an old fallback session
+      // from replacing the permissions of the person who is actually using the browser now.
       try{
         if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
           const lineToken=await getLineAccessToken();
@@ -2182,34 +2103,36 @@
 
       if(lineResult?.r?.ok && lineResult?.j?.access){
         const j=lineResult.j;
-        commitMenuAccess(j.access,j.user,"line",{replace:true});
-        try{localStorage.setItem(AUTH_PREFERENCE_KEY,"line")}catch(_){ }
+        commitMenuAccess(j.access,j.user,"line");
         if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;commitMenuAccess(menuAccess,window.currentMenuUser,"line");}
-        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
+        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
         return true;
       }
 
-      // LINE unavailable/unlinked: use fallback session even when no preference was saved yet.
+      // If LINE is not linked (or LINE is unavailable), use the saved web session as fallback.
       const lineErr=lineResult?.j?.error||"";
-      if(sessionToken && (!sessionResult || pref!=="session") && (!lineResult || !lineResult.r.ok || lineErr==="LINE_NOT_LINKED" || lineErr==="AUTH_INVALID" || lineErr==="AUTH_REQUIRED")){
+      const sessionToken=getFallbackSessionToken();
+      if(sessionToken && (!lineResult || !lineResult.r.ok || lineErr==="LINE_NOT_LINKED" || lineErr==="AUTH_INVALID" || lineErr==="AUTH_REQUIRED")){
         try{sessionResult=await fetchMenuAccessWithToken(sessionToken);}catch(e){console.warn("menu session check",e);}
       }
       if(sessionResult?.r?.ok && sessionResult?.j?.access){
         const j=sessionResult.j;
-        commitMenuAccess(j.access,j.user,"session",{replace:true,force:true});
-        try{localStorage.setItem(AUTH_PREFERENCE_KEY,"session")}catch(_){ }
-        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
-        if(lineErr==="LINE_NOT_LINKED") setTimeout(()=>showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีนี้ แต่ระบบกำลังใช้บัญชี Username / Password ที่ยืนยันแล้ว จึงสามารถใช้เมนูตามสิทธิ์ได้ครบ"),80);
+        commitMenuAccess(j.access,j.user,"session");
+        if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}
+        // If LINE itself is unlinked, keep the fallback menus and offer repair without hiding anything.
+        if(lineErr==="LINE_NOT_LINKED") setTimeout(()=>showAccountLinkRequired("ตรวจพบว่า LINE ยังไม่ได้ผูกกับบัญชีพนักงานนี้ แต่ระบบสำรองยังใช้งานได้ กรุณาเข้าสู่ระบบสำรองเพื่อซ่อมการเชื่อม LINE เมื่อสะดวก"),80);
         return true;
       }
 
+      // Invalid fallback session may be cleared, but do not erase the last confirmed permissions.
       if(sessionResult && !sessionResult.r.ok && ["AUTH_INVALID","AUTH_REQUIRED"].includes(sessionResult.j?.error)){
-        try{localStorage.removeItem(FALLBACK_SESSION_KEY);localStorage.removeItem(AUTH_PREFERENCE_KEY);}catch(_){ }
+        try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }
       }
       if(lineErr==="LINE_NOT_LINKED" && !sessionToken){
         menuLineLinked=false;
-        setTimeout(()=>showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาใช้ Username / Password เพื่อยืนยันบัญชี แล้วระบบจะแสดงเมนูตามสิทธิ์ทั้งหมด"),80);
+        setTimeout(()=>showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาใช้ Username / Password เพื่อเข้าสู่ระบบสำรองและซ่อมการเชื่อม LINE"),80);
       }
+      // Critical: no apply of an empty permission object here. Existing menu state remains intact.
       return false;
     }
     function requireMenuAccess(key,label){if(menuAccess[key])return true;if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password ในระบบสำรองเพื่อยืนยันและซ่อมการเชื่อม LINE`);return false;}alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);return false;}
@@ -2225,80 +2148,7 @@
       if(!requireMenuAccess("billing","เมนูจัดทำใบวางบิล"))return;
       billingAccess=true;switchWorkspace("__billing__");const b=document.getElementById("billingWorkspace");if(b)b.style.display="block";setNavActive("navBilling");renderBilling();window.scrollTo(0,0);
     }
-    function printHtmlA4(html,title){const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 portrait;margin:0}body{margin:0;background:#fff}.invoice-paper{width:210mm;min-height:297mm;box-sizing:border-box;padding:0 9mm 7mm;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.08;color:#000;page-break-after:always}.invoice-paper:last-child{page-break-after:auto}.invoice-paper *{font-family:inherit}.invoice-head-img{width:100%;height:38mm;object-fit:cover;object-position:center top}.invoice-foot-img{width:100%;height:26mm;object-fit:cover;object-position:center bottom;margin-top:3mm}.invoice-doc-title{text-align:center;font-size:24pt;font-weight:700}.invoice-meta{display:flex;justify-content:flex-end;margin-top:-9mm;margin-bottom:6mm}.invoice-meta td{font-size:15pt;padding:0 1mm}.invoice-customer div{display:grid;grid-template-columns:24mm 1fr}.invoice-table{width:100%;border-collapse:collapse;font-size:14pt}.invoice-table th,.invoice-table td{border:1px solid #555;padding:1.5mm;background:#fff}.num{text-align:right}.center{text-align:center}.sumlabel{text-align:right;font-weight:700}.invoice-baht{text-align:center;font-weight:700;margin:3mm}.invoice-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:10mm;text-align:center;font-size:13pt}.sigline{margin-top:8mm}.siglabel{margin-top:2mm}</style></head><body>${html}
-<script>
-/* V62 direct auth repair: login and permission come from the SAME backend response. */
-(() => {
-  'use strict';
-  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
-  const SESSION_KEY='divergent_web_session_token_v1';
-  const PREF_KEY='divergent_auth_preference_v1';
-
-  function acceptV62(j){
-    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
-    if(window.DivergentState){
-      const st=window.DivergentState;
-      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
-    }
-    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
-    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
-    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
-    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
-    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
-    try{window.__renderSidebarV61?.();}catch(_){ }
-    try{window.applyMenuAccess?.();}catch(_){ }
-    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
-    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
-  }
-
-  async function directLogin(username,password){
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
-      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
-      return j;
-    }finally{clearTimeout(tm)}
-  }
-
-  window.bindEmployeeAccount=async function(){
-    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
-    const password=document.getElementById('employeeBindPassword')?.value||'';
-    const result=document.getElementById('employeeBindResult');
-    const btn=document.getElementById('employeeBindButton');
-    if(result){result.className='registration-result';result.textContent='';}
-    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
-    try{
-      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
-      const j=await directLogin(username,password);
-      acceptV62(j);
-      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
-      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
-      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
-    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
-    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
-  };
-  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
-
-  // When a valid staff session exists, use only that identity on bootstrap.
-  window.__v62Boot=async function(){
-    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
-    if(!tok)return false;
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
-      acceptV62(j);return true;
-    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
-  };
-
-  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
-})();
-</script>
-
-</body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},500)}
+    function printHtmlA4(html,title){const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 portrait;margin:0}body{margin:0;background:#fff}.invoice-paper{width:210mm;min-height:297mm;box-sizing:border-box;padding:0 9mm 7mm;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.08;color:#000;page-break-after:always}.invoice-paper:last-child{page-break-after:auto}.invoice-paper *{font-family:inherit}.invoice-head-img{width:100%;height:38mm;object-fit:cover;object-position:center top}.invoice-foot-img{width:100%;height:26mm;object-fit:cover;object-position:center bottom;margin-top:3mm}.invoice-doc-title{text-align:center;font-size:24pt;font-weight:700}.invoice-meta{display:flex;justify-content:flex-end;margin-top:-9mm;margin-bottom:6mm}.invoice-meta td{font-size:15pt;padding:0 1mm}.invoice-customer div{display:grid;grid-template-columns:24mm 1fr}.invoice-table{width:100%;border-collapse:collapse;font-size:14pt}.invoice-table th,.invoice-table td{border:1px solid #555;padding:1.5mm;background:#fff}.num{text-align:right}.center{text-align:center}.sumlabel{text-align:right;font-weight:700}.invoice-baht{text-align:center;font-weight:700;margin:3mm}.invoice-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:10mm;text-align:center;font-size:13pt}.sigline{margin-top:8mm}.siglabel{margin-top:2mm}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},500)}
     function printInvoiceA4(){const p=document.getElementById("invoicePaper");if(p)printHtmlA4(p.outerHTML,"ใบตั้งหนี้")}
     let billingActiveDoc="tax";
     const BILL_DOCS={tax:["ใบเสร็จรับเงิน/ใบกำกับภาษี","ต้นฉบับ"],taxcopy:["ใบเสร็จรับเงิน/ใบกำกับภาษี","สำเนา"],invoice:["ใบแจ้งหนี้/ใบวางบิล","ต้นฉบับ"],invoicecopy:["ใบแจ้งหนี้/ใบวางบิล","สำเนา"]};
@@ -2424,23 +2274,10 @@
 
     async function userAdminApi(action, payload = {}) {
       if(action==="list")return await webListApi("users");
-      // V55: Use the same selected identity for permission writes as for menu reads.
-      // Username/Password session is authoritative when the user explicitly chose it.
-      let token="";
-      let pref="";
-      try{pref=localStorage.getItem(AUTH_PREFERENCE_KEY)||""}catch(_){}
-      const session=getFallbackSessionToken();
-      let storedSessionUser=null;
-      try{storedSessionUser=JSON.parse(localStorage.getItem("divergent_web_session_user")||"null")}catch(_){storedSessionUser=null;}
-      if(session && storedSessionUser?.username) token=session;
-      if(!token){
-        try{ if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()) token=await getLineAccessToken(); }catch(_){}
-      }
-      if(!token && session) token=session;
-      if(!token) throw new Error("AUTH_REQUIRED");
+      const accessToken = await getLineAccessToken();
       const response = await fetch(USER_ADMIN_API_URL, {
         method: "POST",
-        headers: {"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+        headers: {"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},
         body: JSON.stringify({action, ...payload})
       });
       const t = await response.text(); let data={};
@@ -2450,8 +2287,9 @@
     }
 
     function showUserAdminNav(show){
-      // V58 compatibility shim: authoritative menu state decides visibility.
-      applyMenuAccess();
+      // V1.6.9: เมนูจัดการผู้ใช้งานต้องมองเห็นได้สำหรับทุกคน
+      const n=document.getElementById("navUsers");
+      if(n) n.style.display="flex";
     }
 
     async function openUserManagement(){
@@ -3107,153 +2945,7 @@
   </div>
 </div>
 
-
-<script>
-/* V62 direct auth repair: login and permission come from the SAME backend response. */
-(() => {
-  'use strict';
-  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
-  const SESSION_KEY='divergent_web_session_token_v1';
-  const PREF_KEY='divergent_auth_preference_v1';
-
-  function acceptV62(j){
-    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
-    if(window.DivergentState){
-      const st=window.DivergentState;
-      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
-    }
-    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
-    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
-    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
-    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
-    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
-    try{window.__renderSidebarV61?.();}catch(_){ }
-    try{window.applyMenuAccess?.();}catch(_){ }
-    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
-    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
-  }
-
-  async function directLogin(username,password){
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
-      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
-      return j;
-    }finally{clearTimeout(tm)}
-  }
-
-  window.bindEmployeeAccount=async function(){
-    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
-    const password=document.getElementById('employeeBindPassword')?.value||'';
-    const result=document.getElementById('employeeBindResult');
-    const btn=document.getElementById('employeeBindButton');
-    if(result){result.className='registration-result';result.textContent='';}
-    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
-    try{
-      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
-      const j=await directLogin(username,password);
-      acceptV62(j);
-      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
-      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
-      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
-    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
-    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
-  };
-  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
-
-  // When a valid staff session exists, use only that identity on bootstrap.
-  window.__v62Boot=async function(){
-    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
-    if(!tok)return false;
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
-      acceptV62(j);return true;
-    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
-  };
-
-  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
-})();
-</script>
-
-</body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table>
-<script>
-/* V62 direct auth repair: login and permission come from the SAME backend response. */
-(() => {
-  'use strict';
-  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
-  const SESSION_KEY='divergent_web_session_token_v1';
-  const PREF_KEY='divergent_auth_preference_v1';
-
-  function acceptV62(j){
-    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
-    if(window.DivergentState){
-      const st=window.DivergentState;
-      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
-    }
-    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
-    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
-    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
-    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
-    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
-    try{window.__renderSidebarV61?.();}catch(_){ }
-    try{window.applyMenuAccess?.();}catch(_){ }
-    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
-    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
-  }
-
-  async function directLogin(username,password){
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
-      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
-      return j;
-    }finally{clearTimeout(tm)}
-  }
-
-  window.bindEmployeeAccount=async function(){
-    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
-    const password=document.getElementById('employeeBindPassword')?.value||'';
-    const result=document.getElementById('employeeBindResult');
-    const btn=document.getElementById('employeeBindButton');
-    if(result){result.className='registration-result';result.textContent='';}
-    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
-    try{
-      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
-      const j=await directLogin(username,password);
-      acceptV62(j);
-      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
-      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
-      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
-    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
-    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
-  };
-  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
-
-  // When a valid staff session exists, use only that identity on bootstrap.
-  window.__v62Boot=async function(){
-    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
-    if(!tok)return false;
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
-      acceptV62(j);return true;
-    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
-  };
-
-  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
-})();
-</script>
-
-</body></html>`}
+</body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table></body></html>`}
     async function createMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="CSV"){const blob=new Blob([buildMoneyCsv()],{type:"text/csv;charset=utf-8"});moneyReportLastFile=new File([blob],moneyReportFilename("csv"),{type:blob.type});alert("สร้างไฟล์ Excel (CSV) พร้อมแล้ว") }else{const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างรายงาน กรุณาอนุญาต Pop-up");return}w.document.open();w.document.write(buildMoneyPrintHtml());w.document.close();setTimeout(()=>{w.focus();w.print()},300)}}
     async function downloadMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){await createMoneyReport();return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(moneyReportLastFile);a.download=moneyReportLastFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
     async function generateMoneyReportShareLink(){
@@ -3832,7 +3524,7 @@
 
     async function initLiff() {
       const status = document.getElementById("lineUserStatus");
-      try{const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");if(c?.access){menuAccess={...menuAccess,...c.access};window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";if(c.auth_mode==="session"&&getFallbackSessionToken()){authoritativeAuthMode="session";authoritativeUserId=c.user?.id??null;}menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }
+      try{const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");if(c?.access){menuAccess={...menuAccess,...c.access};window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }
 
       try {
         status.textContent = "กำลังเชื่อมต่อ LINE...";
@@ -3890,7 +3582,7 @@
         const loginBtn = document.getElementById("topLoginButton");
         if (loginBtn) loginBtn.textContent = (profile.displayName || "Admin") + " · เข้าสู่ระบบแล้ว";
 
-        if(authoritativeAuthMode!=="session") await checkQcAccess();
+        await checkQcAccess();
         await refreshAllMenuAccess();
         await refreshProfitLossMenuAccess();
         await refreshInvoiceMenuAccess();
@@ -3916,9 +3608,8 @@
 
 
     function showClaimPendingNav(show){
-      // V58 compatibility shim: never write sidebar DOM directly.
-      if(authoritativeAuthMode!=="session" && typeof show==="boolean") menuAccess.claim_pending=!!show;
-      applyMenuAccess();
+      const nav=document.getElementById("navClaimPending");
+      if(nav)nav.style.display=show?"":"none";
     }
 
     function setQcEnabled(enabled) {
@@ -3986,9 +3677,9 @@
 
           window.qcAuthorizedUser = info;
           setQcEnabled(true);
-          if(authoritativeAuthMode!=="session"){
-            commitMenuAccess({qc:true,claim:true,claim_pending:true},window.currentMenuUser||null,"line");
-          }
+          menuAccess.qc=true; menuAccess.claim=true; menuAccess.claim_pending=true;
+          try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser||null,auth_mode:window.fallbackAuthMode||"line",at:Date.now()}))}catch(_){ }
+          applyMenuAccess();
           if(menuAccess.claim_pending) showClaimPendingNav(true);
           showRegistrationBox(false);
           const isAdmin = String(info.user_role || "").toLowerCase() === "admin";
@@ -4116,17 +3807,16 @@
         if(data?.session_token){
           localStorage.setItem(FALLBACK_SESSION_KEY,data.session_token);
           localStorage.setItem("divergent_web_session_user",JSON.stringify(data.user||{}));
-          localStorage.setItem(AUTH_PREFERENCE_KEY,"session");
         }
-        // Replace the visible menu state with the permissions of the account just authenticated.
-        // Do not allow a previous LINE user's cached permissions to leak into this account.
-        authoritativeAuthMode="session"; authoritativeUserId=data.user?.id??null;
-        commitMenuAccess(data.access||{},data.user||null,"session",{replace:true,force:true});
+        menuAccess={...menuAccess,...(data.access||{})};
+        // Persist permission state immediately so the sidebar does not collapse during LINE repair.
+        try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:data.user||window.currentMenuUser||null,at:Date.now()}))}catch(_){ }
+        applyMenuAccess();
         if(data?.line_status==="linked"){
           menuLineLinked=true;
           if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}
           await new Promise(r=>setTimeout(r,250));
-          if(authoritativeAuthMode!=="session"){try{await checkQcAccess();}catch(_){ }}
+          try{await checkQcAccess();}catch(_){ }
         }else{
           menuLineLinked=false;
           const msg=data?.line_status==="linked_to_other"?"เข้าสู่ระบบสำรองสำเร็จ แต่ LINE นี้เชื่อมกับบัญชีอื่นอยู่ กรุณาแจ้งผู้ดูแล":"เข้าสู่ระบบสำรองสำเร็จ ✓ ระบบเก็บ Session สำรองไว้แล้ว";
@@ -4732,7 +4422,7 @@
     }
 
     setQcEnabled(false);
-    /* V60 init is owned by the clean kernel below. */
+    initLiff();
   
     function haversineMeters(aLat,aLng,bLat,bLng){
       const R=6371000,toRad=v=>v*Math.PI/180;
@@ -5096,14 +4786,19 @@
     }
 
     async function refreshProfitLossMenuAccess(){
-      // V58: update state only; applyMenuAccess is the sole sidebar writer.
+      const nav=document.getElementById("navPnL");
+      if(nav)nav.style.display="none";
       window.profitLossAccessAllowed=false;
       try{
         const d=await profitLossApi("permissions");
-        window.profitLossAccessAllowed=!!(d?.ok && d?.can_access===true);
-      }catch(_){window.profitLossAccessAllowed=false;}
-      applyMenuAccess();
-      return window.profitLossAccessAllowed;
+        if(d?.ok && d?.can_access===true){
+          window.profitLossAccessAllowed=true;
+          if(nav)nav.style.display="";
+        }
+      }catch(_){
+        window.profitLossAccessAllowed=false;
+        if(nav)nav.style.display="none";
+      }
     }
 
     async function loadPnLRemoteSummary(){
@@ -6044,7 +5739,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.0.2</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.0.3 RECOVERY</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
@@ -6058,234 +5753,5 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     <div class="money-report-note">ปุ่ม “ส่ง LINE” จะเปิดตัวเลือกเพื่อน/กลุ่มใน LINE โดยตรง พร้อมระบบวินิจฉัยหากส่งไม่สำเร็จ • ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
   </div>
 </div>
-
-<script>
-/* DIVERGENT V61 CLEAN REBUILD AUTH/PERMISSION KERNEL
-   One Auth Owner -> One Permission State -> One Sidebar Renderer */
-(() => {
-  'use strict';
-  const ACCESS_CONTROL_API_URL = 'https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
-  const CACHE_KEY = 'divergent_v62_permission_state';
-  const BUILD_KEY = 'divergent_clean_build';
-  const EMPTY = {home:true,claim:false,claim_pending:false,payroll:false,staff_expense:false,qc:false,search:false,user_management:false,invoice:false,billing:false,pnl:false};
-  const NAV = {navHome:'home',navClaim:'claim',navClaimPending:'claim_pending',navPayroll:'payroll',navStaffExpense:'staff_expense',navQc:'qc',navSearch:'search',navUsers:'user_management',navInvoice:'invoice',navBilling:'billing',navPnL:'pnl'};
-  const WORKSPACES=['homeWorkspace','claimWorkspace','claimPendingWorkspace','payrollWorkspace','staffExpenseWorkspace','qcWorkspace','searchWorkspace','userWorkspace','invoiceWorkspace','billingWorkspace','pnlWorkspace','locationWorkspace','staffPayrollWorkspace'];
-  const state=window.DivergentState={build:'V62',authMode:'',user:null,access:{...EMPTY},manage:{},rawPermissions:{},confirmed:false,loading:false,requestId:0};
-
-  try{
-    if(localStorage.getItem(BUILD_KEY)!=='V62'){
-      ['divergent_menu_access_cache','divergent_permission_cache_build','divergent_v57_permission_cache','divergent_v58_permission_cache','divergent_v60_permission_state'].forEach(k=>localStorage.removeItem(k));
-      localStorage.setItem(BUILD_KEY,'V62');
-    }
-  }catch(_){}
-
-  function sessionToken(){try{return localStorage.getItem(FALLBACK_SESSION_KEY)||''}catch(_){return ''}}
-  function syncLegacy(){
-    menuAccess={qc:!!state.access.qc,claim:!!state.access.claim,claim_pending:!!state.access.claim_pending,staff_payroll:false,payroll:!!state.access.payroll,staff_expense:!!state.access.staff_expense,user_management:!!state.access.user_management,invoice:!!state.access.invoice,billing:!!state.access.billing};
-    menuAccessConfirmed=state.confirmed;
-    menuLineLinked=state.authMode==='line';
-    authoritativeAuthMode=state.authMode;
-    authoritativeUserId=state.user?.id??null;
-    window.currentMenuUser=state.user;
-    window.fallbackAuthMode=state.authMode;
-    window.profitLossAccessAllowed=!!state.access.pnl;
-    window.invoiceAccessAllowed=!!state.access.invoice;
-    billingAccess=!!state.access.billing;
-    currentUserManagementPermissions={...currentUserManagementPermissions,...state.rawPermissions};
-    try{setQcEnabled(!!state.access.qc)}catch(_){}
-  }
-  function renderSidebar(){
-    for(const [id,key] of Object.entries(NAV)){
-      const el=document.getElementById(id); if(!el)continue;
-      el.style.setProperty('display',key==='home'||state.access[key]?'flex':'none','important');
-      el.dataset.permissionOwner='V62';
-    }
-    const sp=document.getElementById('navStaffPayroll'); if(sp)sp.style.setProperty('display','none','important');
-  }
-  window.__renderSidebarV61=renderSidebar;
-  function cacheWrite(){try{localStorage.setItem(CACHE_KEY,JSON.stringify({at:Date.now(),authMode:state.authMode,user:state.user,access:state.access,manage:state.manage,rawPermissions:state.rawPermissions}))}catch(_){}}
-  function cacheRead(){
-    try{
-      const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
-      if(!c?.access||Date.now()-Number(c.at||0)>600000)return false;
-      if(c.authMode==='session'&&!sessionToken())return false;
-      state.authMode=c.authMode||'';state.user=c.user||null;state.access={...EMPTY,...c.access};state.manage=c.manage||{};state.rawPermissions=c.rawPermissions||{};state.confirmed=true;
-      syncLegacy();renderSidebar();return true;
-    }catch(_){return false}
-  }
-
-  window.applyMenuAccess=renderSidebar; applyMenuAccess=renderSidebar;
-  window.showUserAdminNav=()=>renderSidebar(); showUserAdminNav=window.showUserAdminNav;
-  window.showClaimPendingNav=()=>renderSidebar(); showClaimPendingNav=window.showClaimPendingNav;
-  window.commitMenuAccess=()=>{renderSidebar();return false}; commitMenuAccess=window.commitMenuAccess;
-
-  function requireAccess(key,label){
-    if(state.access[key])return true;
-    alert(state.confirmed?`บัญชี ${state.user?.username||''} ยังไม่ได้รับสิทธิ์เข้า ${label}`:`กำลังตรวจสิทธิ์ ${label} กรุณาลองอีกครั้ง`);
-    return false;
-  }
-  window.requireMenuAccess=requireAccess; requireMenuAccess=requireAccess;
-
-  async function accessWithToken(token,timeoutMs){
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),timeoutMs||6000);
-    try{
-      const r=await fetch(ACCESS_CONTROL_API_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}',signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok){const e=new Error(j.error||('HTTP_'+r.status));e.payload=j;throw e}
-      return j;
-    }finally{clearTimeout(tm)}
-  }
-  function accept(j){
-    if(!j?.access||!j?.user)return false;
-    state.authMode=j.auth_mode||'';state.user=j.user;state.access={...EMPTY,...j.access};state.manage=j.manage||{};state.rawPermissions=j.raw_permissions||{};state.confirmed=true;
-    syncLegacy();cacheWrite();renderSidebar();
-    const st=document.getElementById('lineUserStatus');if(st)st.textContent=`${state.user.username} · เข้าสู่ระบบแล้ว (${state.authMode==='session'?'บัญชีพนักงาน':'LINE'})`;
-    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${state.user.username} · เข้าสู่ระบบแล้ว`;
-    return true;
-  }
-  async function refreshAccess({force=false}={}){
-    if(state.loading&&!force)return state.confirmed;
-    state.loading=true;const rid=++state.requestId;
-    try{
-      const sess=sessionToken();
-      if(sess){
-        try{const j=await accessWithToken(sess,4500);if(rid===state.requestId&&accept(j))return true}
-        catch(e){if(['AUTH_INVALID','AUTH_REQUIRED'].includes(e.message)){try{localStorage.removeItem(FALLBACK_SESSION_KEY);localStorage.removeItem(AUTH_PREFERENCE_KEY);localStorage.removeItem('divergent_web_session_user')}catch(_){}}}
-      }
-      try{
-        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){
-          const t=liff.getAccessToken();if(t){const j=await accessWithToken(t,6500);if(rid===state.requestId&&accept(j))return true}
-        }
-      }catch(e){if(e?.payload?.error==='LINE_NOT_LINKED'){try{showAccountLinkRequired('LINE นี้ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาเข้าสู่ระบบด้วย Username / Password เพื่อใช้งานตามสิทธิ์')}catch(_){}}}
-      renderSidebar();return false;
-    }finally{if(rid===state.requestId)state.loading=false}
-  }
-  window.refreshAllMenuAccess=refreshAccess; refreshAllMenuAccess=refreshAccess;
-  window.refreshInvoiceMenuAccess=async()=>{await refreshAccess();return !!state.access.invoice}; refreshInvoiceMenuAccess=window.refreshInvoiceMenuAccess;
-  window.refreshBillingAccess=async()=>{await refreshAccess();return !!state.access.billing}; refreshBillingAccess=window.refreshBillingAccess;
-  window.refreshProfitLossMenuAccess=async()=>{await refreshAccess();return !!state.access.pnl}; refreshProfitLossMenuAccess=window.refreshProfitLossMenuAccess;
-  window.checkQcAccess=async()=>{await refreshAccess();try{setQcEnabled(!!state.access.qc)}catch(_){}return !!state.access.qc}; checkQcAccess=window.checkQcAccess;
-
-  window.switchWorkspace=function(name){
-    const need=name==='qc'?'qc':(name==='search'||name==='location')?'search':name==='users'?'user_management':name==='payroll'?'payroll':name==='expense'?'staff_expense':null;
-    if(need&&!requireAccess(need,'เมนูนี้'))return;
-    WORKSPACES.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});
-    const map={home:'homeWorkspace',qc:'qcWorkspace',search:'searchWorkspace',location:'locationWorkspace',users:'userWorkspace',payroll:'payrollWorkspace',expense:'staffExpenseWorkspace'};
-    const el=document.getElementById(map[name]||'');if(el)el.style.display='block';
-    const navId=name==='home'?'navHome':name==='qc'?'navQc':(name==='search'||name==='location')?'navSearch':name==='users'?'navUsers':name==='payroll'?'navPayroll':name==='expense'?'navStaffExpense':'';
-    if(navId)setNavActive(navId);window.scrollTo(0,0);
-  }; switchWorkspace=window.switchWorkspace;
-
-  function wrap(name,key,label){const old=window[name];if(typeof old!=='function')return;window[name]=function(){if(!requireAccess(key,label))return;return old.apply(this,arguments)}}
-  wrap('openClaimManagement','claim','ตั้งเบิกค่าตอบแทน');
-  wrap('openClaimPendingManagement','claim_pending','การไฟฟ้าที่ยังเบิกไม่ได้');
-  wrap('openUserManagement','user_management','จัดการผู้ใช้งาน');
-  wrap('openPayrollManagement','payroll','จัดการเงินเดือน');
-  wrap('openStaffExpenseManagement','staff_expense','ค่าใช้จ่าย');
-  wrap('openInvoiceManagement','invoice','จัดทำใบตั้งหนี้');
-  wrap('openBillingManagement','billing','จัดทำใบวางบิล');
-  wrap('openProfitLossManagement','pnl','กำไร–ขาดทุนรายเดือน');
-
-  window.initLiff=async function(){
-    const status=document.getElementById('lineUserStatus');cacheRead();renderSidebar();
-    try{
-      if(typeof liff==='undefined')throw new Error('LIFF_NOT_READY');
-      await liff.init({liffId:LIFF_ID,withLoginOnExternalBrowser:true});
-      if(liff.isLoggedIn()){try{window.lineProfile=await liff.getProfile();startPresenceHeartbeat()}catch(_){}}
-      if(await refreshAccess({force:true})){
-        if(state.access.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){}},700)}
-        return;
-      }
-      if(!sessionToken()&&!liff.isLoggedIn()){if(status)status.textContent='ยังไม่ได้เข้าสู่ระบบ · ใช้ LINE หรือ Username / Password';switchWorkspace('home')}
-    }catch(e){console.warn('V60 auth bootstrap',e);if(status)status.textContent='ระบบเข้าสู่โหมดสำรอง · กรุณาใช้ Username / Password หากเมนูยังไม่แสดง';renderSidebar()}
-  }; initLiff=window.initLiff;
-
-  const oldFallback=window.fallbackLoginAndRepairLine;
-  if(typeof oldFallback==='function'){
-    window.fallbackLoginAndRepairLine=async function(){const r=await oldFallback.apply(this,arguments);await refreshAccess({force:true});return r};
-    fallbackLoginAndRepairLine=window.fallbackLoginAndRepairLine;
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{
-    renderSidebar();
-    const nav=document.querySelector('.side-nav');if(nav)new MutationObserver(()=>renderSidebar()).observe(nav,{subtree:true,attributes:true,attributeFilter:['style']});
-    setTimeout(()=>initLiff(),0);
-  },{once:true});
-})();
-
-</script>
-
-<script>
-/* V62 direct auth repair: login and permission come from the SAME backend response. */
-(() => {
-  'use strict';
-  const API='https://neauzvqroaszvqffahkv.functions.supabase.co/access-control-api';
-  const SESSION_KEY='divergent_web_session_token_v1';
-  const PREF_KEY='divergent_auth_preference_v1';
-
-  function acceptV62(j){
-    if(!j?.user||!j?.access) throw new Error('PERMISSION_PAYLOAD_INVALID');
-    if(window.DivergentState){
-      const st=window.DivergentState;
-      st.authMode='session'; st.user=j.user; st.access={home:true,...j.access}; st.manage=j.manage||{}; st.rawPermissions=j.raw_permissions||{}; st.confirmed=true; st.loading=false;
-    }
-    try{localStorage.setItem(SESSION_KEY,j.session_token||localStorage.getItem(SESSION_KEY)||'');localStorage.setItem(PREF_KEY,'session');localStorage.setItem('divergent_web_session_user',JSON.stringify(j.user));}catch(_){ }
-    try{authoritativeAuthMode='session'; authoritativeUserId=j.user?.id??null;}catch(_){ }
-    try{menuAccess={qc:!!j.access.qc,claim:!!j.access.claim,claim_pending:!!j.access.claim_pending,staff_payroll:false,payroll:!!j.access.payroll,staff_expense:!!j.access.staff_expense,user_management:!!j.access.user_management,invoice:!!j.access.invoice,billing:!!j.access.billing};menuAccessConfirmed=true;}catch(_){ }
-    try{currentUserManagementPermissions={...(currentUserManagementPermissions||{}),...(j.raw_permissions||{})};}catch(_){ }
-    try{window.currentMenuUser=j.user;window.fallbackAuthMode='session';window.invoiceAccessAllowed=!!j.access.invoice;billingAccess=!!j.access.billing;window.profitLossAccessAllowed=!!j.access.pnl;}catch(_){ }
-    try{window.__renderSidebarV61?.();}catch(_){ }
-    try{window.applyMenuAccess?.();}catch(_){ }
-    const stEl=document.getElementById('lineUserStatus');if(stEl)stEl.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว (บัญชีพนักงาน)`;
-    const top=document.getElementById('topLoginButton');if(top)top.textContent=`${j.user.username} · เข้าสู่ระบบแล้ว`;
-  }
-
-  async function directLogin(username,password){
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username,password}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok){const map={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_INACTIVE_OR_EXPIRED:'บัญชีถูกระงับหรือหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(map[j.error]||j.detail||j.error||('HTTP '+r.status));}
-      if(!j.session_token)throw new Error('SESSION_NOT_CREATED');
-      return j;
-    }finally{clearTimeout(tm)}
-  }
-
-  window.bindEmployeeAccount=async function(){
-    const username=(document.getElementById('employeeBindUsername')?.value||'').trim();
-    const password=document.getElementById('employeeBindPassword')?.value||'';
-    const result=document.getElementById('employeeBindResult');
-    const btn=document.getElementById('employeeBindButton');
-    if(result){result.className='registration-result';result.textContent='';}
-    if(!username||!password){if(result){result.classList.add('registration-rejected');result.textContent='กรอก Username และ Password ให้ครบ';}return;}
-    try{
-      if(btn){btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';}
-      const j=await directLogin(username,password);
-      acceptV62(j);
-      if(result){result.classList.add('registration-approved');result.textContent='เข้าสู่ระบบสำเร็จ ✓ โหลดสิทธิ์จากฐานข้อมูลเรียบร้อย';}
-      try{localStorage.removeItem('divergent_menu_access_cache');localStorage.removeItem('divergent_v61_permission_state');}catch(_){ }
-      setTimeout(()=>{try{window.switchWorkspace?.('home');}catch(_){ }},100);
-    }catch(e){if(result){result.classList.add('registration-rejected');result.textContent='เข้าสู่ระบบไม่สำเร็จ: '+(e.message||e);}}
-    finally{if(btn){btn.disabled=false;btn.textContent='เข้าสู่ระบบสำรอง / ซ่อม LINE';}}
-  };
-  try{bindEmployeeAccount=window.bindEmployeeAccount;}catch(_){ }
-
-  // When a valid staff session exists, use only that identity on bootstrap.
-  window.__v62Boot=async function(){
-    let tok='';try{tok=localStorage.getItem(SESSION_KEY)||''}catch(_){ }
-    if(!tok)return false;
-    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),6000);
-    try{
-      const r=await fetch(API,{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({action:'access'}),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
-      acceptV62(j);return true;
-    }catch(e){console.warn('V62 session bootstrap failed',e);return false;}finally{clearTimeout(tm)}
-  };
-
-  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.__v62Boot(),50);},{once:true});
-})();
-</script>
-
 </body>
 </html>
