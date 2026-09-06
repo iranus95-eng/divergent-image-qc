@@ -558,6 +558,27 @@
 .status-offline{background:#eef0f4;color:#606977}
 .online-lastseen{font-size:10px;color:#8a7d93;margin-top:4px;white-space:nowrap}
 
+
+    .kbank-overlay{position:fixed;inset:0;background:rgba(20,10,40,.52);display:none;align-items:center;justify-content:center;z-index:10050;padding:18px}
+    .kbank-overlay.show{display:flex}
+    .kbank-modal{width:min(980px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 24px 80px rgba(0,0,0,.28)}
+    .kbank-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:22px 24px;border-bottom:1px solid #eee}
+    .kbank-title{font-size:22px;font-weight:900;color:#2d124d}
+    .kbank-sub{font-size:13px;color:#6f6680;margin-top:4px}
+    .kbank-body{padding:22px 24px}
+    .kbank-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+    .kbank-kpi{border:1px solid #eee7f7;border-radius:16px;padding:14px;background:#fbf9fe}
+    .kbank-kpi b{display:block;font-size:23px;color:#47206e;margin-top:5px}
+    .kbank-checks{width:100%;border-collapse:collapse;font-size:13px}
+    .kbank-checks th,.kbank-checks td{padding:10px 9px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}
+    .kbank-checks th{position:sticky;top:0;background:#f7f2fc;color:#4a2b67;z-index:1}
+    .kbank-ok{color:#13884f;font-weight:800}
+    .kbank-bad{color:#c53232;font-weight:800}
+    .kbank-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+    .kbank-note{margin-top:14px;padding:13px 15px;border-radius:14px;background:#fff8e7;color:#7d5a00;font-size:13px;line-height:1.55}
+    .kbank-close{border:0;background:#f3eef7;border-radius:12px;padding:9px 13px;cursor:pointer;font-weight:800}
+    @media(max-width:760px){.kbank-kpis{grid-template-columns:repeat(2,1fr)}}
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -1094,7 +1115,8 @@
     <section class="payroll-workspace" id="payrollWorkspace">
       <div class="payroll-head">
         <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • บัญชีธนาคาร • พื้นที่/เรต • ค่าตอบแทนพิเศษ • เรียงตามไซด์งาน</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="money-report-btn" onclick="openMoneyReport('payroll')">📄 สรุปรายงาน</button><button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="money-report-btn" onclick="openMoneyReport('payroll')"
+          <button class="payroll-btn payroll-btn-secondary" onclick="openKBankPayroll()">🏦 เตรียมไฟล์ KBank</button>>📄 สรุปรายงาน</button><button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button></div>
       </div>
       <div class="payroll-kpis">
         <div class="payroll-kpi"><span>รายการเดือนล่าสุดที่แสดง</span><b id="payrollCount">0</b></div>
@@ -1617,7 +1639,17 @@
     }
     async function loadPayrollEmployees(){
       const st=document.getElementById("payrollStatus"); st.textContent="กำลังโหลดข้อมูล...";
-      try{const d=await payrollApi("list_employees",{active_only:false});payrollEmployees=d.employees||[];payrollCanManage=!!d.can_manage;filterPayrollEmployees();st.textContent=`โหลดข้อมูลเดือนล่าสุด ${payrollEmployees.length} รายการแล้ว`;}catch(e){st.textContent="โหลดไม่สำเร็จ: "+e.message}
+      try{
+        const d=await payrollApi("list_employees",{active_only:false});
+        payrollEmployees=(d.employees||[]).slice().sort((a,b)=>{
+          const ra=Number(a.source_row||999999), rb=Number(b.source_row||999999);
+          if(ra!==rb) return ra-rb;
+          return String(a.employee_name||"").localeCompare(String(b.employee_name||""),"th");
+        });
+        payrollCanManage=!!d.can_manage;
+        filterPayrollEmployees();
+        st.textContent=`โหลดข้อมูลเดือนล่าสุด ${payrollEmployees.length} รายการแล้ว`;
+      }catch(e){st.textContent="โหลดไม่สำเร็จ: "+e.message}
     }
     function maskBank(v){const x=String(v||"");return x.length>4?"••••"+x.slice(-4):(x||"-")}
     function filterPayrollEmployees(){
@@ -1625,9 +1657,6 @@
       const rows=payrollEmployees
         .filter(x=>!q||[x.employee_name,x.site_name,x.national_id,x.national_id_last4,x.bank_name,x.bank_account].some(v=>String(v||"").toLowerCase().includes(q)))
         .sort((a,b)=>{
-          const sa=String(a.site_name||"").trim(), sb=String(b.site_name||"").trim();
-          const siteCmp=sa.localeCompare(sb,"th");
-          if(siteCmp!==0) return siteCmp;
           const ra=Number(a.source_row||999999), rb=Number(b.source_row||999999);
           if(ra!==rb) return ra-rb;
           return String(a.employee_name||"").localeCompare(String(b.employee_name||""),"th");
@@ -1774,7 +1803,49 @@
     function refreshMoneyReportPreview(){const rows=moneyReportRows();let total=0;if(moneyReportType==="expense")total=rows.reduce((s,x)=>s+Number(x.amount||0),0);const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0));document.getElementById("moneyReportPreview").innerHTML=moneyReportType==="expense"?`<b>รายงานเบิกค่าใช้จ่าย</b><br>รอบ: ${escapeHtml(c?expenseCycleLabel(c):"-")}<br>จำนวน ${rows.length.toLocaleString("th-TH")} รายการ<br><b>ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</b>`:`<b>รายงานจัดการเงินเดือน</b><br>จำนวนพนักงาน ${rows.length.toLocaleString("th-TH")} รายการ<br>ผูกบัญชีผู้ใช้แล้ว ${rows.filter(x=>x.app_user_id).length.toLocaleString("th-TH")} รายการ`}
     function moneyReportFilename(ext){const d=new Date().toISOString().slice(0,10).replaceAll("-","");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0));return `Staff_Expense_${c?.scheduled_date?.replaceAll("-","")||d}.${ext}`}return `Payroll_Report_${d}.${ext}`}
     function buildMoneyCsv(){const rows=moneyReportRows();let lines=[];if(moneyReportType==="expense"){lines.push(["วันที่","ชื่อสตาฟ","หมวด","รายละเอียด","ธนาคาร","เลขบัญชี","วิธีจ่าย","จำนวนเงิน","สถานะ"].map(moneyReportCsvCell).join(","));for(const x of rows)lines.push([x.expense_date,x.staff_name,x.category_name_snapshot,x.other_detail||x.note||"",x.bank_name||"",x.bank_account||"",x.payment_method||"",Number(x.amount||0).toFixed(2),x.approval_status||""].map(moneyReportCsvCell).join(","));lines.push(["","","","","","","รวม",rows.reduce((s,x)=>s+Number(x.amount||0),0).toFixed(2),""].map(moneyReportCsvCell).join(","))}else{lines.push(["ลำดับ","ชื่อพนักงาน","เลขบัตรประชาชน","พื้นที่","เรต","ธนาคาร","เลขบัญชี","สถานะ"].map(moneyReportCsvCell).join(","));for(const x of rows)lines.push([x.source_row??"",x.employee_name||"",x.national_id||"",x.site_name||"",x.rate_per_unit??"",x.bank_name||"",x.bank_account||"",x.is_active?"ใช้งาน":"ปิด"].map(moneyReportCsvCell).join(","))}return "\ufeff"+lines.join("\r\n")}
-    function buildMoneyPrintHtml(){const rows=moneyReportRows(),now=new Date().toLocaleString("th-TH");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0)),total=rows.reduce((s,x)=>s+Number(x.amount||0),0);return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเบิกค่าใช้จ่าย</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8;margin:0 0 4px}small{color:#666}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f3edfb}.num{text-align:right}.total{font-size:18px;font-weight:800;text-align:right;margin-top:14px}</style></head><body><h1>รายงานเบิกค่าใช้จ่าย</h1><small>${moneyReportSafe(c?expenseCycleLabel(c):"-")} • สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>วันที่</th><th>ชื่อสตาฟ</th><th>หมวด</th><th>รายละเอียด</th><th>วิธีจ่าย</th><th class="num">จำนวนเงิน</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.expense_date||"")}</td><td>${escapeHtml(x.staff_name||"")}</td><td>${escapeHtml(x.category_name_snapshot||"")}</td><td>${escapeHtml(x.other_detail||x.note||"-")}</td><td>${escapeHtml(x.payment_method||"-")}</td><td class="num">${Number(x.amount||0).toLocaleString("th-TH",{minimumFractionDigits:2})}</td></tr>`).join("")}</tbody></table><div class="total">ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</div></body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table></body></html>`}
+    function buildMoneyPrintHtml(){const rows=moneyReportRows(),now=new Date().toLocaleString("th-TH");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0)),total=rows.reduce((s,x)=>s+Number(x.amount||0),0);return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเบิกค่าใช้จ่าย</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8;margin:0 0 4px}small{color:#666}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f3edfb}.num{text-align:right}.total{font-size:18px;font-weight:800;text-align:right;margin-top:14px}</style></head><body><h1>รายงานเบิกค่าใช้จ่าย</h1><small>${moneyReportSafe(c?expenseCycleLabel(c):"-")} • สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>วันที่</th><th>ชื่อสตาฟ</th><th>หมวด</th><th>รายละเอียด</th><th>วิธีจ่าย</th><th class="num">จำนวนเงิน</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.expense_date||"")}</td><td>${escapeHtml(x.staff_name||"")}</td><td>${escapeHtml(x.category_name_snapshot||"")}</td><td>${escapeHtml(x.other_detail||x.note||"-")}</td><td>${escapeHtml(x.payment_method||"-")}</td><td class="num">${Number(x.amount||0).toLocaleString("th-TH",{minimumFractionDigits:2})}</td></tr>`).join("")}</tbody></table><div class="total">ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</div>
+<div id="kbankPayrollOverlay" class="kbank-overlay" onclick="if(event.target===this)closeKBankPayroll()">
+  <div class="kbank-modal">
+    <div class="kbank-head">
+      <div>
+        <div class="kbank-title">🏦 เตรียมไฟล์ KBank Payroll</div>
+        <div class="kbank-sub">ตรวจข้อมูลก่อนสร้างไฟล์สำหรับ K CASH CONNECT PLUS • PCT - KBANK PAYROLL</div>
+      </div>
+      <button class="kbank-close" onclick="closeKBankPayroll()">ปิด</button>
+    </div>
+    <div class="kbank-body">
+      <div class="kbank-kpis">
+        <div class="kbank-kpi">พนักงานทั้งหมด<b id="kbTotal">0</b></div>
+        <div class="kbank-kpi">พร้อมส่งธนาคาร<b id="kbReady">0</b></div>
+        <div class="kbank-kpi">ข้อมูลไม่ครบ<b id="kbInvalid">0</b></div>
+        <div class="kbank-kpi">ยอดที่ระบุ<b id="kbAmount">0.00</b></div>
+      </div>
+
+      <div style="overflow:auto;max-height:430px;border:1px solid #eee;border-radius:14px">
+        <table class="kbank-checks">
+          <thead>
+            <tr>
+              <th>ลำดับ</th><th>ชื่อพนักงาน</th><th>เลขบัตร</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="kbankCheckBody"></tbody>
+        </table>
+      </div>
+
+      <div class="kbank-actions">
+        <button class="payroll-btn" onclick="exportKBankPrecheck()">⬇ ดาวน์โหลดรายการตรวจสอบ</button>
+        <button class="payroll-btn payroll-btn-secondary" id="kbankPctBtn" onclick="showKBankPCTRequirement()">สร้าง PCT .TXT</button>
+      </div>
+
+      <div class="kbank-note">
+        ระบบตรวจข้อมูลให้พร้อมแล้ว แต่ยังไม่สร้างไฟล์ PCT แบบเดาเอง เพราะโครงสร้าง Text File ต้องตรงกับรูปแบบที่ KBank กำหนดให้บริษัทของคุณ
+        เมื่อมีตัวอย่าง PCT ที่เคยอัปโหลดผ่านธนาคารได้ 1 ไฟล์ เราจะเชื่อมตัวสร้าง .TXT ให้กดครั้งเดียวได้ทันที
+      </div>
+    </div>
+  </div>
+</div>
+
+</body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table></body></html>`}
     async function createMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="CSV"){const blob=new Blob([buildMoneyCsv()],{type:"text/csv;charset=utf-8"});moneyReportLastFile=new File([blob],moneyReportFilename("csv"),{type:blob.type});alert("สร้างไฟล์ Excel (CSV) พร้อมแล้ว") }else{const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างรายงาน กรุณาอนุญาต Pop-up");return}w.document.open();w.document.write(buildMoneyPrintHtml());w.document.close();setTimeout(()=>{w.focus();w.print()},300)}}
     async function downloadMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){await createMoneyReport();return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(moneyReportLastFile);a.download=moneyReportLastFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
     async function generateMoneyReportShareLink(){
@@ -3288,6 +3359,59 @@
       const text=`Divergent Image Rescue\nเปรียบเทียบพิกัด 2 รายการ\n\n1) CA ${a.ca_number}\n${a.actual_latitude}, ${a.actual_longitude}\nhttps://www.google.com/maps?q=${a.actual_latitude},${a.actual_longitude}\n\n2) CA ${b.ca_number}\n${b.actual_latitude}, ${b.actual_longitude}\nhttps://www.google.com/maps?q=${b.actual_latitude},${b.actual_longitude}\n\nระยะห่างเส้นตรง: ${formatDistance(c.m)}`;
       await shareTextLocation(text);
     }
+
+    function kbankDigits(v){return String(v||"").replace(/\D/g,"")}
+    function kbankRowStatus(e){
+      const missing=[];
+      const nid=kbankDigits(e.national_id);
+      const acct=kbankDigits(e.bank_account);
+      if(!e.employee_name) missing.push("ไม่มีชื่อ");
+      if(nid.length!==13) missing.push("เลขบัตรไม่ครบ 13 หลัก");
+      if(!e.bank_name) missing.push("ไม่มีธนาคาร");
+      if(acct.length<9) missing.push("เลขบัญชีไม่ครบ");
+      return {ok:missing.length===0,missing,nid,acct};
+    }
+    function openKBankPayroll(){
+      const rows=(payrollEmployees||[]).filter(x=>x.is_active!==false).slice().sort((a,b)=>Number(a.source_row||999999)-Number(b.source_row||999999));
+      const body=document.getElementById("kbankCheckBody");
+      let ready=0;
+      body.innerHTML=rows.map(e=>{
+        const s=kbankRowStatus(e); if(s.ok) ready++;
+        const nid=s.nid.length===13 ? s.nid.slice(0,1)+"-"+s.nid.slice(1,5)+"-"+s.nid.slice(5,10)+"-"+s.nid.slice(10,12)+"-"+s.nid.slice(12) : (s.nid||"-");
+        return `<tr>
+          <td>${esc(e.source_row||"-")}</td>
+          <td>${esc(e.employee_name||"-")}</td>
+          <td>${esc(nid)}</td>
+          <td>${esc(e.bank_name||"-")}</td>
+          <td>${esc(e.bank_account||"-")}</td>
+          <td class="${s.ok?"kbank-ok":"kbank-bad"}">${s.ok?"พร้อม":"⚠ "+esc(s.missing.join(", "))}</td>
+        </tr>`;
+      }).join("");
+      document.getElementById("kbTotal").textContent=rows.length.toLocaleString("th-TH");
+      document.getElementById("kbReady").textContent=ready.toLocaleString("th-TH");
+      document.getElementById("kbInvalid").textContent=(rows.length-ready).toLocaleString("th-TH");
+      document.getElementById("kbAmount").textContent="—";
+      document.getElementById("kbankPayrollOverlay").classList.add("show");
+    }
+    function closeKBankPayroll(){document.getElementById("kbankPayrollOverlay").classList.remove("show")}
+    function exportKBankPrecheck(){
+      const rows=(payrollEmployees||[]).filter(x=>x.is_active!==false).slice().sort((a,b)=>Number(a.source_row||999999)-Number(b.source_row||999999));
+      const lines=[["ลำดับ","ชื่อพนักงาน","เลขบัตรประชาชน","ธนาคาร","เลขบัญชี","สถานะ","รายละเอียด"]];
+      for(const e of rows){
+        const s=kbankRowStatus(e);
+        lines.push([e.source_row||"",e.employee_name||"",s.nid,e.bank_name||"",e.bank_account||"",s.ok?"READY":"INVALID",s.missing.join(" | ")]);
+      }
+      const csv="\ufeff"+lines.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=`KBank_Payroll_Precheck_${new Date().toISOString().slice(0,10).replace(/-/g,"")}.csv`;
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }
+    function showKBankPCTRequirement(){
+      alert("ขั้นตอนต่อไปต้องใช้ตัวอย่างไฟล์ PCT - KBANK PAYROLL ของบริษัทที่เคยอัปโหลดผ่าน K CASH CONNECT PLUS ได้จริง 1 ไฟล์ เพื่อกำหนด Header / Detail / Trailer และตำแหน่งข้อมูลให้ตรงกับบัญชีบริษัทโดยไม่เดา");
+    }
+
 </script>
   <div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.7.4</div>
 
