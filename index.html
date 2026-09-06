@@ -1309,8 +1309,8 @@
           <h3>ต้นทุนประจำเดือน</h3>
 
           <div class="pnl-cost-row">
-            <div><b>เงินเดือนพนักงาน</b><div class="formula">รอเชื่อมยอดจากระบบเงินเดือน • กรอกชั่วคราวได้</div></div>
-            <input id="pnlEmployeePayroll" type="number" min="0" step="0.01" value="0" oninput="renderPnL()">
+            <div><b>เงินเดือนพนักงาน</b><div class="formula" id="pnlEmployeePayrollFormula">ดึงยอดจ่ายสุทธิรวมจากระบบเงินเดือนตามเดือนอัตโนมัติ</div></div>
+            <input id="pnlEmployeePayroll" class="pnl-auto" type="number" value="0" readonly>
             <span>บาท</span>
           </div>
 
@@ -1380,6 +1380,7 @@
             <tr><td>จำนวนไซด์</td><td id="pnlSiteCount">0</td></tr>
             <tr><td>จำนวนงานจริง</td><td id="pnlActualCount">0</td></tr>
             <tr><td>กระดาษรวมเผื่อเสีย 2%</td><td id="pnlPaperSheets">0</td></tr>
+            <tr><td>เงินเดือนพนักงานสุทธิ</td><td id="pnlSummaryEmployeePayroll">0.00</td></tr>
             <tr><td>เงินเดือนสตาฟสุทธิ</td><td id="pnlSummaryStaffPayroll">0.00</td></tr>
             <tr><td>ประกันสังคมสตาฟ</td><td id="pnlSummaryStaffSocial">0.00</td></tr>
             <tr><td>ค่าใช้จ่ายสตาฟทั้งเดือน</td><td id="pnlSummaryStaffExpense">0.00</td></tr>
@@ -1542,7 +1543,7 @@
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
-    let pnlRemoteSummary={staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0};
+    let pnlRemoteSummary={employee_payroll_net:0,employee_payroll_count:0,employee_data_available:false,staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0,staff_expense_data_available:false};
     let staffPayrollRows=[];
     let payrollEmployees=[]; let payrollCanManage=false;
     let staffExpenseCycles=[]; let staffExpenseCategories=[]; let staffExpenseItems=[]; let staffExpenseCanManage=false;
@@ -4074,16 +4075,26 @@
       try{
         const d=await profitLossApi("summary",{month});
         pnlRemoteSummary=d.summary||{};
+        const ep=document.getElementById("pnlEmployeePayroll");
+        const ef=document.getElementById("pnlEmployeePayrollFormula");
         const sp=document.getElementById("pnlStaffPayroll");
         const ss=document.getElementById("pnlStaffSocialSecurity");
         const se=document.getElementById("pnlStaffExpense");
+        if(ep)ep.value=Number(pnlRemoteSummary.employee_payroll_net||0).toFixed(2);
+        if(ef)ef.textContent=pnlRemoteSummary.employee_data_available
+          ?`ดึงจากระบบเงินเดือน ${pnlRemoteSummary.employee_source_month||""} • ${Number(pnlRemoteSummary.employee_payroll_count||0).toLocaleString("th-TH")} รายการ`
+          :"ยังไม่มีข้อมูลเงินเดือนพนักงานของเดือนนี้ในฐานข้อมูล";
         if(sp)sp.value=Number(pnlRemoteSummary.staff_payroll_net||0).toFixed(2);
         if(ss)ss.value=Number(pnlRemoteSummary.staff_social_security||0).toFixed(2);
         if(se)se.value=Number(pnlRemoteSummary.staff_expense_total||0).toFixed(2);
-        if(f)f.textContent=`รวม ${Number(pnlRemoteSummary.staff_expense_count||0).toLocaleString("th-TH")} รายการของทั้งเดือนจากเมนูค่าใช้จ่ายสตาฟ`;
+        if(f)f.textContent=pnlRemoteSummary.staff_expense_data_available
+          ?`รวม ${Number(pnlRemoteSummary.staff_expense_count||0).toLocaleString("th-TH")} รายการของทั้งเดือนจากเมนูค่าใช้จ่ายสตาฟ`
+          :"ยังไม่มีรอบค่าใช้จ่ายสตาฟของเดือนนี้ในฐานข้อมูล";
       }catch(e){
-        pnlRemoteSummary={staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0};
-        if(f)f.textContent="ดึงข้อมูลอัตโนมัติไม่สำเร็จ • "+(e.message||e);
+        pnlRemoteSummary={employee_payroll_net:0,employee_payroll_count:0,employee_data_available:false,staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0,staff_expense_data_available:false};
+        const ef=document.getElementById("pnlEmployeePayrollFormula");
+        if(ef)ef.textContent="ดึงเงินเดือนพนักงานไม่สำเร็จ • "+(e.message||e);
+        if(f)f.textContent="ดึงค่าใช้จ่ายสตาฟไม่สำเร็จ • "+(e.message||e);
       }
       renderPnL();
     }
@@ -4179,6 +4190,7 @@
       pnlSiteCount.textContent=d.rows.length.toLocaleString("th-TH")+" ไซด์";
       pnlActualCount.textContent=d.actual.toLocaleString("th-TH")+" ราย";
       pnlPaperSheets.textContent=paperSheets.toLocaleString("th-TH")+" ใบ";
+      pnlSummaryEmployeePayroll.textContent=claimMoney(employeePayroll);
       pnlSummaryStaffPayroll.textContent=claimMoney(staffPayroll);
       pnlSummaryStaffSocial.textContent=claimMoney(staffSocialSecurity);
       pnlSummaryStaffExpense.textContent=claimMoney(staffExpense);
@@ -4187,9 +4199,13 @@
       pnlSummaryProfit.textContent=(profit<0?"-":"")+claimMoney(Math.abs(profit));
 
       pnlPeriodText.textContent=`${d.meta.label||""} • ${d.meta.period||""}`;
+      const missing=[];
+      if(!pnlRemoteSummary.employee_data_available)missing.push("เงินเดือนพนักงาน");
+      if(!pnlRemoteSummary.staff_expense_data_available)missing.push("ค่าใช้จ่ายสตาฟ");
       pnlSourceNote.innerHTML=`<b>ฐานรายได้:</b> ยอดรับจากการไฟฟ้าตามไฟล์ตั้งเบิกค่าตอบแทน<br>
         <b>เดือนนี้:</b> ${escapeHtml(d.meta.title||d.meta.label||"")}<br>
-        <b>หมายเหตุ:</b> เงินเดือนสตาฟสุทธิ + ประกันสังคม + ค่าใช้จ่ายสตาฟ ดึงจากฐานข้อมูลอัตโนมัติ • เงินเดือนพนักงานยังเป็นช่องชั่วคราว`;
+        <b>ข้อมูลอัตโนมัติ:</b> เงินเดือนพนักงาน + เงินเดือนสตาฟสุทธิ + ประกันสังคม + ค่าใช้จ่ายสตาฟ<br>
+        ${missing.length?`<b>ยังไม่มีข้อมูลเดือนนี้:</b> ${escapeHtml(missing.join(", "))}`:"<b>สถานะ:</b> ข้อมูลต้นทุนอัตโนมัติพร้อม"}`;
     }
 
     function downloadPnLCsv(){
