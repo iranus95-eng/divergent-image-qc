@@ -1875,24 +1875,36 @@
     // V56: purge only stale permission caches from older builds; keep the authenticated web session.
     try{
       const k="divergent_permission_cache_build";
-      if(localStorage.getItem(k)!=="V56"){
+      if(localStorage.getItem(k)!=="V57"){
         localStorage.removeItem("divergent_menu_access_cache");
         localStorage.removeItem(USER_ADMIN_CACHE_KEY);
-        localStorage.setItem(k,"V56");
+        localStorage.setItem(k,"V57");
       }
     }catch(_){ }
     let menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
     let menuLineLinked=false;
     let menuAccessConfirmed=false;
+    // V57: one authoritative permission state. Once a Username/Password session is valid,
+    // no delayed LINE/QC callback may overwrite its sidebar permissions.
+    let authoritativeAuthMode="";
+    let authoritativeUserId=null;
     function hasAnyMenuAccess(a){return !!(a&&(a.qc||a.claim||a.claim_pending||a.payroll||a.staff_expense||a.user_management||a.invoice||a.billing));}
-    function commitMenuAccess(access,user,authMode){
+    function commitMenuAccess(access,user,authMode,{replace=false,force=false}={}){
       if(!access||typeof access!=="object") return false;
-      menuAccess={...menuAccess,...access};
+      const incomingMode=authMode||"";
+      if(!force && authoritativeAuthMode==="session" && incomingMode && incomingMode!=="session") {
+        console.info("V57 ignored non-authoritative permission update",incomingMode);
+        return false;
+      }
+      if(incomingMode==="session"){authoritativeAuthMode="session";authoritativeUserId=user?.id??authoritativeUserId;}
+      else if(!authoritativeAuthMode && incomingMode){authoritativeAuthMode=incomingMode;authoritativeUserId=user?.id??null;}
+      const blank={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false};
+      menuAccess=replace?{...blank,...access}:{...menuAccess,...access};
       if(user) window.currentMenuUser=user;
-      if(authMode) window.fallbackAuthMode=authMode;
-      menuLineLinked=authMode==="line";
+      if(incomingMode) window.fallbackAuthMode=incomingMode;
+      menuLineLinked=incomingMode==="line";
       menuAccessConfirmed=true;
-      try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser||null,auth_mode:authMode||window.fallbackAuthMode||"",at:Date.now()}))}catch(_){ }
+      try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser||null,auth_mode:authoritativeAuthMode||incomingMode||window.fallbackAuthMode||"",at:Date.now()}))}catch(_){ }
       applyMenuAccess();
       return true;
     }
@@ -1910,7 +1922,7 @@
     const USER_PRESENCE_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-presence";
     const PAYROLL_WEB_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-web-api";
-    const PAYROLL_UI_BUILD = "V56_SESSION_AUTHORITATIVE";
+    const PAYROLL_UI_BUILD = "V57_SINGLE_PERMISSION_STATE";
     const PAYROLL_LIST_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/payroll-list-api";
     const STAFF_EXPENSE_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api";
     const PROFIT_LOSS_API_URL = "https://neauzvqroaszvqffahkv.functions.supabase.co/profit-loss-web-api";
@@ -2098,6 +2110,7 @@
           menuAccess={...menuAccess,...cached.access};
           window.currentMenuUser=cached.user||window.currentMenuUser;
           window.fallbackAuthMode=cached.auth_mode||window.fallbackAuthMode||"";
+          if(cached.auth_mode==="session" && getFallbackSessionToken()){authoritativeAuthMode="session";authoritativeUserId=cached.user?.id??null;}
           menuAccessConfirmed=true;
           applyMenuAccess();
         }
@@ -2116,7 +2129,7 @@
         try{sessionResult=await fetchMenuAccessWithToken(sessionToken);}catch(e){console.warn("menu session check",e);}
         if(sessionResult?.r?.ok && sessionResult?.j?.access){
           const j=sessionResult.j;
-          commitMenuAccess(j.access,j.user,"session");
+          commitMenuAccess(j.access,j.user,"session",{replace:true,force:true});
           try{localStorage.setItem("divergent_web_session_user",JSON.stringify(j.user||{}))}catch(_){ }
           if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
           return true;
@@ -2136,7 +2149,7 @@
 
       if(lineResult?.r?.ok && lineResult?.j?.access){
         const j=lineResult.j;
-        commitMenuAccess(j.access,j.user,"line");
+        commitMenuAccess(j.access,j.user,"line",{replace:true});
         try{localStorage.setItem(AUTH_PREFERENCE_KEY,"line")}catch(_){ }
         if(window.qcAccessAllowed){menuAccess.qc=true;menuAccess.claim=true;menuAccess.claim_pending=true;commitMenuAccess(menuAccess,window.currentMenuUser,"line");}
         if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
@@ -2150,7 +2163,7 @@
       }
       if(sessionResult?.r?.ok && sessionResult?.j?.access){
         const j=sessionResult.j;
-        commitMenuAccess(j.access,j.user,"session");
+        commitMenuAccess(j.access,j.user,"session",{replace:true,force:true});
         try{localStorage.setItem(AUTH_PREFERENCE_KEY,"session")}catch(_){ }
         if(menuAccess.payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},600);}
         if(lineErr==="LINE_NOT_LINKED") setTimeout(()=>showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีนี้ แต่ระบบกำลังใช้บัญชี Username / Password ที่ยืนยันแล้ว จึงสามารถใช้เมนูตามสิทธิ์ได้ครบ"),80);
@@ -3568,7 +3581,7 @@
 
     async function initLiff() {
       const status = document.getElementById("lineUserStatus");
-      try{const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");if(c?.access){menuAccess={...menuAccess,...c.access};window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }
+      try{const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache")||"null");if(c?.access){menuAccess={...menuAccess,...c.access};window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";if(c.auth_mode==="session"&&getFallbackSessionToken()){authoritativeAuthMode="session";authoritativeUserId=c.user?.id??null;}menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }
 
       try {
         status.textContent = "กำลังเชื่อมต่อ LINE...";
@@ -3626,7 +3639,7 @@
         const loginBtn = document.getElementById("topLoginButton");
         if (loginBtn) loginBtn.textContent = (profile.displayName || "Admin") + " · เข้าสู่ระบบแล้ว";
 
-        await checkQcAccess();
+        if(authoritativeAuthMode!=="session") await checkQcAccess();
         await refreshAllMenuAccess();
         await refreshProfitLossMenuAccess();
         await refreshInvoiceMenuAccess();
@@ -3721,9 +3734,9 @@
 
           window.qcAuthorizedUser = info;
           setQcEnabled(true);
-          menuAccess.qc=true; menuAccess.claim=true; menuAccess.claim_pending=true;
-          try{localStorage.setItem("divergent_menu_access_cache",JSON.stringify({access:menuAccess,user:window.currentMenuUser||null,auth_mode:window.fallbackAuthMode||"line",at:Date.now()}))}catch(_){ }
-          applyMenuAccess();
+          if(authoritativeAuthMode!=="session"){
+            commitMenuAccess({qc:true,claim:true,claim_pending:true},window.currentMenuUser||null,"line");
+          }
           if(menuAccess.claim_pending) showClaimPendingNav(true);
           showRegistrationBox(false);
           const isAdmin = String(info.user_role || "").toLowerCase() === "admin";
@@ -3855,13 +3868,13 @@
         }
         // Replace the visible menu state with the permissions of the account just authenticated.
         // Do not allow a previous LINE user's cached permissions to leak into this account.
-        menuAccess={qc:false,claim:false,claim_pending:false,staff_payroll:false,payroll:false,staff_expense:false,user_management:false,invoice:false,billing:false,...(data.access||{})};
-        commitMenuAccess(menuAccess,data.user||null,"session");
+        authoritativeAuthMode="session"; authoritativeUserId=data.user?.id??null;
+        commitMenuAccess(data.access||{},data.user||null,"session",{replace:true,force:true});
         if(data?.line_status==="linked"){
           menuLineLinked=true;
           if(result){result.classList.add("registration-approved");result.textContent=data.line_repaired?"เข้าสู่ระบบสำเร็จ ✓ ซ่อมการเชื่อม LINE ให้แล้ว":"เข้าสู่ระบบสำเร็จ ✓ LINE เชื่อมกับบัญชีนี้แล้ว";}
           await new Promise(r=>setTimeout(r,250));
-          try{await checkQcAccess();}catch(_){ }
+          if(authoritativeAuthMode!=="session"){try{await checkQcAccess();}catch(_){ }}
         }else{
           menuLineLinked=false;
           const msg=data?.line_status==="linked_to_other"?"เข้าสู่ระบบสำรองสำเร็จ แต่ LINE นี้เชื่อมกับบัญชีอื่นอยู่ กรุณาแจ้งผู้ดูแล":"เข้าสู่ระบบสำรองสำเร็จ ✓ ระบบเก็บ Session สำรองไว้แล้ว";
@@ -5784,7 +5797,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.3</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 1.10.4</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
