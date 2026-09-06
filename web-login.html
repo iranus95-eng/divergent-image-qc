@@ -24,7 +24,8 @@
 <script>
 const AUTH_URL='https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth';
 const SESSION_KEY='divergent_session_token_v3';
-const LEGACY_SESSION_KEYS=['divergent_web_session_token_v1','divergent_fallback_session_token'];
+const LEGACY_COMPAT_KEY='divergent_web_session_token_v1';
+const OBSOLETE_SESSION_KEY='divergent_fallback_session_token';
 const form=document.getElementById('loginForm'),btn=document.getElementById('loginBtn'),statusEl=document.getElementById('status');
 form.addEventListener('submit',async(e)=>{
   e.preventDefault();
@@ -39,11 +40,14 @@ form.addEventListener('submit',async(e)=>{
     if(!r.ok){const m={INVALID_CREDENTIALS:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',USER_DISABLED:'บัญชีถูกระงับ',USER_EXPIRED:'บัญชีหมดอายุ',CREDENTIALS_REQUIRED:'กรอก Username และ Password ให้ครบ'};throw new Error(m[d?.error]||d?.detail||d?.error||('HTTP '+r.status));}
     const token=d.session_token||d.token||d.session?.token||'';
     if(!token)throw new Error('LOGIN_TOKEN_MISSING');
+    // V3 is authoritative. The legacy key is mirrored only until index.html is fully migrated.
     localStorage.setItem(SESSION_KEY,token);
-    LEGACY_SESSION_KEYS.forEach((key)=>localStorage.removeItem(key));
+    localStorage.setItem(LEGACY_COMPAT_KEY,token);
+    localStorage.removeItem(OBSOLETE_SESSION_KEY);
     localStorage.removeItem('divergent_menu_access_cache_v2');
+    localStorage.removeItem('divergent_menu_access_cache_v3');
     sessionStorage.removeItem('divergent_line_auto_login_attempted');
-    location.replace('./?web=1&direct=1&v=8');
+    location.replace('./?web=1&direct=1&v=9');
   }catch(err){statusEl.textContent=err?.message==='LOGIN_TOKEN_MISSING'?'เข้าสู่ระบบสำเร็จแต่ไม่พบ Session Token':(err?.message||String(err));btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
 });
 </script>
