@@ -2031,6 +2031,9 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
       setMenuVisible("navStaffExpense",!!a.staff_expense);
       setMenuVisible("navQc",!!a.qc);
       setMenuVisible("navSearch",!!a.qc);
+      // QC controls follow the same effective permission as the QC menu.
+      // This keeps Username/Password sessions usable even when LIFF is absent.
+      try{ setQcEnabled(!!a.qc); }catch(_){ }
       setMenuVisible("navUsers",!!a.user_management);
       setMenuVisible("navInvoice",!!a.invoice);
       setMenuVisible("navBilling",!!a.billing);
@@ -3465,7 +3468,8 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     }
 
     async function qcApi(action, payload = {}) {
-      const accessToken = await getLineAccessToken();
+      const accessToken = await getBestDataToken();
+      if (!accessToken) throw new Error("AUTH_REQUIRED");
 
       const response = await fetch(QC_API_URL, {
         method: "POST",
@@ -3753,7 +3757,9 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
           (error && (error.message || error.code)
             ? (error.message || error.code)
             : String(error));
-        setQcEnabled(false);
+        // A LINE failure must not disable QC for an authoritative web session.
+        if(!getFallbackSessionToken()) setQcEnabled(false);
+        else applyMenuAccess();
         // V52: transient LINE errors must not collapse an already-authorized sidebar.
         applyMenuAccess();
       }
