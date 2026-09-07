@@ -52,14 +52,12 @@ helper = r"""function markInvoiceBottomBlocks(){
 }
 """
 
-# Replace old helper if present; otherwise insert it.
 pattern = r"function markInvoiceBottomBlocks\(\)\{.*?\}\n(?=function patchPreview\(\)\{)"
 if re.search(pattern, s, flags=re.S):
-    s = re.sub(pattern, helper, s, flags=re.S)
+    s = re.sub(pattern, lambda _m: helper, s, flags=re.S)
 else:
     s = s.replace('function patchPreview(){', helper + 'function patchPreview(){')
 
-# Keep CSS fallback consistent with the direct inline positioning above.
 s = re.sub(
     r"#invoicePaper \.invoice-signatures,#invoicePaper \.invoice-signatures-fixed\{[^}]*\}",
     "#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;bottom:108px!important;margin:0!important;z-index:3!important;background:#fff!important}",
