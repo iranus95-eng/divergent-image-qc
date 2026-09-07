@@ -1,40 +1,10 @@
-name: Sidebar CSS lock V4
+name: Archived - Sidebar CSS lock V4
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/sidebar-css-lock-v4.yml']
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  patch:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-      - name: Patch sidebar session lock
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          css='''<style id="sidebar-session-lock-v4">\nbody.session-sidebar-lock #navHome{display:flex!important}\nbody.session-sidebar-lock #navStaffPayroll{display:none!important}\nbody.session-sidebar-lock.perm-claim #navClaim,body.session-sidebar-lock.perm-claim-pending #navClaimPending,body.session-sidebar-lock.perm-payroll #navPayroll,body.session-sidebar-lock.perm-expense #navStaffExpense,body.session-sidebar-lock.perm-qc #navQc,body.session-sidebar-lock.perm-qc #navSearch,body.session-sidebar-lock.perm-users #navUsers,body.session-sidebar-lock.perm-invoice #navInvoice,body.session-sidebar-lock.perm-billing #navBilling{display:flex!important}\nbody.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:not(.perm-claim-pending) #navClaimPending,body.session-sidebar-lock:not(.perm-payroll) #navPayroll,body.session-sidebar-lock:not(.perm-expense) #navStaffExpense,body.session-sidebar-lock:not(.perm-qc) #navQc,body.session-sidebar-lock:not(.perm-qc) #navSearch,body.session-sidebar-lock:not(.perm-users) #navUsers,body.session-sidebar-lock:not(.perm-invoice) #navInvoice,body.session-sidebar-lock:not(.perm-billing) #navBilling{display:none!important}\n</style>\n'''
-          assert '</head>' in s
-          s=s.replace('</head>',css+'</head>',1)
-          needle='      applyMenuAccess();\n      return true;\n    }'
-          repl='''      applyMenuAccess();\n      if(authoritativeAuthMode==="session"){\n        const b=document.body,c=authoritativeMenuAccess;\n        b.classList.add("session-sidebar-lock");\n        const m={"perm-claim":c.claim,"perm-claim-pending":c.claim_pending,"perm-payroll":c.payroll,"perm-expense":c.staff_expense,"perm-qc":c.qc,"perm-users":c.user_management,"perm-invoice":c.invoice,"perm-billing":c.billing};\n        for(const [k,v] of Object.entries(m)) b.classList.toggle(k,!!v);\n      }\n      return true;\n    }'''
-          assert needle in s
-          s=s.replace(needle,repl,1)
-          s=s.replace('SIDEBAR_V3_IMMUTABLE_SESSION','SIDEBAR_V4_CSS_SESSION_LOCK',1)
-          s=s.replace('Version 2.2.0 SIDEBAR REBUILD','Version 2.3.0 SIDEBAR LOCK',1)
-          p.write_text(s,encoding='utf-8')
-          PY
-      - name: Validate and commit
-        run: |
-          grep -q 'SIDEBAR_V4_CSS_SESSION_LOCK' index.html
-          grep -q 'sidebar-session-lock-v4' index.html
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          git commit -m 'Make employee session sidebar immune to legacy callbacks'
-          git push
+      - run: echo "Archived one-time hotfix. Make future changes through a pull request."
