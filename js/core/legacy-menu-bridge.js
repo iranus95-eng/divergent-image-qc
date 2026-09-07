@@ -2,8 +2,10 @@
 (function (window) {
   'use strict';
 
-  function toLegacy(access) {
-    const a = window.DivergentPermissions ? window.DivergentPermissions.normalize(access) : (access || {});
+  const LEGACY_WEB_SESSION_KEY = 'divergent_web_session_token_v1';
+
+  function toLegacy(access, user) {
+    const a = window.DivergentPermissions ? window.DivergentPermissions.normalize(access, user) : (access || {});
     return {
       qc: !!a.qc,
       claim: !!a.claim,
@@ -20,16 +22,23 @@
     };
   }
 
+  function keepLegacySessionGuard(state) {
+    if (!state || state.authMode !== 'session' || !window.DivergentAuthV3) return;
+    try {
+      const token = window.DivergentAuthV3.readToken();
+      if (token) localStorage.setItem(LEGACY_WEB_SESSION_KEY, token);
+    } catch (_) {}
+  }
+
   function apply(state) {
     if (!state || !state.confirmed) return false;
-    const legacy = toLegacy(state.access);
+    keepLegacySessionGuard(state);
+    const legacy = toLegacy(state.access, state.user);
 
-    // Preferred handoff: reuse the legacy page's existing immutable sidebar commit function.
     if (typeof window.commitMenuAccess === 'function') {
       return !!window.commitMenuAccess(legacy, state.user || null, state.authMode || 'session');
     }
 
-    // Fallback only for migration/testing pages where the legacy function is not exported.
     window.menuAccess = { ...legacy };
     window.authoritativeMenuAccess = Object.freeze({ ...legacy });
     window.authoritativeAuthMode = state.authMode || 'session';
