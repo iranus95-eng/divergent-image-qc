@@ -2210,18 +2210,16 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     async function manualLineLogin(){
       const status=document.getElementById("lineUserStatus");
       try{
+        if(!getFallbackSessionToken()){
+          location.replace("./web-login");
+          return;
+        }
         if(typeof liff==="undefined"){
           if(status) status.textContent="กำลังโหลด LINE Login กรุณารอสักครู่...";
           return;
         }
-        if(liff.isLoggedIn && liff.isLoggedIn()){
-          switchWorkspace("home");
-          return;
-        }
-        sessionStorage.removeItem("divergent_line_auto_login_attempted");
-        const cleanRedirect =
-          window.location.origin + window.location.pathname + window.location.search;
-        liff.login({redirectUri:cleanRedirect});
+        sessionStorage.setItem(LINE_CONNECT_PENDING_KEY,"1");
+        location.assign(location.pathname+"?connect_line=1");
       }catch(e){
         if(status) status.textContent="เปิด LINE Login ไม่สำเร็จ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่";
         console.error("manual LINE login",e);
@@ -3541,6 +3539,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     });
 
     const WEB_DIRECT_LOGIN_MODE = new URLSearchParams(window.location.search).get("web") === "1";
+    const LINE_CONNECT_PENDING_KEY = "divergent_line_connect_pending_v1";
 
     function enterDirectWebLoginMode(){
       try{sessionStorage.removeItem("divergent_line_auto_login_attempted");}catch(_){ }
@@ -3552,6 +3551,65 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
       }
       try{setQcEnabled(false);}catch(_){ }
       try{switchWorkspace("home");}catch(_){ }
+    }
+
+    async function connectEmployeeSessionToLine(){
+      const sessionToken=getFallbackSessionToken();
+      if(!sessionToken)throw new Error("EMPLOYEE_SESSION_REQUIRED");
+      const lineToken=(liff.getAccessToken&&liff.getAccessToken())||"";
+      if(!lineToken)throw new Error("LINE_ACCESS_TOKEN_MISSING");
+      const response=await fetch(USER_BIND_LINE_API_URL,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+lineToken},
+        body:JSON.stringify({session_token:sessionToken})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data?.ok)throw new Error(data?.error||("HTTP_"+response.status));
+      return data;
+    }
+
+    async function initEmployeeFirst(){
+      const status=document.getElementById("lineUserStatus");
+      const loginBtn=document.getElementById("topLoginButton");
+      if(!getFallbackSessionToken()){
+        location.replace("./web-login");
+        return;
+      }
+      status.textContent="กำลังตรวจสอบบัญชีพนักงาน...";
+      const accessOk=await refreshAllMenuAccess().catch(()=>false);
+      if(!accessOk&&!getFallbackSessionToken()){
+        location.replace("./web-login");
+        return;
+      }
+      await refreshProfitLossMenuAccess().catch(()=>{});
+      await refreshInvoiceMenuAccess().catch(()=>{});
+      await refreshBillingAccess().catch(()=>{});
+      applyMenuAccess();
+      const user=window.currentMenuUser||{};
+      status.textContent="เข้าสู่ระบบด้วยบัญชีพนักงานแล้ว ✓ "+(user.username||"");
+      if(loginBtn)loginBtn.textContent="เชื่อมต่อ LINE (ไม่บังคับ)";
+
+      const requested=new URLSearchParams(location.search).get("connect_line")==="1"||sessionStorage.getItem(LINE_CONNECT_PENDING_KEY)==="1";
+      if(!requested)return;
+      try{
+        status.textContent="กำลังเชื่อมต่อ LINE...";
+        await liff.init({liffId:LIFF_ID,withLoginOnExternalBrowser:true});
+        if(!liff.isLoggedIn()){
+          sessionStorage.setItem(LINE_CONNECT_PENDING_KEY,"1");
+          liff.login({redirectUri:location.origin+location.pathname+"?connect_line=1"});
+          return;
+        }
+        const linked=await connectEmployeeSessionToLine();
+        sessionStorage.removeItem(LINE_CONNECT_PENDING_KEY);
+        const lineName=linked?.user?.line_display_name||"LINE";
+        status.textContent="เชื่อมต่อ LINE สำเร็จ ✓ "+lineName;
+        if(loginBtn)loginBtn.textContent=lineName+" · เชื่อมต่อแล้ว";
+        history.replaceState({},"",location.pathname);
+      }catch(error){
+        sessionStorage.removeItem(LINE_CONNECT_PENDING_KEY);
+        status.textContent="เชื่อมต่อ LINE ไม่สำเร็จ: "+(error?.message||error);
+        if(loginBtn)loginBtn.textContent="ลองเชื่อมต่อ LINE อีกครั้ง";
+      }
     }
 
     async function initLiff() {
@@ -4482,7 +4540,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     }
 
     setQcEnabled(false);
-    initLiff();
+    initEmployeeFirst();
   
     function haversineMeters(aLat,aLng,bLat,bLng){
       const R=6371000,toRad=v=>v*Math.PI/180;

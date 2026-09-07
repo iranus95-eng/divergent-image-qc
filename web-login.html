@@ -19,7 +19,7 @@
     <button id="loginBtn" type="submit">เข้าสู่ระบบ</button>
     <div id="status" class="status"></div>
   </form>
-  <div class="note">หน้านี้ไม่มี LINE SDK และจะไม่เปิด LINE Login เมื่อเข้าสู่ระบบสำเร็จ ระบบจะพาไปหน้า Divergent ในโหมด Web Direct โดยอัตโนมัติ</div>
+  <div class="note">เข้าสู่ระบบด้วยบัญชีพนักงานก่อน เมื่อเข้าใช้งานสำเร็จแล้วจึงเลือกเชื่อมต่อ LINE ภายหลังได้ โดย LINE จะไม่เปลี่ยนสิทธิ์เมนูของบัญชีพนักงาน</div>
 </main>
 <script>
 const AUTH_URL='https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth';
@@ -41,7 +41,7 @@ form.addEventListener('submit',async(e)=>{
     localStorage.setItem(SESSION_KEY,token);
     localStorage.removeItem('divergent_menu_access_cache_v2');
     sessionStorage.removeItem('divergent_line_auto_login_attempted');
-    location.replace('./?web=1&direct=1&v=7');
+    location.replace('./');
   }catch(err){statusEl.textContent=err?.message==='LOGIN_TOKEN_MISSING'?'เข้าสู่ระบบสำเร็จแต่ไม่พบ Session Token':(err?.message||String(err));btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
 });
 </script>
