@@ -5,6 +5,7 @@ on:
     branches: [rebuild-clean-v3]
     paths:
       - '.github/workflows/integrate-v3-shell.yml'
+      - 'scripts/integrate-v3-shell.py'
   workflow_dispatch:
 
 permissions:
