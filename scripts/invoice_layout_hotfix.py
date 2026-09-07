@@ -11,6 +11,10 @@ s = re.sub(
     s,
 )
 
+# The real document already has deterministic classes in index.html:
+#   .invoice-signatures = the 3 signature columns
+#   .invoice-foot-img    = the complete blue-rule/company/address footer image
+# Use those exact elements instead of trying to detect the footer from text.
 helper = r"""function markInvoiceBottomBlocks(){
   const p=byId('invoicePaper');
   if(!p)return;
@@ -19,86 +23,28 @@ helper = r"""function markInvoiceBottomBlocks(){
   p.style.minHeight='1123px';
   p.style.overflow='hidden';
 
-  const all=[...p.querySelectorAll('*')];
-  const textOf=el=>(el?.innerText||'').replace(/\s+/g,' ').trim();
-  const upper=el=>textOf(el).toUpperCase();
+  const sig=p.querySelector('.invoice-signatures');
+  const foot=p.querySelector('.invoice-foot-img');
 
-  // Remove only our previous fixed-state classes/styles before locating the real blocks again.
-  p.querySelectorAll('.invoice-signatures-fixed,.invoice-company-footer-fixed').forEach(el=>{
-    el.classList.remove('invoice-signatures-fixed','invoice-company-footer-fixed');
-    ['position','left','right','top','bottom','margin','zIndex','background','transform','width'].forEach(k=>el.style[k]='');
-  });
-
-  const commonAncestor=(nodes)=>{
-    if(!nodes.length)return null;
-    let a=nodes[0];
-    while(a&&a!==p){
-      if(nodes.every(n=>a===n||a.contains(n)))return a;
-      a=a.parentElement;
-    }
-    return null;
-  };
-
-  const promote=(seed,maxHeight=220)=>{
-    if(!seed)return null;
-    let best=seed,cur=seed;
-    while(cur&&cur.parentElement&&cur.parentElement!==p){
-      const par=cur.parentElement;
-      const r=par.getBoundingClientRect();
-      const t=upper(par);
-      if(r.height>maxHeight || t.includes('ใบแจ้งหนี้/ใบวางบิล') || t.length>1800)break;
-      best=par;
-      cur=par;
-    }
-    return best;
-  };
-
-  // Signature block: locate the three signature captions separately, then use their common row/container.
-  const received=all.filter(el=>/RECEIVED BY|ผู้รับสินค้า|ผู้รับ\s*สินค้า/i.test(textOf(el)));
-  const sent=all.filter(el=>/SENT BY|ผู้ส่งสินค้า|ผู้ส่ง\s*สินค้า/i.test(textOf(el)));
-  const manager=all.filter(el=>/MANAGER|ผู้มีอำนาจอนุมัติ|ผู้มีอำนาจ/i.test(textOf(el)));
-  let sig=null;
-  if(received.length&&sent.length&&manager.length){
-    const seeds=[received[received.length-1],sent[sent.length-1],manager[manager.length-1]];
-    sig=commonAncestor(seeds);
-    if(!sig||sig===p)sig=promote(seeds[0],230);
-  }
-  if(!sig){
-    const seed=all.filter(el=>{
-      const t=upper(el);
-      return (t.includes('RECEIVED BY')&&t.includes('SENT BY')) ||
-             (t.includes('ผู้รับ')&&t.includes('ผู้ส่ง')&&t.includes('ผู้มีอำนาจ'));
-    }).pop();
-    sig=promote(seed,230);
-  }
-  if(sig&&sig!==p){
+  if(sig){
     if(sig.parentElement!==p)p.appendChild(sig);
     sig.classList.add('invoice-signatures-fixed');
-    Object.assign(sig.style,{position:'absolute',left:'42px',right:'42px',width:'auto',top:'auto',bottom:'150px',margin:'0',zIndex:'5',background:'#fff',transform:'none'});
+    Object.assign(sig.style,{
+      position:'absolute',left:'42px',right:'42px',width:'auto',
+      top:'auto',bottom:'176px',margin:'0',zIndex:'5',
+      background:'#fff',transform:'none'
+    });
   }
 
-  // Company footer: require company name + footer-like address/branch detail so the header logo is never selected.
-  let footerCandidates=all.filter(el=>{
-    const t=upper(el);
-    const company=t.includes('DIVERGENT CORPORATION CO., LTD') || t.includes('DIVERGENT CORPORATION') || t.includes('ไดเวอร์เจนท์ คอร์ปอเรชั่น');
-    const address=/เลขที่|กรุงเทพ|10510|ซอย|ถนน|แขวง|เขต/.test(textOf(el));
-    const noSignature=!t.includes('RECEIVED BY')&&!t.includes('SENT BY')&&!t.includes('MANAGER');
-    const noTitle=!t.includes('ใบแจ้งหนี้/ใบวางบิล');
-    return company&&address&&noSignature&&noTitle;
-  });
-  let foot=null;
-  if(footerCandidates.length){
-    // Prefer the deepest/smallest footer container, then promote only enough to include its blue rule.
-    footerCandidates.sort((a,b)=>{
-      const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
-      return (ra.height-rb.height)||(rb.top-ra.top);
-    });
-    foot=promote(footerCandidates[0],150);
-  }
-  if(foot&&foot!==p){
+  if(foot){
     if(foot.parentElement!==p)p.appendChild(foot);
     foot.classList.add('invoice-company-footer-fixed');
-    Object.assign(foot.style,{position:'absolute',left:'42px',right:'42px',width:'auto',top:'auto',bottom:'54px',margin:'0',zIndex:'6',background:'#fff',transform:'none'});
+    Object.assign(foot.style,{
+      position:'absolute',left:'34px',right:'auto',width:'calc(100% - 68px)',
+      height:'100px',objectFit:'cover',objectPosition:'center bottom',
+      top:'auto',bottom:'30px',margin:'0',zIndex:'6',
+      background:'#fff',transform:'none',display:'block'
+    });
   }
 }
 """
@@ -109,7 +55,7 @@ if re.search(pattern, s, flags=re.S):
 else:
     s = s.replace('function patchPreview(){', helper + 'function patchPreview(){')
 
-# Re-layout after any preview change and before print/PDF/LINE capture.
+# Re-layout after each render and before print/PDF/LINE capture.
 s = s.replace(
     "syncPreviewCustomer();requestAnimationFrame(fitInvoicePreview);return r",
     "syncPreviewCustomer();requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()});return r"
@@ -119,22 +65,17 @@ s = s.replace(
     "syncPreviewCustomer();requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()});return r"
 )
 
-# Exact A4 bottom zones based on the Excel print reference supplied by the user.
-s = re.sub(
-    r"#invoicePaper \.invoice-signatures,#invoicePaper \.invoice-signatures-fixed\{[^}]*\}",
-    "#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;width:auto!important;top:auto!important;bottom:150px!important;margin:0!important;z-index:5!important;background:#fff!important;transform:none!important}",
-    s,
-)
-s = re.sub(
-    r"#invoicePaper \.invoice-company-footer,#invoicePaper \.invoice-company-footer-fixed\{[^}]*\}",
-    "#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:42px!important;right:42px!important;width:auto!important;top:auto!important;bottom:54px!important;margin:0!important;z-index:6!important;background:#fff!important;transform:none!important}",
-    s,
-)
+# Add a final high-specificity override. This deliberately targets the actual footer image,
+# so the company footer cannot remain in normal document flow above the signatures.
+override_css = "#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;width:auto!important;top:auto!important;bottom:176px!important;margin:0!important;z-index:5!important;background:#fff!important;transform:none!important}#invoicePaper .invoice-foot-img,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:34px!important;right:auto!important;width:calc(100% - 68px)!important;height:100px!important;object-fit:cover!important;object-position:center bottom!important;top:auto!important;bottom:30px!important;margin:0!important;z-index:6!important;background:#fff!important;transform:none!important;display:block!important}@media print{#invoicePaper{position:relative!important;width:210mm!important;height:297mm!important;min-height:297mm!important;overflow:hidden!important}#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:12mm!important;right:12mm!important;bottom:46mm!important;margin:0!important}#invoicePaper .invoice-foot-img,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:9mm!important;right:auto!important;width:192mm!important;height:26mm!important;bottom:8mm!important;margin:0!important;object-fit:cover!important;object-position:center bottom!important}}"
 
-# Strong print/PDF fallback: A4 is always 210x297 mm and bottom blocks keep Excel-like spacing.
-print_css = "@media print{#invoicePaper{position:relative!important;width:210mm!important;height:297mm!important;min-height:297mm!important;overflow:hidden!important}#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:12mm!important;right:12mm!important;bottom:39mm!important;margin:0!important}#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:12mm!important;right:12mm!important;bottom:14mm!important;margin:0!important}}"
-if print_css not in s:
-    s=s.replace('`;document.head.appendChild(s)}', print_css+'`;document.head.appendChild(s)}')
+# Remove older exact-layout overrides inserted by previous hotfix runs, then append the authoritative one.
+s = re.sub(r"#invoicePaper \.invoice-signatures,#invoicePaper \.invoice-signatures-fixed\{[^}]*\}#invoicePaper \.invoice-company-footer,#invoicePaper \.invoice-company-footer-fixed\{[^}]*\}", "", s)
+s = re.sub(r"@media print\{#invoicePaper\{position:relative!important;width:210mm!important;height:297mm!important;min-height:297mm!important;overflow:hidden!important\}#invoicePaper \.invoice-signatures,#invoicePaper \.invoice-signatures-fixed\{[^}]*\}#invoicePaper \.invoice-company-footer,#invoicePaper \.invoice-company-footer-fixed\{[^}]*\}\}", "", s)
+
+marker='`;document.head.appendChild(s)}'
+if override_css not in s and marker in s:
+    s=s.replace(marker, override_css+marker)
 
 p.write_text(s, encoding='utf-8')
-print('invoice A4 layout aligned to Excel reference: signatures above fixed company footer')
+print('invoice A4 pinned to Excel reference using .invoice-signatures + .invoice-foot-img')
