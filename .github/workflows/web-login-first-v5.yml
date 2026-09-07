@@ -1,42 +1,10 @@
-name: Web login first V5
+name: Archived - Web login first V5
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/web-login-first-v5.yml'
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  patch:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Make username password login first
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          marker='// V1.8.8: ถ้าเปิดเว็บจาก Chrome/Safari แล้ว LINE ยังไม่ login'
-          if marker not in s:
-              raise SystemExit('auto LINE marker not found')
-          inject='''// V5 WEB LOGIN FIRST: do not force LINE before employee username/password login.\n          status.textContent = "เข้าสู่ระบบด้วย Username / Password ได้ทันที โดยไม่ต้องผ่าน LINE";\n          try{\n            const box=document.getElementById("registrationBox");\n            if(box) box.style.display="";\n          }catch(_){ }\n          return;\n\n          '''
-          if 'V5 WEB LOGIN FIRST' not in s:
-              s=s.replace(marker,inject+marker,1)
-          s=s.replace('const PAYROLL_UI_BUILD = "SIDEBAR_V4_CSS_SESSION_LOCK";','const PAYROLL_UI_BUILD = "V5_WEB_LOGIN_FIRST";',1)
-          s=s.replace('Version 2.3.0 SIDEBAR LOCK','Version 2.4.0 WEB LOGIN FIRST',1)
-          p.write_text(s,encoding='utf-8')
-          PY
-      - name: Validate and commit
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          s=Path('index.html').read_text(encoding='utf-8')
-          assert 'V5 WEB LOGIN FIRST' in s
-          assert 'V5_WEB_LOGIN_FIRST' in s
-          PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          git commit -m 'Make username password login available before LINE'
-          git push origin main
+      - run: echo "Archived one-time hotfix. Make future changes through a pull request."
