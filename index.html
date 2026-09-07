@@ -2160,34 +2160,6 @@
       billingAccess=true;switchWorkspace("__billing__");const b=document.getElementById("billingWorkspace");if(b)b.style.display="block";setNavActive("navBilling");renderBilling();window.scrollTo(0,0);
     }
     function printHtmlA4(html,title){const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 portrait;margin:0}body{margin:0;background:#fff}.invoice-paper{width:210mm;min-height:297mm;box-sizing:border-box;padding:0 9mm 7mm;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.08;color:#000;page-break-after:always}.invoice-paper:last-child{page-break-after:auto}.invoice-paper *{font-family:inherit}.invoice-head-img{width:100%;height:38mm;object-fit:cover;object-position:center top}.invoice-foot-img{width:100%;height:26mm;object-fit:cover;object-position:center bottom;margin-top:3mm}.invoice-doc-title{text-align:center;font-size:24pt;font-weight:700}.invoice-meta{display:flex;justify-content:flex-end;margin-top:-9mm;margin-bottom:6mm}.invoice-meta td{font-size:15pt;padding:0 1mm}.invoice-customer div{display:grid;grid-template-columns:24mm 1fr}.invoice-table{width:100%;border-collapse:collapse;font-size:14pt}.invoice-table th,.invoice-table td{border:1px solid #555;padding:1.5mm;background:#fff}.num{text-align:right}.center{text-align:center}.sumlabel{text-align:right;font-weight:700}.invoice-baht{text-align:center;font-weight:700;margin:3mm}.invoice-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:10mm;text-align:center;font-size:13pt}.sigline{margin-top:8mm}.siglabel{margin-top:2mm}</style></head><body>${html}
-<!-- DIVERGENT_V3_SHELL -->
-<script src="./js/core/permissions.js?v=3"></script>
-<script src="./js/core/events.js?v=3"></script>
-<script src="./js/core/api-client.js?v=3"></script>
-<script src="./js/core/auth-session.js?v=3"></script>
-<script src="./js/ui/sidebar-config.js?v=3"></script>
-<script src="./js/ui/sidebar.js?v=3"></script>
-<script src="./js/core/legacy-menu-bridge.js?v=3"></script>
-<script src="./js/core/bootstrap.js?v=3"></script>
-<script>
-(function(){
-  async function bootV3(){
-    try{
-      if(!window.DivergentBootstrapV3) throw new Error('V3_BOOTSTRAP_NOT_LOADED');
-      const state=await window.DivergentBootstrapV3.start({sidebarRoot:document});
-      document.documentElement.dataset.divergentAuth='v3';
-      document.body.classList.remove('session-sidebar-lock','perm-claim','perm-claim-pending','perm-payroll','perm-expense','perm-qc','perm-users','perm-invoice','perm-billing');
-      document.documentElement.dataset.divergentAuthMode=state&&state.authMode||'';
-    }catch(e){
-      console.error('DIVERGENT_V3_BOOT_FAILED',e);
-    }
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootV3,{once:true});
-  else bootV3();
-})();
-</script>
-<!-- /DIVERGENT_V3_SHELL -->
-
 </body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},500)}
     function printInvoiceA4(){const p=document.getElementById("invoicePaper");if(p)printHtmlA4(p.outerHTML,"ใบตั้งหนี้")}
     let billingActiveDoc="tax";
@@ -5836,5 +5808,35 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     <div class="money-report-note">ปุ่ม “ส่ง LINE” จะเปิดตัวเลือกเพื่อน/กลุ่มใน LINE โดยตรง พร้อมระบบวินิจฉัยหากส่งไม่สำเร็จ • ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
   </div>
 </div>
+
+<!-- DIVERGENT_V3_SHELL -->
+<script src="./js/core/permissions.js?v=3"></script>
+<script src="./js/core/events.js?v=3"></script>
+<script src="./js/core/api-client.js?v=3"></script>
+<script src="./js/core/auth-session.js?v=3"></script>
+<script src="./js/ui/sidebar-config.js?v=3"></script>
+<script src="./js/ui/sidebar.js?v=3"></script>
+<script src="./js/core/legacy-menu-bridge.js?v=3"></script>
+<script src="./js/core/bootstrap.js?v=3"></script>
+<script>
+(function(){
+  async function bootV3(){
+    try{
+      if(!window.DivergentBootstrapV3) throw new Error('V3_BOOTSTRAP_NOT_LOADED');
+      const state=await window.DivergentBootstrapV3.start({sidebarRoot:document});
+      document.documentElement.dataset.divergentAuth='v3';
+      document.documentElement.dataset.divergentAuthMode=state&&state.authMode||'';
+      document.body.classList.remove('session-sidebar-lock','perm-claim','perm-claim-pending','perm-payroll','perm-expense','perm-qc','perm-users','perm-invoice','perm-billing');
+      if(window.DivergentSidebarV3) window.DivergentSidebarV3.renderFromAuth(document);
+    }catch(e){
+      console.error('DIVERGENT_V3_BOOT_FAILED',e);
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootV3,{once:true});
+  else bootV3();
+})();
+</script>
+<!-- /DIVERGENT_V3_SHELL -->
+
 </body>
 </html>
