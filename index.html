@@ -3612,14 +3612,17 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
       if(!requested)return;
       try{
         status.textContent="กำลังเชื่อมต่อ LINE...";
-        await liff.init({liffId:LIFF_ID,withLoginOnExternalBrowser:true});
+        // Create the cross-browser handoff before LIFF can initiate any redirect.
+        // withLoginOnExternalBrowser must stay off here; otherwise liff.init redirects
+        // before the one-time flow token exists and the employee session is lost.
+        const activeFlowToken=flowToken||await createLineLinkFlow();
+        await liff.init({liffId:LIFF_ID});
         if(!liff.isLoggedIn()){
-          const newFlowToken=flowToken||await createLineLinkFlow();
           sessionStorage.setItem(LINE_CONNECT_PENDING_KEY,"1");
-          liff.login({redirectUri:location.origin+location.pathname+"?connect_line=1&line_flow="+encodeURIComponent(newFlowToken)});
+          liff.login({redirectUri:location.origin+location.pathname+"?connect_line=1&line_flow="+encodeURIComponent(activeFlowToken)});
           return;
         }
-        const linked=await connectEmployeeSessionToLine(flowToken);
+        const linked=await connectEmployeeSessionToLine(activeFlowToken);
         sessionStorage.removeItem(LINE_CONNECT_PENDING_KEY);
         await refreshAllMenuAccess();
         await refreshProfitLossMenuAccess().catch(()=>{});
