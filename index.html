@@ -3068,7 +3068,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     }
 
     async function fetchDualCoordinate(ca){
-      const token=await getLineAccessToken();
+      const token=await getBestDataToken();if(!token)throw new Error('AUTH_REQUIRED');
       const response=await fetch(
         "https://neauzvqroaszvqffahkv.functions.supabase.co/image-location-search",
         {
@@ -4134,7 +4134,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     window._qcBatchCoordinateMap = new Map();
 
     async function loadBatchDataV174(batch){
-      const token=await getLineAccessToken();
+      const token=await getBestDataToken();if(!token)throw new Error('AUTH_REQUIRED');
       const r=await fetch(QC_BATCH_DATA_API_URL,{
         method:"POST",
         headers:{
