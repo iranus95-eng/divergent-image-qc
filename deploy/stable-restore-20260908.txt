@@ -1,0 +1,1 @@
+Trigger production redeploy from stable baseline e63ac6e after invoice regression rollback.
