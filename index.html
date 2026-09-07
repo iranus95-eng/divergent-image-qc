@@ -3462,7 +3462,8 @@
     }
 
     async function qcApi(action, payload = {}) {
-      const accessToken = await getLineAccessToken();
+      const accessToken = await getBestDataToken();
+      if (!accessToken) throw new Error("AUTH_REQUIRED");
 
       const response = await fetch(QC_API_URL, {
         method: "POST",
@@ -3662,7 +3663,8 @@
           (error && (error.message || error.code)
             ? (error.message || error.code)
             : String(error));
-        setQcEnabled(false);
+        if(!getFallbackSessionToken()) setQcEnabled(false);
+        else if(window.DivergentQcAccessV3) window.DivergentQcAccessV3.sync();
         // V52: transient LINE errors must not collapse an already-authorized sidebar.
         applyMenuAccess();
       }
@@ -5808,6 +5810,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     <div class="money-report-note">ปุ่ม “ส่ง LINE” จะเปิดตัวเลือกเพื่อน/กลุ่มใน LINE โดยตรง พร้อมระบบวินิจฉัยหากส่งไม่สำเร็จ • ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
   </div>
 </div>
+
 
 
 <!-- DIVERGENT_V3_SHELL -->
