@@ -73,13 +73,14 @@
   }
 
   function setReady(payload, authMode, token) {
+    const user = payload && payload.user ? payload.user : null;
     const normalizer = window.DivergentPermissions && window.DivergentPermissions.normalize;
     state = {
       status: 'ready',
       authMode: authMode || '',
       token: token || '',
-      user: payload && payload.user ? payload.user : null,
-      access: normalizer ? normalizer(payload && payload.access) : (payload && payload.access ? payload.access : {}),
+      user,
+      access: normalizer ? normalizer(payload && payload.access, user) : (payload && payload.access ? payload.access : {}),
       confirmed: true,
       error: ''
     };
@@ -150,7 +151,7 @@
 
   function can(permissionKey) {
     if (!state.confirmed) return false;
-    if (window.DivergentPermissions) return window.DivergentPermissions.has(state.access, permissionKey);
+    if (window.DivergentPermissions) return window.DivergentPermissions.has(state.access, permissionKey, state.user);
     return !!(state.access && state.access[permissionKey]);
   }
 
