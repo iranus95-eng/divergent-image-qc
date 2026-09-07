@@ -1,0 +1,39 @@
+name: Validate static app
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript and deployment config
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, re
+
+          html = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', html, re.I)
+          for index, code in enumerate(scripts):
+              Path(f'/tmp/inline-{index}.js').write_text(code, encoding='utf-8')
+          json.loads(Path('vercel.json').read_text(encoding='utf-8'))
+          workflow_text = '\n'.join(
+              path.read_text(encoding='utf-8')
+              for path in Path('.github/workflows').glob('*.yml')
+              if path.name != 'validate.yml'
+          )
+          assert 'contents: write' not in workflow_text
+          print(f'Validated {len(scripts)} inline script blocks')
+          PY
+          node --check js/auth-permissions.js
+          for file in /tmp/inline-*.js; do node --check "$file"; done
