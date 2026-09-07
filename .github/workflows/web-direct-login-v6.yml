@@ -1,58 +1,10 @@
-name: Web direct login V6
+name: Archived - Web direct login V6
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/web-direct-login-v6.yml'
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  patch:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Add explicit direct web login mode
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          anchor='    async function initLiff() {'
-          if anchor not in s:
-              raise SystemExit('initLiff anchor not found')
-          block='''    const WEB_DIRECT_LOGIN_MODE = new URLSearchParams(window.location.search).get("web") === "1";\n\n    function enterDirectWebLoginMode(){\n      try{sessionStorage.removeItem("divergent_line_auto_login_attempted");}catch(_){ }\n      const status=document.getElementById("lineUserStatus");\n      if(status) status.textContent="โหมดเว็บโดยตรง · เข้าสู่ระบบด้วย Username / Password";\n      try{showRegistrationBox(true);}catch(_){\n        const box=document.getElementById("registrationBox");\n        if(box) box.style.display="";\n      }\n      try{setQcEnabled(false);}catch(_){ }\n      try{switchWorkspace("home");}catch(_){ }\n    }\n\n'''
-          if 'WEB_DIRECT_LOGIN_MODE' not in s:
-              s=s.replace(anchor,block+anchor,1)
-          old='''    async function initLiff() {\n      const status = document.getElementById("lineUserStatus");'''
-          new='''    async function initLiff() {\n      const status = document.getElementById("lineUserStatus");\n      // V6: ?web=1 is a hard direct-login route. Never initialize or invoke LINE on this route.\n      if(WEB_DIRECT_LOGIN_MODE){\n        if(getFallbackSessionToken()){\n          status.textContent="กำลังตรวจสอบบัญชีพนักงาน...";\n          await refreshAllMenuAccess().catch(()=>{});\n          await refreshProfitLossMenuAccess().catch(()=>{});\n          await refreshInvoiceMenuAccess().catch(()=>{});\n          await refreshBillingAccess().catch(()=>{});\n        }else{\n          enterDirectWebLoginMode();\n        }\n        return;\n      }'''
-          if 'V6: ?web=1 is a hard direct-login route' not in s:
-              if old not in s:
-                  raise SystemExit('initLiff body anchor not found')
-              s=s.replace(old,new,1)
-          s=s.replace('const PAYROLL_UI_BUILD = "V5_WEB_LOGIN_FIRST";','const PAYROLL_UI_BUILD = "V6_WEB_DIRECT_LOGIN";',1)
-          s=s.replace('Version 2.4.0 WEB LOGIN FIRST','Version 2.5.0 WEB DIRECT LOGIN',1)
-          p.write_text(s,encoding='utf-8')
-          PY
-      - name: Validate and commit
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          s=Path('index.html').read_text(encoding='utf-8')
-          assert 'WEB_DIRECT_LOGIN_MODE' in s
-          assert 'V6: ?web=1 is a hard direct-login route' in s
-          assert 'V6_WEB_DIRECT_LOGIN' in s
-          PY
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          s=Path('index.html').read_text(encoding='utf-8')
-          scripts=re.findall(r'<script(?:\\s[^>]*)?>(.*?)</script>',s,re.S|re.I)
-          js='\n'.join(scripts)
-          Path('/tmp/inline.js').write_text(js,encoding='utf-8')
-          PY
-          node --check /tmp/inline.js
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          git commit -m 'Add hard web direct login route without LINE'
-          git push origin main
+      - run: echo "Archived one-time hotfix. Make future changes through a pull request."
