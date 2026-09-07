@@ -1,102 +1,10 @@
-name: Sidebar permission rebuild V3
+name: Archived - Sidebar permission rebuild V3
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/sidebar-rebuild-v3.yml']
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  rebuild:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Replace sidebar permission kernel
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-
-          # 1) Replace the old permission state/commit kernel completely.
-          start=s.index('    function hasAnyMenuAccess(a)')
-          end=s.index('    const LIFF_ID = ', start)
-          new_kernel='''    function hasAnyMenuAccess(a){return !!(a&&(a.qc||a.claim||a.claim_pending||a.payroll||a.staff_expense||a.user_management||a.invoice||a.billing));}\n    const MENU_ACCESS_KEYS=["qc","claim","claim_pending","staff_payroll","payroll","staff_expense","user_management","invoice","billing"];\n    let authoritativeMenuAccess=null;\n    let authoritativeAuthMode="";\n    function normalizeMenuAccess(access){\n      const clean={};\n      for(const k of MENU_ACCESS_KEYS) clean[k]=access?.[k]===true;\n      return clean;\n    }\n    function effectiveMenuAccess(){\n      return authoritativeMenuAccess||normalizeMenuAccess(menuAccess);\n    }\n    function commitMenuAccess(access,user,authMode){\n      if(!access||typeof access!=="object") return false;\n      // V3: a valid employee session owns the entire sidebar until logout/expiry.\n      if(authoritativeAuthMode==="session" && authMode==="line" && getFallbackSessionToken()) return false;\n      const clean=normalizeMenuAccess(access);\n      menuAccess={...clean};\n      authoritativeMenuAccess=Object.freeze({...clean});\n      authoritativeAuthMode=authMode||authoritativeAuthMode||"";\n      if(user) window.currentMenuUser=user;\n      if(authMode) window.fallbackAuthMode=authMode;\n      menuLineLinked=authMode==="line";\n      menuAccessConfirmed=true;\n      try{localStorage.setItem("divergent_menu_access_cache_v3",JSON.stringify({access:clean,user:window.currentMenuUser||null,auth_mode:authoritativeAuthMode,at:Date.now()}))}catch(_){ }\n      applyMenuAccess();\n      return true;\n    }\n'''
-          s=s[:start]+new_kernel+s[end:]
-
-          # 2) Rebuild sidebar renderer from one immutable snapshot.
-          start=s.index('    function setMenuVisible(id,show)')
-          end=s.index('    function showAccountLinkRequired(message)', start)
-          new_render='''    function setMenuVisible(id,show){\n      const el=document.getElementById(id);\n      if(!el)return;\n      el.style.display=show?"flex":"none";\n      el.setAttribute("aria-hidden",show?"false":"true");\n    }\n    function applyMenuAccess(){\n      const a=effectiveMenuAccess();\n      setMenuVisible("navHome",true);\n      setMenuVisible("navClaim",!!a.claim);\n      setMenuVisible("navClaimPending",!!a.claim_pending);\n      setMenuVisible("navStaffPayroll",false);\n      setMenuVisible("navPayroll",!!a.payroll);\n      setMenuVisible("navStaffExpense",!!a.staff_expense);\n      setMenuVisible("navQc",!!a.qc);\n      setMenuVisible("navSearch",!!a.qc);\n      setMenuVisible("navUsers",!!a.user_management);\n      setMenuVisible("navInvoice",!!a.invoice);\n      setMenuVisible("navBilling",!!a.billing);\n    }\n'''
-          s=s[:start]+new_render+s[end:]
-
-          # 3) Replace all-menu refresh + access guard from scratch.
-          start=s.index('    async function refreshAllMenuAccess(){')
-          end=s.index('    async function billingPermissionApi(', start)
-          new_refresh='''    async function refreshAllMenuAccess(){\n      const sessionToken=getFallbackSessionToken();\n      if(sessionToken){\n        try{\n          const sr=await fetchMenuAccessWithToken(sessionToken);\n          if(sr?.r?.ok && sr?.j?.access){\n            commitMenuAccess(sr.j.access,sr.j.user,"session");\n            if(effectiveMenuAccess().payroll&&!window.__payrollPrefetchStarted){window.__payrollPrefetchStarted=true;setTimeout(()=>{try{loadPayrollEmployees(false)}catch(_){ }},900);}\n            return true;\n          }\n          if(sr && !sr.r.ok && ["AUTH_INVALID","AUTH_REQUIRED","USER_DISABLED","USER_EXPIRED"].includes(sr.j?.error)){\n            try{localStorage.removeItem(FALLBACK_SESSION_KEY)}catch(_){ }\n            authoritativeMenuAccess=null; authoritativeAuthMode="";\n          }else{\n            // Network/server failures must never collapse an already-confirmed session sidebar.\n            applyMenuAccess();\n            return false;\n          }\n        }catch(e){console.warn("session permission refresh",e);applyMenuAccess();return false;}\n      }\n      try{\n        if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()){\n          const lineToken=await getLineAccessToken();\n          if(lineToken){\n            const lr=await fetchMenuAccessWithToken(lineToken);\n            if(lr?.r?.ok && lr?.j?.access){commitMenuAccess(lr.j.access,lr.j.user,"line");return true;}\n            if(lr?.j?.error==="LINE_NOT_LINKED"){menuLineLinked=false;showAccountLinkRequired("LINE ยังไม่ได้ผูกกับบัญชีพนักงาน กรุณาใช้ Username / Password เพื่อเข้าสู่ระบบ");}\n          }\n        }\n      }catch(e){console.warn("LINE permission refresh",e);}\n      applyMenuAccess();\n      return false;\n    }\n    function requireMenuAccess(key,label){\n      const a=effectiveMenuAccess();\n      if(a[key])return true;\n      if(!menuLineLinked){showAccountLinkRequired(`ไม่สามารถเปิด ${label} ได้ เพราะยังยืนยันบัญชีพนักงานไม่สำเร็จ กรุณาใช้ Username / Password`);return false;}\n      alert(`บัญชีนี้ยังไม่ได้รับสิทธิ์เข้า ${label}`);\n      return false;\n    }\n\n'''
-          s=s[:start]+new_refresh+s[end:]
-
-          # 4) Workspace access must use the immutable snapshot too.
-          s=s.replace('if(name==="users" && !menuAccess.user_management && !(currentUserManagementPermissions?.can_access_user_management)){','if(name==="users" && !effectiveMenuAccess().user_management && !(currentUserManagementPermissions?.can_access_user_management)){',1)
-
-          # 5) Cache bootstrap: discard old caches and only hydrate matching V3 identity.
-          old=re.compile(r'try\{const c=JSON\.parse\(localStorage\.getItem\("divergent_menu_access_cache_v2"\)\|\|"null"\);const hasSession=!!getFallbackSessionToken\(\);if\(c\?\.access&&\(\(hasSession&&c\.auth_mode==="session"\)\|\|\(!hasSession&&c\.auth_mode==="line"\)\)\)\{menuAccess=normalizeMenuAccess\(c\.access\);window\.currentMenuUser=c\.user\|\|null;window\.fallbackAuthMode=c\.auth_mode\|\|"";menuAccessConfirmed=true;applyMenuAccess\(\);\}\}catch\(_\)\{ \}')
-          repl='try{localStorage.removeItem("divergent_menu_access_cache_v2");const c=JSON.parse(localStorage.getItem("divergent_menu_access_cache_v3")||"null");const hasSession=!!getFallbackSessionToken();if(c?.access&&((hasSession&&c.auth_mode==="session")||(!hasSession&&c.auth_mode==="line"))){menuAccess=normalizeMenuAccess(c.access);authoritativeMenuAccess=Object.freeze({...menuAccess});authoritativeAuthMode=c.auth_mode||"";window.currentMenuUser=c.user||null;window.fallbackAuthMode=c.auth_mode||"";menuAccessConfirmed=true;applyMenuAccess();}}catch(_){ }'
-          s,n=old.subn(repl,s,count=1)
-          assert n==1, 'V3 cache bootstrap anchor not found'
-
-          # 6) Logout clears both old/new permission caches and immutable state.
-          s=s.replace('try{localStorage.removeItem("divergent_menu_access_cache_v2")}catch(_){ }','try{localStorage.removeItem("divergent_menu_access_cache_v2");localStorage.removeItem("divergent_menu_access_cache_v3");authoritativeMenuAccess=null;authoritativeAuthMode="";}catch(_){ }',1)
-
-          # 7) Claim-pending and invoice/billing helpers may no longer independently hide the sidebar.
-          s=s.replace('function showClaimPendingNav(show){\n      const nav=document.getElementById("navClaimPending");\n      if(nav)nav.style.display=show?"":"none";\n    }','function showClaimPendingNav(show){ applyMenuAccess(); }',1)
-          s=s.replace('window.invoiceAccessAllowed=!!menuAccess.invoice;','window.invoiceAccessAllowed=!!effectiveMenuAccess().invoice;',1)
-          s=s.replace('async function refreshBillingAccess(){billingAccess=!!menuAccess.billing;applyMenuAccess();return billingAccess;}','async function refreshBillingAccess(){billingAccess=!!effectiveMenuAccess().billing;applyMenuAccess();return billingAccess;}',1)
-
-          # 8) When username/password session exists before LINE login, never leave the session path.
-          needle='''        if (!liff.isLoggedIn()) {\n          status.textContent = "กำลังเปิดหน้าเข้าสู่ระบบ LINE...";'''
-          insert='''        if (!liff.isLoggedIn()) {\n          if(getFallbackSessionToken()){\n            status.textContent="กำลังตรวจสอบบัญชีพนักงาน...";\n            await refreshAllMenuAccess();\n            const su=window.currentMenuUser||{};\n            const loginBtn=document.getElementById("topLoginButton");\n            if(loginBtn)loginBtn.textContent=(su.username||"บัญชีพนักงาน")+" · เข้าสู่ระบบแล้ว";\n            status.textContent="เข้าสู่ระบบด้วยบัญชีพนักงานแล้ว ✓ "+(su.username||"");\n            applyMenuAccess();\n            return;\n          }\n          status.textContent = "กำลังเปิดหน้าเข้าสู่ระบบ LINE...";'''
-          if needle in s: s=s.replace(needle,insert,1)
-          elif 'if(getFallbackSessionToken()){' not in s[s.index('async function initLiff()'):s.index('function showClaimPendingNav',s.index('async function initLiff()'))]:
-            raise AssertionError('session-first LIFF anchor missing')
-
-          # 9) Remove any remaining linked-login QC refresh that can mutate menuAccess after session commit.
-          bind_start=s.index('    async function bindEmployeeAccount(){')
-          bind_end=s.index('    async function submitQcRegistration()',bind_start)
-          bind=s[bind_start:bind_end]
-          bind=bind.replace('          await new Promise(r=>setTimeout(r,250));\n          try{await checkQcAccess();}catch(_){ }\n','')
-          s=s[:bind_start]+bind+s[bind_end:]
-
-          s=s.replace('const PAYROLL_UI_BUILD = "CLEAN_V2_1_SESSION_AUTHORITATIVE";','const PAYROLL_UI_BUILD = "SIDEBAR_V3_IMMUTABLE_SESSION";',1)
-          s=s.replace('Version 2.1.1 SESSION</div>','Version 2.2.0 SIDEBAR REBUILD</div>',1)
-
-          p.write_text(s,encoding='utf-8')
-          PY
-      - name: Validate rebuilt sidebar
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          s=Path('index.html').read_text(encoding='utf-8')
-          assert 'SIDEBAR_V3_IMMUTABLE_SESSION' in s
-          assert 'divergent_menu_access_cache_v3' in s
-          assert 'authoritativeMenuAccess' in s
-          assert 'function effectiveMenuAccess()' in s
-          assert 'Version 2.2.0 SIDEBAR REBUILD' in s
-          blocks=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',s,re.I)
-          Path('/tmp/sidebar-v3.js').write_text('\n;\n'.join(x for x in blocks if x.strip()),encoding='utf-8')
-          PY
-          node --check /tmp/sidebar-v3.js
-      - name: Commit sidebar rebuild
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          git commit -m 'Rebuild sidebar permissions with immutable session snapshot'
-          git push origin HEAD:main
+      - run: echo "Archived one-time migration. Make future changes through a pull request."
