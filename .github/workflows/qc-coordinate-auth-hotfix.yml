@@ -1,0 +1,33 @@
+name: QC coordinate auth hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qc_coordinate_auth_hotfix.py'
+      - '.github/workflows/qc-coordinate-auth-hotfix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch QC coordinate auth
+        run: python scripts/qc_coordinate_auth_hotfix.py
+      - name: Commit patch
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix QC coordinates for direct web login'
+          git push origin main
