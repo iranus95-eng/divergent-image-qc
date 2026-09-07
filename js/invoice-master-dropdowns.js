@@ -30,45 +30,69 @@ function fitInvoicePreview(){const p=byId('invoicePaper'),w=p?.closest('.invoice
 function markInvoiceBottomBlocks(){
   const p=byId('invoicePaper');
   if(!p)return;
-  const pw=p.getBoundingClientRect().width||794;
-  const nodes=[...p.querySelectorAll('div,section,table,tbody,tr,footer')];
+  const paperRect=p.getBoundingClientRect();
+  const pw=paperRect.width||794;
+  const ph=paperRect.height||1123;
+  const all=[...p.querySelectorAll('*')];
   const textOf=el=>(el.innerText||'').replace(/\s+/g,' ').trim();
-  const promote=(el,maxH=190)=>{
-    let cur=el,best=el;
-    while(cur&&cur!==p){
-      const r=cur.getBoundingClientRect();
-      if(r.width>=pw*0.58&&r.height>12&&r.height<=maxH)best=cur;
-      cur=cur.parentElement;
+
+  const resetFixed=el=>{
+    if(!el)return;
+    el.classList.remove('invoice-signatures-fixed','invoice-company-footer-fixed');
+    ['position','left','right','top','bottom','margin','zIndex','background','transform'].forEach(k=>el.style[k]='');
+  };
+  p.querySelectorAll('.invoice-signatures-fixed,.invoice-company-footer-fixed').forEach(resetFixed);
+
+  const promoteBlock=(seed,maxH)=>{
+    let cur=seed,best=seed;
+    while(cur&&cur.parentElement&&cur.parentElement!==p){
+      const parent=cur.parentElement;
+      const r=parent.getBoundingClientRect();
+      const t=textOf(parent);
+      if(r.width>=pw*0.52 && r.height>=12 && r.height<=maxH && t.length<1500){
+        best=parent;
+        cur=parent;
+      }else break;
     }
     return best;
   };
-  const sigSeed=nodes.filter(el=>{
+
+  const sigSeeds=all.filter(el=>{
     const t=textOf(el);
-    return t.length<1100&&(
-      (t.includes('Received By')&&t.includes('Sent By'))||
-      (t.includes('ผู้รับ')&&t.includes('ผู้ส่ง'))||
-      (t.includes('ลงชื่อ')&&t.includes('Manager'))
-    );
-  }).sort((a,b)=>(a.getBoundingClientRect().height||999)-(b.getBoundingClientRect().height||999))[0];
-  if(sigSeed){
-    const sig=promote(sigSeed,210);
+    if(!t || t.length>1000)return false;
+    return (t.includes('Received By')&&t.includes('Sent By')) ||
+           (t.includes('ผู้รับ')&&t.includes('ผู้ส่ง')) ||
+           (t.includes('ลงชื่อ')&&t.includes('Manager'));
+  });
+  if(sigSeeds.length){
+    const seed=sigSeeds.sort((a,b)=>b.getBoundingClientRect().top-a.getBoundingClientRect().top)[0];
+    const sig=promoteBlock(seed,220);
+    if(sig.parentElement!==p)p.appendChild(sig);
     sig.classList.add('invoice-signatures-fixed');
-    Object.assign(sig.style,{position:'absolute',left:'42px',right:'42px',bottom:'108px',margin:'0',zIndex:'3',background:'#fff'});
+    Object.assign(sig.style,{position:'absolute',left:'42px',right:'42px',top:'auto',bottom:'112px',margin:'0',zIndex:'3',background:'#fff',transform:'none'});
   }
-  const footerSeeds=nodes.filter(el=>{
+
+  const footerSeeds=all.filter(el=>{
     const t=textOf(el).toUpperCase();
-    return t.length<1200&&t.includes('DIVERGENT CORPORATION')&&!t.includes('ใบแจ้งหนี้/ใบวางบิล');
+    if(!t || t.length>900)return false;
+    const r=el.getBoundingClientRect();
+    const belowHeader=r.top > paperRect.top + ph*0.28;
+    const company=t.includes('DIVERGENT CORPORATION') || t.includes('ไดเวอร์เจนท์ คอร์ปอเรชั่น');
+    const notInvoiceTitle=!t.includes('ใบแจ้งหนี้/ใบวางบิล');
+    const notSignature=!t.includes('RECEIVED BY')&&!t.includes('SENT BY')&&!t.includes('MANAGER');
+    return belowHeader && company && notInvoiceTitle && notSignature;
   });
   if(footerSeeds.length){
     const seed=footerSeeds.sort((a,b)=>b.getBoundingClientRect().top-a.getBoundingClientRect().top)[0];
-    const foot=promote(seed,190);
+    const foot=promoteBlock(seed,180);
+    if(foot.parentElement!==p)p.appendChild(foot);
     foot.classList.add('invoice-company-footer-fixed');
-    Object.assign(foot.style,{position:'absolute',left:'42px',right:'42px',bottom:'18px',margin:'0',zIndex:'4',background:'#fff'});
+    Object.assign(foot.style,{position:'absolute',left:'42px',right:'42px',top:'auto',bottom:'16px',margin:'0',zIndex:'4',background:'#fff',transform:'none'});
   }
 }
 function patchPreview(){const oldRender=window.renderInvoicePreview;if(typeof oldRender==='function')window.renderInvoicePreview=function(){const r=oldRender.apply(this,arguments);syncPreviewCustomer();requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()});return r};const oldPrint=window.printInvoiceA4;if(typeof oldPrint==='function')window.printInvoiceA4=function(){markInvoiceBottomBlocks();const s=clearPreviewFit();try{return oldPrint.apply(this,arguments)}finally{restorePreviewFit(s);requestAnimationFrame(fitInvoicePreview)}};const oldPdf=window.downloadInvoicePdf;if(typeof oldPdf==='function')window.downloadInvoicePdf=async function(){markInvoiceBottomBlocks();const s=clearPreviewFit();try{return await oldPdf.apply(this,arguments)}finally{restorePreviewFit(s);requestAnimationFrame(fitInvoicePreview)}};const oldShare=window.shareInvoiceToLine;if(typeof oldShare==='function')window.shareInvoiceToLine=async function(){markInvoiceBottomBlocks();const s=clearPreviewFit();try{await ensureLiffReady();if(!liff.isLoggedIn()){liff.login({redirectUri:location.href});return}return await oldShare.apply(this,arguments)}catch(e){console.error('invoice LINE init',e);if(typeof window.showLineShareDiagnostic==='function')window.showLineShareDiagnostic(e,'เตรียม LINE Login');else alert('เปิด LINE ไม่สำเร็จ: '+(e.message||e))}finally{restorePreviewFit(s);requestAnimationFrame(fitInvoicePreview)}};window.addEventListener('resize',()=>requestAnimationFrame(fitInvoicePreview))}
 function patch(){state.baseAdd=window.invoiceAddItem;state.baseRemove=window.invoiceRemoveItem;state.baseUpdate=window.invoiceUpdateItem;window.invoiceAddItem=function(){if(!state.ready){if(typeof state.baseAdd==='function')return state.baseAdd();return}const rows=itemsFor(state.customerId);if(!rows.length)return;const used=new Set(state.current.map(r=>Number(r.master_id)));const x=rows.find(r=>!used.has(Number(r.id)))||rows[0];const r=mapRow(x),i=state.current.length;state.baseAdd();state.baseUpdate(i,'area',r.area);state.baseUpdate(i,'qty',0);state.baseUpdate(i,'price',r.price);state.current.push(r);renderRows();window.renderInvoicePreview?.();syncPreviewCustomer()};window.invoiceRemoveItem=function(i){if(!state.ready){if(typeof state.baseRemove==='function')return state.baseRemove(i);return}if(typeof state.baseRemove==='function')state.baseRemove(i);state.current.splice(i,1);renderRows();window.renderInvoicePreview?.();syncPreviewCustomer()};const oldOpen=window.openInvoiceManagement;window.openInvoiceManagement=async function(){if(typeof oldOpen==='function')oldOpen.apply(this,arguments);requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()});try{await load();requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()})}catch(e){console.error('invoice master',e);const box=byId('invoiceWorkspace');if(box&&!box.querySelector('.invoice-master-error')){const d=document.createElement('div');d.className='invoice-master-error';d.style.cssText='margin:8px 0;padding:10px 12px;border-radius:10px;background:#fff1f1;color:#a42323';d.textContent='โหลดรายการสำหรับเลือกไม่สำเร็จ: '+(e.message||e);box.prepend(d)}}}}
-function addCss(){const s=document.createElement('style');s.textContent=`.invoice-master-item-select{width:100%;min-width:150px;padding:7px 8px;border:1px solid #ddd;border-radius:7px;background:#fff;font:inherit}.invoice-monthly-qty{background:#fff!important;color:#222!important;border-color:#b9a7cc!important;font-weight:700}.invoice-items input[readonly],#invTaxId[readonly],#invAddress[readonly]{background:#f7f7fb;color:#4b4653;cursor:not-allowed}.invoice-preview-wrap{box-sizing:border-box}#invoicePaper{position:relative!important;box-sizing:border-box!important;min-height:1123px!important;height:1123px!important;overflow:hidden!important}#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;bottom:108px!important;margin:0!important;z-index:3!important;background:#fff!important}#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:42px!important;right:42px!important;bottom:18px!important;margin:0!important;z-index:4!important;background:#fff!important}@media print{#invoicePaper{position:relative!important;width:210mm!important;height:297mm!important;min-height:297mm!important;overflow:hidden!important}#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;bottom:108px!important;margin:0!important;z-index:3!important;background:#fff!important}#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:42px!important;right:42px!important;bottom:18px!important;margin:0!important;z-index:4!important;background:#fff!important}}`;document.head.appendChild(s)}
+function addCss(){const s=document.createElement('style');s.textContent=`.invoice-master-item-select{width:100%;min-width:150px;padding:7px 8px;border:1px solid #ddd;border-radius:7px;background:#fff;font:inherit}.invoice-monthly-qty{background:#fff!important;color:#222!important;border-color:#b9a7cc!important;font-weight:700}.invoice-items input[readonly],#invTaxId[readonly],#invAddress[readonly]{background:#f7f7fb;color:#4b4653;cursor:not-allowed}.invoice-preview-wrap{box-sizing:border-box}#invoicePaper{position:relative!important;box-sizing:border-box!important;min-height:1123px!important;height:1123px!important;overflow:hidden!important}#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;top:auto!important;bottom:112px!important;margin:0!important;z-index:3!important;background:#fff!important;transform:none!important}#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:42px!important;right:42px!important;top:auto!important;bottom:16px!important;margin:0!important;z-index:4!important;background:#fff!important;transform:none!important}@media print{#invoicePaper{position:relative!important;width:210mm!important;height:297mm!important;min-height:297mm!important;overflow:hidden!important}#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;top:auto!important;bottom:112px!important;margin:0!important;z-index:3!important;background:#fff!important;transform:none!important}#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:42px!important;right:42px!important;top:auto!important;bottom:16px!important;margin:0!important;z-index:4!important;background:#fff!important;transform:none!important}}`;document.head.appendChild(s)}
 function boot(){addCss();patchPreview();patch();requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()});if(byId('invoiceWorkspace')&&byId('invoiceWorkspace').style.display==='block')load().catch(console.error)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })(window);
