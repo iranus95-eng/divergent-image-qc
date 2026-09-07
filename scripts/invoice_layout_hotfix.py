@@ -4,50 +4,74 @@ import re
 p = Path('js/invoice-master-dropdowns.js')
 s = p.read_text(encoding='utf-8')
 
-# Restore preview to the original fit-to-column size (no extra shrink factor).
+# Keep preview at the original fit-to-column size.
 s = re.sub(
-    r"const usable=Math\.max\(100,w\.clientWidth-28\),baseScale=Math\.min\(1,usable/794\),scale=baseScale\*(?:0\.82|0\.88|1(?:\.0)?)",
-    "const usable=Math.max(100,w.clientWidth-28),baseScale=Math.min(1,usable/794),scale=baseScale",
+    r"const usable=Math\.max\(100,w\.clientWidth-28\),(?:baseScale=Math\.min\(1,usable/794\),scale=baseScale(?:\*(?:0\.82|0\.88|1(?:\.0)?))?|scale=Math\.min\(1,usable/794\))",
+    "const usable=Math.max(100,w.clientWidth-28),scale=Math.min(1,usable/794)",
     s,
 )
 
 helper = r"""function markInvoiceBottomBlocks(){
   const p=byId('invoicePaper');
   if(!p)return;
-  const pw=p.getBoundingClientRect().width||794;
-  const nodes=[...p.querySelectorAll('div,section,table,tbody,tr,footer')];
+  const paperRect=p.getBoundingClientRect();
+  const pw=paperRect.width||794;
+  const ph=paperRect.height||1123;
+  const all=[...p.querySelectorAll('*')];
   const textOf=el=>(el.innerText||'').replace(/\s+/g,' ').trim();
-  const promote=(el,maxH=190)=>{
-    let cur=el,best=el;
-    while(cur&&cur!==p){
-      const r=cur.getBoundingClientRect();
-      if(r.width>=pw*0.58&&r.height>12&&r.height<=maxH)best=cur;
-      cur=cur.parentElement;
+
+  const resetFixed=el=>{
+    if(!el)return;
+    el.classList.remove('invoice-signatures-fixed','invoice-company-footer-fixed');
+    ['position','left','right','top','bottom','margin','zIndex','background','transform'].forEach(k=>el.style[k]='');
+  };
+  p.querySelectorAll('.invoice-signatures-fixed,.invoice-company-footer-fixed').forEach(resetFixed);
+
+  const promoteBlock=(seed,maxH)=>{
+    let cur=seed,best=seed;
+    while(cur&&cur.parentElement&&cur.parentElement!==p){
+      const parent=cur.parentElement;
+      const r=parent.getBoundingClientRect();
+      const t=textOf(parent);
+      if(r.width>=pw*0.52 && r.height>=12 && r.height<=maxH && t.length<1500){
+        best=parent;
+        cur=parent;
+      }else break;
     }
     return best;
   };
-  const sigSeed=nodes.filter(el=>{
+
+  const sigSeeds=all.filter(el=>{
     const t=textOf(el);
-    return t.length<1100&&(
-      (t.includes('Received By')&&t.includes('Sent By'))||
-      (t.includes('ผู้รับ')&&t.includes('ผู้ส่ง'))||
-      (t.includes('ลงชื่อ')&&t.includes('Manager'))
-    );
-  }).sort((a,b)=>(a.getBoundingClientRect().height||999)-(b.getBoundingClientRect().height||999))[0];
-  if(sigSeed){
-    const sig=promote(sigSeed,210);
+    if(!t || t.length>1000)return false;
+    return (t.includes('Received By')&&t.includes('Sent By')) ||
+           (t.includes('ผู้รับ')&&t.includes('ผู้ส่ง')) ||
+           (t.includes('ลงชื่อ')&&t.includes('Manager'));
+  });
+  if(sigSeeds.length){
+    const seed=sigSeeds.sort((a,b)=>b.getBoundingClientRect().top-a.getBoundingClientRect().top)[0];
+    const sig=promoteBlock(seed,220);
+    if(sig.parentElement!==p)p.appendChild(sig);
     sig.classList.add('invoice-signatures-fixed');
-    Object.assign(sig.style,{position:'absolute',left:'42px',right:'42px',bottom:'108px',margin:'0',zIndex:'3',background:'#fff'});
+    Object.assign(sig.style,{position:'absolute',left:'42px',right:'42px',top:'auto',bottom:'112px',margin:'0',zIndex:'3',background:'#fff',transform:'none'});
   }
-  const footerSeeds=nodes.filter(el=>{
+
+  const footerSeeds=all.filter(el=>{
     const t=textOf(el).toUpperCase();
-    return t.length<1200&&t.includes('DIVERGENT CORPORATION')&&!t.includes('ใบแจ้งหนี้/ใบวางบิล');
+    if(!t || t.length>900)return false;
+    const r=el.getBoundingClientRect();
+    const belowHeader=r.top > paperRect.top + ph*0.28;
+    const company=t.includes('DIVERGENT CORPORATION') || t.includes('ไดเวอร์เจนท์ คอร์ปอเรชั่น');
+    const notInvoiceTitle=!t.includes('ใบแจ้งหนี้/ใบวางบิล');
+    const notSignature=!t.includes('RECEIVED BY')&&!t.includes('SENT BY')&&!t.includes('MANAGER');
+    return belowHeader && company && notInvoiceTitle && notSignature;
   });
   if(footerSeeds.length){
     const seed=footerSeeds.sort((a,b)=>b.getBoundingClientRect().top-a.getBoundingClientRect().top)[0];
-    const foot=promote(seed,190);
+    const foot=promoteBlock(seed,180);
+    if(foot.parentElement!==p)p.appendChild(foot);
     foot.classList.add('invoice-company-footer-fixed');
-    Object.assign(foot.style,{position:'absolute',left:'42px',right:'42px',bottom:'18px',margin:'0',zIndex:'4',background:'#fff'});
+    Object.assign(foot.style,{position:'absolute',left:'42px',right:'42px',top:'auto',bottom:'16px',margin:'0',zIndex:'4',background:'#fff',transform:'none'});
   }
 }
 """
@@ -58,26 +82,27 @@ if re.search(pattern, s, flags=re.S):
 else:
     s = s.replace('function patchPreview(){', helper + 'function patchPreview(){')
 
+# Force re-layout after every preview render and after opening/loading invoice data.
+s = s.replace(
+    "syncPreviewCustomer();requestAnimationFrame(fitInvoicePreview);return r",
+    "syncPreviewCustomer();requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()});return r"
+)
+s = s.replace(
+    "syncPreviewCustomer();markInvoiceBottomBlocks();requestAnimationFrame(fitInvoicePreview);return r",
+    "syncPreviewCustomer();requestAnimationFrame(()=>{markInvoiceBottomBlocks();fitInvoicePreview()});return r"
+)
+
+# CSS fallback for screen + print/PDF.
 s = re.sub(
     r"#invoicePaper \.invoice-signatures,#invoicePaper \.invoice-signatures-fixed\{[^}]*\}",
-    "#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;bottom:108px!important;margin:0!important;z-index:3!important;background:#fff!important}",
+    "#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:42px!important;right:42px!important;top:auto!important;bottom:112px!important;margin:0!important;z-index:3!important;background:#fff!important;transform:none!important}",
     s,
 )
 s = re.sub(
     r"#invoicePaper \.invoice-company-footer,#invoicePaper \.invoice-company-footer-fixed\{[^}]*\}",
-    "#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:42px!important;right:42px!important;bottom:18px!important;margin:0!important;z-index:4!important;background:#fff!important}",
-    s,
-)
-s = re.sub(
-    r"#invoicePaper \.invoice-signatures,#invoicePaper \.invoice-signatures-fixed\{position:absolute!important;left:12mm!important;right:12mm!important;bottom:[^}]+\}",
-    "#invoicePaper .invoice-signatures,#invoicePaper .invoice-signatures-fixed{position:absolute!important;left:12mm!important;right:12mm!important;bottom:29mm!important}",
-    s,
-)
-s = re.sub(
-    r"#invoicePaper \.invoice-company-footer,#invoicePaper \.invoice-company-footer-fixed\{position:absolute!important;left:12mm!important;right:12mm!important;bottom:[^}]+\}",
-    "#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:12mm!important;right:12mm!important;bottom:5mm!important}",
+    "#invoicePaper .invoice-company-footer,#invoicePaper .invoice-company-footer-fixed{position:absolute!important;left:42px!important;right:42px!important;top:auto!important;bottom:16px!important;margin:0!important;z-index:4!important;background:#fff!important;transform:none!important}",
     s,
 )
 
 p.write_text(s, encoding='utf-8')
-print('invoice footer anchored and preview restored')
+print('invoice footer/signatures reparented and anchored to A4 bottom')
