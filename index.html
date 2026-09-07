@@ -5809,6 +5809,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
+
 <!-- DIVERGENT_V3_SHELL -->
 <script src="./js/core/permissions.js?v=3"></script>
 <script src="./js/core/events.js?v=3"></script>
@@ -5818,6 +5819,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 <script src="./js/ui/sidebar.js?v=3"></script>
 <script src="./js/core/legacy-menu-bridge.js?v=3"></script>
 <script src="./js/core/bootstrap.js?v=3"></script>
+<script src="./js/modules/qc/access-bridge.js?v=3"></script>
 <script>
 (function(){
   async function bootV3(){
@@ -5828,6 +5830,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
       document.documentElement.dataset.divergentAuthMode=state&&state.authMode||'';
       document.body.classList.remove('session-sidebar-lock','perm-claim','perm-claim-pending','perm-payroll','perm-expense','perm-qc','perm-users','perm-invoice','perm-billing');
       if(window.DivergentSidebarV3) window.DivergentSidebarV3.renderFromAuth(document);
+      if(window.DivergentQcAccessV3) window.DivergentQcAccessV3.apply(state);
     }catch(e){
       console.error('DIVERGENT_V3_BOOT_FAILED',e);
     }
