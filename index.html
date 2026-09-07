@@ -756,6 +756,55 @@
 .billing-workspace{display:none}.billing-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.billing-tab{border:1px solid #d8c8e7;background:#fff;color:#4b2378;border-radius:9px;padding:8px 12px;font-weight:800;cursor:pointer}.billing-tab.active{background:#4b2378;color:#fff}.billing-doc-select{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.billing-paper{page-break-after:always}.print-btn{background:#fff;color:#4b2378;border:1px solid #cdbce0!important}@page{size:A4 portrait;margin:0}@media print{body *{visibility:hidden!important}#invoicePaper,#invoicePaper *{visibility:visible!important}#invoicePaper{position:absolute;left:0;top:0;width:210mm!important;min-height:297mm!important;margin:0!important;padding:0 9mm 7mm!important;box-shadow:none!important}.invoice-head-img{height:38mm!important}.invoice-foot-img{height:26mm!important}}
 
   .expense-staff-groups{display:grid;gap:16px}.expense-staff-card{border:1px solid #e8e0f4;border-radius:14px;background:#fff;overflow:hidden}.expense-staff-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;background:#faf8fe;border-bottom:1px solid #eee8f6}.expense-staff-name{font-size:15px;font-weight:900;color:#32135f}.expense-staff-total{font-size:15px;font-weight:900;color:#32135f;white-space:nowrap}.expense-staff-card .expense-table-wrap{border:0;border-radius:0}.expense-staff-card .expense-table{min-width:760px}.expense-staff-card .expense-table th{position:static;background:#fff}.expense-empty{padding:18px;border:1px solid #e8e0f4;border-radius:14px;background:#fff;color:#786b8d}
+
+
+    /* QC_BATCH_ZIP_HOTFIX_V1 */
+    .batch-download {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid #6c4ed9;
+      background: #fff;
+      color: #5a36c9;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .batch-download:hover { background:#f3efff; }
+    .batch-download:disabled { opacity:.6; cursor:wait; }
+
+    body.qc-detail-wide .container {
+      max-width: none !important;
+      width: calc(100% - 28px) !important;
+      margin: 18px auto !important;
+      padding-left: 14px !important;
+      padding-right: 14px !important;
+    }
+    body.qc-detail-wide #detailArea {
+      width: 100% !important;
+      max-width: none !important;
+    }
+    body.qc-detail-wide .overview-grid,
+    body.qc-detail-wide .image-grid {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+      gap: 10px !important;
+      width: 100% !important;
+    }
+    body.qc-detail-wide .image-card {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+    body.qc-detail-wide .image-card img,
+    body.qc-detail-wide .image-loading,
+    body.qc-detail-wide .image-error {
+      width: 100% !important;
+      height: 132px !important;
+      object-fit: cover !important;
+    }
+
 </style>
 
 <style id="divergent-theme-v120">
@@ -1052,6 +1101,9 @@ body.session-sidebar-lock #navStaffPayroll{display:none!important}
 body.session-sidebar-lock.perm-claim #navClaim,body.session-sidebar-lock.perm-claim-pending #navClaimPending,body.session-sidebar-lock.perm-payroll #navPayroll,body.session-sidebar-lock.perm-expense #navStaffExpense,body.session-sidebar-lock.perm-qc #navQc,body.session-sidebar-lock.perm-qc #navSearch,body.session-sidebar-lock.perm-users #navUsers,body.session-sidebar-lock.perm-invoice #navInvoice,body.session-sidebar-lock.perm-billing #navBilling{display:flex!important}
 body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:not(.perm-claim-pending) #navClaimPending,body.session-sidebar-lock:not(.perm-payroll) #navPayroll,body.session-sidebar-lock:not(.perm-expense) #navStaffExpense,body.session-sidebar-lock:not(.perm-qc) #navQc,body.session-sidebar-lock:not(.perm-qc) #navSearch,body.session-sidebar-lock:not(.perm-users) #navUsers,body.session-sidebar-lock:not(.perm-invoice) #navInvoice,body.session-sidebar-lock:not(.perm-billing) #navBilling{display:none!important}
 </style>
+
+  <!-- QC_BATCH_ZIP_HOTFIX_V1 -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 
 <body>
@@ -4080,6 +4132,10 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
               <span>เข้าตรวจสอบรูปภาพ</span>
               <span aria-hidden="true">→</span>
             </div>
+            <button class="batch-download" type="button"
+                    onclick="event.stopPropagation(); downloadBatchZip(${index}, this);">
+              ⬇ ดาวน์โหลด Batch (ZIP)
+            </button>
           </div>
         `).join("");
 
@@ -4238,7 +4294,91 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
       await Promise.all(workers);
     }
 
+
+    async function downloadBatchZip(index, button) {
+      const batch = (window.currentBatches || [])[index];
+      if (!batch) return;
+
+      const originalText = button ? button.textContent : '';
+      try {
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'กำลังเตรียมไฟล์...';
+        }
+        if (typeof JSZip === 'undefined') {
+          throw new Error('ZIP_LIBRARY_NOT_READY');
+        }
+
+        const result = await qcApi('images', {
+          siteCode: batch.site_code,
+          rawDate: batch.raw_date,
+          batchId: batch.batch_id
+        });
+        const files = Array.isArray(result?.files) ? result.files : [];
+        if (!files.length) throw new Error('ไม่พบรูปใน Batch นี้');
+
+        const zip = new JSZip();
+        const root = zip.folder(String(batch.batch_id || 'batch'));
+        let done = 0;
+        let next = 0;
+        const concurrency = Math.min(4, files.length);
+
+        const worker = async () => {
+          while (true) {
+            const i = next++;
+            if (i >= files.length) return;
+            const f = files[i];
+            const fileName = typeof f === 'string'
+              ? f
+              : String(f?.name || f?.file_name || f?.filename || '');
+            if (!fileName) continue;
+
+            const objectPath =
+              batch.site_code + '/' +
+              batch.raw_date + '/' +
+              batch.batch_id + '/' +
+              fileName;
+
+            const signedUrl = await createSignedImageUrl(objectPath);
+            const response = await fetch(signedUrl, { cache: 'no-store' });
+            if (!response.ok) throw new Error('ดาวน์โหลดรูปไม่สำเร็จ: ' + fileName);
+            const blob = await response.blob();
+            root.file(fileName, blob);
+
+            done += 1;
+            if (button) button.textContent = `กำลังรวม ZIP ${done}/${files.length}`;
+          }
+        };
+
+        await Promise.all(Array.from({ length: concurrency }, worker));
+        if (button) button.textContent = 'กำลังสร้าง ZIP...';
+
+        const zipBlob = await zip.generateAsync({
+          type: 'blob',
+          compression: 'STORE',
+          streamFiles: true
+        });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = String(batch.batch_id || 'batch') + '.zip';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } catch (error) {
+        console.error('Batch ZIP download failed', error);
+        alert('ดาวน์โหลด ZIP ไม่สำเร็จ\n' + (error?.message || String(error)));
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.textContent = originalText || '⬇ ดาวน์โหลด Batch (ZIP)';
+        }
+      }
+    }
+
     async function openBatchDetail(index) {
+      document.body.classList.add("qc-detail-wide");
       const batch = (window.currentBatches || [])[index];
       if (!batch) return;
       window.currentBatch = batch;
@@ -4569,6 +4709,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
     }
 
     function closeBatchDetail() {
+      document.body.classList.remove("qc-detail-wide");
       document.getElementById("detailArea").style.display = "none";
       document.getElementById("batchArea").style.display = "block";
     }
