@@ -59,7 +59,6 @@
   }
 
   function snapshot(raw, user, authMode, token) {
-    // Replacement, never merge. A new identity can never inherit old permissions.
     state = {
       status: 'ready',
       authMode: authMode || '',
@@ -134,8 +133,6 @@
     state.status = 'loading';
     state.error = '';
 
-    // Explicit username/password session is authoritative whenever present.
-    // Do not let a LINE callback replace it with another browser identity.
     const sessionToken = getSessionToken();
     if (sessionToken) {
       try {
@@ -150,7 +147,6 @@
           return getState();
         }
       } catch (e) {
-        // Network failure must not silently switch identity to LINE.
         reset(e && e.name === 'AbortError' ? 'SESSION_TIMEOUT' : 'SESSION_ACCESS_FAILED');
         return getState();
       }
@@ -204,3 +200,16 @@
     normalizeAccess
   });
 })(window);
+
+(function(){
+  function loadEmployeeAdvanceModule(){
+    if(document.querySelector('script[data-divergent-employee-advance]'))return;
+    const s=document.createElement('script');
+    s.src='js/employee-advance.js?v=20260908-1';
+    s.async=false;
+    s.setAttribute('data-divergent-employee-advance','1');
+    document.head.appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadEmployeeAdvanceModule,{once:true});
+  else loadEmployeeAdvanceModule();
+})();
