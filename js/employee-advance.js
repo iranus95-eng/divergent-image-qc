@@ -2,12 +2,23 @@
 (function(){
   'use strict';
   const API='https://neauzvqroaszvqffahkv.functions.supabase.co/employee-advance-web-api';
-  const SESSION_KEY='divergent_fallback_session_token';
+  const SESSION_KEYS=['divergent_fallback_session_token','divergent_web_session_token_v1'];
   let currentStatus='ALL';
 
   function money(v){return Number(v||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-  function token(){try{return localStorage.getItem(SESSION_KEY)||'';}catch(_){return '';}}
+  async function token(){
+    try{
+      if(typeof window.getBestDataToken==='function'){
+        const best=await window.getBestDataToken();
+        if(best)return best;
+      }
+    }catch(_){}
+    try{
+      for(const k of SESSION_KEYS){const t=localStorage.getItem(k)||'';if(t)return t;}
+    }catch(_){}
+    return '';
+  }
   function statusLabel(s){return ({PENDING:'รออนุมัติ',APPROVED:'อนุมัติแล้ว',REJECTED:'ไม่อนุมัติ',PAID:'โอนแล้ว',CANCELLED:'ยกเลิก'})[s]||s;}
   function statusClass(s){return 'adv-status adv-'+String(s||'').toLowerCase();}
 
@@ -62,8 +73,14 @@
 
   function syncVisibility(){
     const nav=document.getElementById('navEmployeeAdvance'); if(!nav)return;
-    const s=window.DivergentAuth&&window.DivergentAuth.getState?window.DivergentAuth.getState():null;
-    nav.style.display=s&&s.confirmed&&s.access&&s.access.payroll?'':'none';
+    const auth=window.DivergentAuth;
+    if(!auth||typeof auth.getState!=='function'){
+      nav.style.display='';
+      return;
+    }
+    const s=auth.getState();
+    if(!s||!s.confirmed){nav.style.display='';return;}
+    nav.style.display=s.access&&s.access.payroll?'':'none';
   }
 
   function hideOthers(){
@@ -74,7 +91,7 @@
   }
 
   async function call(body){
-    const t=token();if(!t)throw new Error('กรุณาเข้าสู่ระบบด้วยบัญชี Staff ใหม่อีกครั้ง');
+    const t=await token();if(!t)throw new Error('กรุณาเข้าสู่ระบบด้วยบัญชี Staff ใหม่อีกครั้ง');
     const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify(body)});
     const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j;
   }
