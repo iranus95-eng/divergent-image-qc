@@ -1,0 +1,35 @@
+name: Invoice signature and font hotfix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/invoice_signature_font_hotfix.py'
+      - '.github/workflows/invoice-signature-font-hotfix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply invoice signature/font patch
+        run: python scripts/invoice_signature_font_hotfix.py
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Remove extra invoice signatures and unify font"
+          git push
