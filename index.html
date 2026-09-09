@@ -4356,9 +4356,9 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
             : '<div class="batch-distance-note">วัดระยะทางขับรถไม่ได้</div>';
         }else{
           html += '<div class="batch-distance-note">'+
-            (!nok && mok ? 'ยังไม่มีพิกัดใบแจ้งเตือนของ CA นี้' :
-             nok && !mok ? 'ยังไม่มีพิกัดมิเตอร์ของ CA นี้' :
-             'ยังไม่มีพิกัดครบ 2 จุด')+
+            (!nok && mok ? '⚠️ ยังไม่มีพิกัดงาน/ใบแจ้งเตือนของ CA นี้' :
+             nok && !mok ? '✅ พิกัดงานมาแล้ว / ⚠️ รอพิกัดมิเตอร์จากฐานลูกค้า' :
+             '⚠️ ยังไม่มีพิกัดงานและพิกัดมิเตอร์')+
             '</div>';
         }
         box.innerHTML=html;
