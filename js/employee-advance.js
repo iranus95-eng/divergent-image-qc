@@ -100,3 +100,66 @@
   window.EmployeeAdvance={open,reload,approve,reject,retryLine};window.openEmployeeAdvanceManagement=open;
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',build);else build();window.addEventListener('divergent:permissions',syncVisibility);
 })();
+
+/* Staff expense per-person payment status hotfix V2.5.1 */
+(function(){
+  'use strict';
+  const EXPENSE_API='https://neauzvqroaszvqffahkv.functions.supabase.co/staff-expense-web-api';
+
+  async function bestToken(){
+    try{if(typeof window.getBestDataToken==='function'){const t=await window.getBestDataToken();if(t)return t;}}catch(_){}
+    try{return localStorage.getItem('divergent_fallback_session_token')||localStorage.getItem('divergent_web_session_token_v1')||'';}catch(_){return '';}
+  }
+
+  /* WEB DIRECT LOGIN: do not force LIFF for staff-expense actions. */
+  window.staffExpenseApi=async function(action,payload={}){
+    const accessToken=await bestToken();
+    if(!accessToken)throw new Error('AUTH_REQUIRED');
+    const r=await fetch(EXPENSE_API,{method:'POST',headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});
+    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){throw new Error('STAFF_EXPENSE_INVALID_RESPONSE');}
+    if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+    return d;
+  };
+
+  function ensureStyle(){
+    if(document.getElementById('staffPerPersonPaidWaitingStyle'))return;
+    const s=document.createElement('style');
+    s.id='staffPerPersonPaidWaitingStyle';
+    s.textContent=`
+      .expense-staff-head{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important}
+      .expense-staff-head .expense-staff-paid-waiting{
+        margin-left:auto!important;
+        display:inline-flex!important;align-items:center!important;justify-content:center!important;
+        min-height:27px!important;padding:5px 11px!important;border-radius:8px!important;
+        border:1px solid #86d7a8!important;background:#16a34a!important;color:#fff!important;
+        font-size:11px!important;font-weight:900!important;line-height:1!important;white-space:nowrap!important;
+        box-shadow:0 2px 7px rgba(22,163,74,.16)!important
+      }
+      .expense-staff-head .expense-staff-paid-waiting + strong{margin-left:0!important}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function injectStatuses(){
+    ensureStyle();
+    document.querySelectorAll('#staffExpenseWorkspace .expense-staff-head').forEach(head=>{
+      if(head.querySelector('.expense-staff-paid-waiting'))return;
+      const badge=document.createElement('span');
+      badge.className='expense-staff-paid-waiting';
+      badge.textContent='จ่ายแล้วรอจ่าย';
+      badge.title='สถานะรายบุคคล: จ่ายแล้วรอจ่าย';
+      const total=head.querySelector('strong');
+      if(total)head.insertBefore(badge,total);else head.appendChild(badge);
+    });
+  }
+
+  function start(){
+    ensureStyle();
+    injectStatuses();
+    const root=document.getElementById('staffExpenseWorkspace')||document.body;
+    const obs=new MutationObserver(()=>injectStatuses());
+    obs.observe(root,{childList:true,subtree:true});
+    window.addEventListener('divergent:permissions',injectStatuses);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
