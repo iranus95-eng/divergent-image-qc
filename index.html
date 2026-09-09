@@ -4244,30 +4244,10 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     }
 
     async function fetchPrivateImage(objectPath) {
-      // V1.8.8: use Supabase signed URL directly.
-      // This avoids blob/objectURL preview issues while keeping gallery behavior unchanged.
-      const signedUrl = await createSignedImageUrl(objectPath);
-
-      const response = await fetch(signedUrl, {
-        method: "GET",
-        cache: "no-store"
-      });
-
-      if (!response.ok) {
-        const responseText = await response.text().catch(() => "");
-        throw new Error(
-          "เปิดรูปไม่สำเร็จ HTTP " +
-          response.status +
-          (responseText ? ": " + responseText.slice(0,160) : "")
-        );
-      }
-
-      const contentType=(response.headers.get("content-type")||"").toLowerCase();
-      if(contentType && !contentType.startsWith("image/")){
-        throw new Error("ไฟล์ที่ Server คืนมาไม่ใช่รูปภาพ");
-      }
-
-      return signedUrl;
+      // Speed hotfix: do not pre-download every image before assigning it to <img>.
+      // The previous implementation fetched each full image once for verification,
+      // then the browser fetched it again for display, effectively doubling traffic.
+      return await createSignedImageUrl(objectPath);
     }
 
 
