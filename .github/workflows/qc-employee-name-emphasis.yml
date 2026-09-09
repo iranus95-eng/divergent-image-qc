@@ -1,0 +1,31 @@
+name: QC Employee Name Emphasis
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/qc_employee_name_emphasis.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply employee name emphasis
+        run: python scripts/qc_employee_name_emphasis.py
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Emphasize employee names on QC batch cards"
+          git push
