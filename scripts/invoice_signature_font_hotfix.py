@@ -42,3 +42,4 @@ s = s.replace(needle, replacement)
 
 p.write_text(s, encoding='utf-8')
 print('invoice signatures reduced to Manager only; invoice font unified')
+# workflow trigger v1
