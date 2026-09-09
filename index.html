@@ -1990,6 +1990,8 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
       "https://neauzvqroaszvqffahkv.functions.supabase.co/user-bind-line";
     const QC_BATCH_DATA_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-batch-data";
+    const QC_BATCH_OWNER_API_URL =
+      "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-batch-owner"; // QC_BATCH_OWNER_NAME_V1
     const QC_SEARCH_API_URL =
       "https://neauzvqroaszvqffahkv.functions.supabase.co/qc-search";
     const USER_ADMIN_API_URL =
@@ -4126,6 +4128,32 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
       try {
         const result = await qcApi("batches", { siteCode });
         const batches = result.batches || [];
+        try {
+          const token = await getBestDataToken();
+          if (token && batches.length) {
+            const ownerResponse = await fetch(QC_BATCH_OWNER_API_URL, {
+              method: "POST",
+              headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ batchIds: batches.map(x => x.batch_id) })
+            });
+            const ownerData = await ownerResponse.json().catch(() => ({}));
+            if (ownerResponse.ok && Array.isArray(ownerData.owners)) {
+              const ownerMap = new Map(ownerData.owners.map(x => [String(x.batch_id), x]));
+              for (const batch of batches) {
+                const owner = ownerMap.get(String(batch.batch_id));
+                if (owner) {
+                  batch.employee_name = owner.employee_name || "";
+                  batch.uploaded_by_username = owner.username || "";
+                }
+              }
+            }
+          }
+        } catch (ownerError) {
+          console.warn("QC batch owner lookup failed", ownerError);
+        }
         window.currentBatches = batches;
 
         area.style.display = "block";
@@ -4143,6 +4171,7 @@ body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:n
                onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault();openBatchDetail(${index});}">
             <div class="batch-site">ไซด์งาน ${escapeHtml(batch.site_name)}</div>
             <div class="batch-row">วันที่ ${escapeHtml(formatRawDate(batch.raw_date))}</div>
+            <div class="batch-row"><b>พนักงาน:</b> ${escapeHtml(batch.employee_name || batch.uploaded_by_username || "-")}</div>
             <div class="batch-row">จำนวนรูป ${escapeHtml(batch.image_count)} รูป</div>
             <div class="batch-open">
               <span>เข้าตรวจสอบรูปภาพ</span>
