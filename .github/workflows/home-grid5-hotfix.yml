@@ -1,0 +1,26 @@
+name: Home 5-column menu hotfix
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/home_menu_grid5.py'
+      - '.github/workflows/home-grid5-hotfix.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python scripts/home_menu_grid5.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --check
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Replace sidebar with permission-aware 5-column home menu"
+          git push
