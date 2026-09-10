@@ -5,41 +5,57 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Divergent Legacy Cleanup Preview</title>
 <style>
-html,body{margin:0;height:100%;background:#f5f6fa;font-family:Arial,Tahoma,sans-serif}#legacyFrame{width:100%;height:100%;border:0;display:block}.preview-badge{position:fixed;right:12px;top:10px;z-index:99999;background:#24103f;color:#fff;padding:8px 12px;border-radius:999px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.18);pointer-events:none}
+html,body{margin:0;height:100%;background:#f5f6fa;font-family:Arial,Tahoma,sans-serif;overflow:hidden}
+#legacyFrame{width:100%;height:100%;border:0;display:block;visibility:hidden}
+.preview-badge{position:fixed;right:12px;top:10px;z-index:99999;background:#24103f;color:#fff;padding:8px 12px;border-radius:999px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.18);pointer-events:none}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:#f5f6fa;color:#4c237b;font:700 20px Arial,Tahoma,sans-serif;z-index:99998}
 </style>
 </head>
 <body>
+<div id="loading">กำลังเตรียมหน้าเว็บเก่าแบบ Clean Preview...</div>
 <div class="preview-badge">LEGACY CLEANUP PREVIEW</div>
-<iframe id="legacyFrame" src="index.html?legacy_cleanup_preview=1"></iframe>
+<iframe id="legacyFrame" src="index.html?legacy_cleanup_preview=2"></iframe>
 <script>
 (function(){
   'use strict';
   const frame=document.getElementById('legacyFrame');
+  const loading=document.getElementById('loading');
+
   frame.addEventListener('load',function(){
     const w=frame.contentWindow,d=frame.contentDocument;
     if(!w||!d)return;
 
     const style=d.createElement('style');
-    style.id='legacy-cleanup-preview-style';
+    style.id='legacy-cleanup-preview-style-v2';
     style.textContent=`
       html,body{zoom:1!important;transform:none!important}
+      body{font-size:20px!important}
       .main-shell .container,
       body.home-grid5-mode .main-shell .container{
-        width:min(1100px,calc(100vw - 40px))!important;
-        max-width:1100px!important;
+        width:min(1480px,calc(100vw - 48px))!important;
+        max-width:1480px!important;
         margin-left:auto!important;
         margin-right:auto!important;
-        padding-left:20px!important;
-        padding-right:20px!important;
+        padding-left:24px!important;
+        padding-right:24px!important;
         transform:none!important;
         zoom:1!important;
       }
+      .sidebar,.side-nav,.nav-item{font-size:18px!important}
+      .home-menu5-copy b{font-size:22px!important}
+      .home-menu5-copy span{font-size:17px!important}
+      .home-menu5-arrow{font-size:16px!important}
+      #legacyStableNav{
+        position:fixed;left:18px;top:88px;z-index:2147483000;
+        display:flex;gap:9px;padding:8px;background:rgba(255,255,255,.96);
+        border:1px solid #ded1ef;border-radius:13px;box-shadow:0 6px 22px rgba(50,22,85,.16)
+      }
+      #legacyStableNav button{font-size:17px!important;font-weight:800!important;padding:10px 14px!important;border-radius:9px!important;background:#fff!important;color:#4b2278!important;border:1px solid #d5c2ec!important}
       @media(max-width:700px){
-        .main-shell .container,
-        body.home-grid5-mode .main-shell .container{
-          width:100%!important;max-width:none!important;
-          padding-left:12px!important;padding-right:12px!important;
-        }
+        body{font-size:18px!important}
+        .main-shell .container,body.home-grid5-mode .main-shell .container{width:100%!important;max-width:none!important;padding-left:12px!important;padding-right:12px!important}
+        #legacyStableNav{left:8px;right:8px;top:auto;bottom:8px;justify-content:center}
+        #legacyStableNav button{flex:1}
       }
     `;
     d.head.appendChild(style);
@@ -54,17 +70,37 @@ html,body{margin:0;height:100%;background:#f5f6fa;font-family:Arial,Tahoma,sans-
       if(!d.body)return;
       d.body.classList.toggle('home-grid5-mode',homeVisible());
     }
-    syncScope();
+
+    const stack=['navHome'];
+    function clickNav(id){const el=d.getElementById(id);if(!el)return false;el.click();w.setTimeout(syncScope,0);return true}
+    function goHome(){stack.length=1;stack[0]='navHome';if(clickNav('navHome'))return;if(typeof w.showHome==='function'){try{w.showHome();syncScope();return}catch(_){}}}
+    function goBack(){if(stack.length>1){stack.pop();if(clickNav(stack[stack.length-1]))return}goHome()}
+
+    if(!d.getElementById('legacyStableNav')){
+      const nav=d.createElement('div');nav.id='legacyStableNav';
+      nav.innerHTML='<button type="button" id="legacyBack">← ย้อนกลับ</button><button type="button" id="legacyHome">⌂ กลับสู่เมนูหลัก</button>';
+      d.body.appendChild(nav);
+      nav.querySelector('#legacyBack').addEventListener('click',goBack);
+      nav.querySelector('#legacyHome').addEventListener('click',goHome);
+    }
+
+    d.addEventListener('click',function(e){
+      const el=e.target&&e.target.closest?e.target.closest('.nav-item[id]'):null;
+      if(el&&el.id){if(el.id==='navHome'){stack.length=1;stack[0]='navHome'}else if(stack[stack.length-1]!==el.id){stack.push(el.id);if(stack.length>30)stack.splice(1,1)}}
+      w.setTimeout(syncScope,0);
+    },true);
 
     const home=d.getElementById('homeWorkspace');
     if(home)new w.MutationObserver(syncScope).observe(home,{attributes:true,attributeFilter:['style','class','hidden']});
-    new w.MutationObserver(function(){
-      if(!homeVisible()&&d.body.classList.contains('home-grid5-mode'))d.body.classList.remove('home-grid5-mode');
-    }).observe(d.body,{attributes:true,attributeFilter:['class']});
+    new w.MutationObserver(function(){if(!homeVisible()&&d.body.classList.contains('home-grid5-mode'))d.body.classList.remove('home-grid5-mode')}).observe(d.body,{attributes:true,attributeFilter:['class']});
 
-    d.addEventListener('click',function(){w.setTimeout(syncScope,0)},true);
-    w.addEventListener('hashchange',syncScope);
-    w.addEventListener('popstate',syncScope);
+    syncScope();
+    w.setTimeout(syncScope,100);
+    w.setTimeout(syncScope,900);
+    w.setTimeout(syncScope,2100);
+
+    frame.style.visibility='visible';
+    loading.style.display='none';
   });
 })();
 </script>
