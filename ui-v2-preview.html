@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Divergent Image Rescue — UI V2</title>
 <link rel="stylesheet" href="ui-v2.css?v=20260910-3">
+<link rel="stylesheet" href="ui-v2-pnl.css?v=20260910-1">
 </head>
 <body>
 <div class="app">
@@ -58,11 +59,54 @@
   <section class="workspace" data-workspace="users" data-title="จัดการผู้ใช้งาน"><div class="panel"><h2>จัดการผู้ใช้งาน</h2><span class="status">รอย้ายโมดูลจริง</span><p>สิทธิ์และผู้ใช้จะคง backend เดิม แต่ย้ายเฉพาะหน้าจอ</p></div></section>
   <section class="workspace" data-workspace="invoice" data-title="จัดทำใบตั้งหนี้"><div class="panel"><h2>จัดทำใบตั้งหนี้</h2><span class="status">รอย้ายโมดูลจริง</span><p>เอกสารจะใช้ stylesheet เฉพาะใบตั้งหนี้ ไม่ให้ฟอนต์ไปกระทบทั้งเว็บ</p></div></section>
   <section class="workspace" data-workspace="billing" data-title="จัดทำใบวางบิล"><div class="panel"><h2>จัดทำใบวางบิล</h2><span class="status">รอย้ายโมดูลจริง</span><p>แยกจากใบตั้งหนี้และใช้ style ของตัวเอง</p></div></section>
-  <section class="workspace" data-workspace="pnl" data-title="กำไร / ขาดทุน"><div class="panel"><h2>กำไร / ขาดทุน</h2><span class="status">สิทธิ์เฉพาะ Admin / Owner</span><p>เพิ่มเมนูให้ผู้ดูแลระบบใน V2 แล้ว ขั้นถัดไปจะย้ายหน้ารายงานกำไร–ขาดทุนจริงจากระบบเดิมเข้ามาโดยแยก stylesheet และ logic เป็นโมดูลเฉพาะ</p></div></section>
+
+  <section class="workspace" data-workspace="pnl" data-title="กำไร / ขาดทุน">
+    <div class="pnlv2">
+      <div class="pnlv2-head">
+        <div><h2>กำไร / ขาดทุน</h2><div id="pnlv2State" class="pnlv2-state">เลือกเดือนแล้วกดโหลดข้อมูล</div></div>
+        <div class="pnlv2-control"><label>เดือน<input id="pnlv2Month" type="month"></label><button id="pnlv2Reload" type="button">โหลดข้อมูล</button></div>
+      </div>
+
+      <div class="pnlv2-cards">
+        <div class="pnlv2-card"><span>เงินเดือนพนักงาน</span><b id="pnlv2Employee">0.00</b><small id="pnlv2EmployeeCount">0 คน</small></div>
+        <div class="pnlv2-card"><span>เงินเดือนสตาฟสุทธิ</span><b id="pnlv2Staff">0.00</b><small id="pnlv2StaffCount">0 คน</small></div>
+        <div class="pnlv2-card"><span>ประกันสังคมสตาฟ</span><b id="pnlv2Social">0.00</b></div>
+        <div class="pnlv2-card"><span>ค่าใช้จ่ายสตาฟ</span><b id="pnlv2Expense">0.00</b><small id="pnlv2ExpenseCount">0 รายการ</small></div>
+      </div>
+
+      <div class="pnlv2-layout">
+        <div class="pnlv2-box">
+          <h3>ต้นทุนที่เชื่อมจากฐานข้อมูล</h3>
+          <div class="pnlv2-row"><span>รวมต้นทุนที่เชื่อมแล้ว</span><strong id="pnlv2ConnectedCost">0.00</strong></div>
+          <div class="pnlv2-row"><span>รวมต้นทุนทั้งหมด</span><strong id="pnlv2TotalCost">0.00</strong></div>
+          <div class="pnlv2-row pnlv2-total"><span>กำไร / ขาดทุนสุทธิ</span><strong id="pnlv2Profit">0.00</strong></div>
+        </div>
+        <div class="pnlv2-box">
+          <h3>รายรับและต้นทุนเพิ่มเติม</h3>
+          <div class="pnlv2-manual"><label for="pnlv2Revenue">รายได้รับจริง</label><input id="pnlv2Revenue" type="number" step="0.01" value="0"></div>
+          <div class="pnlv2-manual"><label for="pnlv2Paper">ค่ากระดาษ</label><input id="pnlv2Paper" type="number" step="0.01" value="0"></div>
+          <div class="pnlv2-manual"><label for="pnlv2Accounting">ค่าบัญชี</label><input id="pnlv2Accounting" type="number" step="0.01" value="0"></div>
+          <div class="pnlv2-manual"><label for="pnlv2Office">ค่าอุปกรณ์สำนักงาน</label><input id="pnlv2Office" type="number" step="0.01" value="0"></div>
+          <div class="pnlv2-manual"><label for="pnlv2Hospitality">ค่ารับรอง</label><input id="pnlv2Hospitality" type="number" step="0.01" value="0"></div>
+        </div>
+      </div>
+
+      <div class="pnlv2-note">ข้อมูลเงินเดือนพนักงาน เงินเดือนสตาฟ ประกันสังคม และค่าใช้จ่ายสตาฟดึงจากฐานข้อมูลจริงตามเดือน ส่วนรายได้รับจริงและต้นทุนเพิ่มเติมจะเก็บแยกตามเดือนใน V2 ระหว่างย้ายระบบรายได้อัตโนมัติจากหน้าเดิม</div>
+
+      <div class="pnlv2-box"><h3>รายละเอียดเงินเดือนสตาฟ</h3></div>
+      <div class="pnlv2-tablewrap">
+        <table class="pnlv2-table">
+          <thead><tr><th>ชื่อพนักงาน</th><th class="num">เงินเดือน</th><th class="num">ประกันสังคม</th><th class="num">OT</th><th class="num">เบิกล่วงหน้า</th><th class="num">หักอื่น</th><th class="num">รับสุทธิ</th></tr></thead>
+          <tbody id="pnlv2StaffBody"><tr><td colspan="7">ยังไม่ได้โหลดข้อมูล</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 </section>
 </main>
 </div>
 <script src="js/ui-v2-auth.js?v=20260910-3"></script>
 <script src="js/ui-v2-shell.js?v=20260910-4"></script>
+<script src="js/ui-v2-pnl.js?v=20260910-1"></script>
 </body>
 </html>
