@@ -23,6 +23,7 @@ function loadModuleAssets(){
  if(!document.querySelector('script[data-v2-invoice-print]')){const s=document.createElement('script');s.src='js/ui-v2-invoice-print.js?v=20260910-1';s.dataset.v2InvoicePrint='1';s.defer=true;document.head.appendChild(s)}
  if(!document.querySelector('link[data-v2-claim]')){const l=document.createElement('link');l.rel='stylesheet';l.href='ui-v2-claim.css?v=20260910-1';l.dataset.v2Claim='1';document.head.appendChild(l)}
  if(!document.querySelector('script[data-v2-claim]')){const s=document.createElement('script');s.src='js/ui-v2-claim.js?v=20260910-1';s.dataset.v2Claim='1';s.defer=true;document.head.appendChild(s)}
+ if(!document.querySelector('script[data-v2-claim-line-pdf]')){const s=document.createElement('script');s.src='js/ui-v2-claim-line-share.js?v=20260910-1';s.dataset.v2ClaimLinePdf='1';s.defer=true;document.head.appendChild(s)}
 }
 function boot(){ensureAuthControls();ensureLoginModal();bind();loadModuleAssets();refreshAuth()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
