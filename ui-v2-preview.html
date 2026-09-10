@@ -21,6 +21,7 @@
     <button data-page="users">♟ จัดการผู้ใช้งาน</button>
     <button data-page="invoice">▧ จัดทำใบตั้งหนี้</button>
     <button data-page="billing">▦ จัดทำใบวางบิล</button>
+    <button data-page="pnl">◫ กำไร / ขาดทุน</button>
   </nav>
 </aside>
 <main class="main">
@@ -43,6 +44,7 @@
       <div class="card" data-open="users"><div class="icon">♟</div><h3>จัดการผู้ใช้งาน</h3><p>ผู้ใช้งาน บทบาท และสิทธิ์เมนู</p></div>
       <div class="card" data-open="invoice"><div class="icon">▧</div><h3>จัดทำใบตั้งหนี้</h3><p>จัดทำเอกสารใบตั้งหนี้</p></div>
       <div class="card" data-open="billing"><div class="icon">▦</div><h3>จัดทำใบวางบิล</h3><p>จัดทำเอกสารใบวางบิล</p></div>
+      <div class="card" data-open="pnl"><div class="icon">◫</div><h3>กำไร / ขาดทุน</h3><p>สรุปรายได้ ต้นทุน และกำไรสุทธิ</p></div>
     </div>
     <div class="note">V2 ใช้ Session key และ API Login เดียวกับเว็บเดิมแล้ว เมนูจะถูกแสดงตามสิทธิ์จริงหลังเข้าสู่ระบบสำเร็จ โดยยังไม่แตะ index.html เว็บเดิม</div>
   </section>
@@ -56,10 +58,11 @@
   <section class="workspace" data-workspace="users" data-title="จัดการผู้ใช้งาน"><div class="panel"><h2>จัดการผู้ใช้งาน</h2><span class="status">รอย้ายโมดูลจริง</span><p>สิทธิ์และผู้ใช้จะคง backend เดิม แต่ย้ายเฉพาะหน้าจอ</p></div></section>
   <section class="workspace" data-workspace="invoice" data-title="จัดทำใบตั้งหนี้"><div class="panel"><h2>จัดทำใบตั้งหนี้</h2><span class="status">รอย้ายโมดูลจริง</span><p>เอกสารจะใช้ stylesheet เฉพาะใบตั้งหนี้ ไม่ให้ฟอนต์ไปกระทบทั้งเว็บ</p></div></section>
   <section class="workspace" data-workspace="billing" data-title="จัดทำใบวางบิล"><div class="panel"><h2>จัดทำใบวางบิล</h2><span class="status">รอย้ายโมดูลจริง</span><p>แยกจากใบตั้งหนี้และใช้ style ของตัวเอง</p></div></section>
+  <section class="workspace" data-workspace="pnl" data-title="กำไร / ขาดทุน"><div class="panel"><h2>กำไร / ขาดทุน</h2><span class="status">สิทธิ์เฉพาะ Admin / Owner</span><p>เพิ่มเมนูให้ผู้ดูแลระบบใน V2 แล้ว ขั้นถัดไปจะย้ายหน้ารายงานกำไร–ขาดทุนจริงจากระบบเดิมเข้ามาโดยแยก stylesheet และ logic เป็นโมดูลเฉพาะ</p></div></section>
 </section>
 </main>
 </div>
 <script src="js/ui-v2-auth.js?v=20260910-3"></script>
-<script src="js/ui-v2-shell.js?v=20260910-3"></script>
+<script src="js/ui-v2-shell.js?v=20260910-4"></script>
 </body>
 </html>
