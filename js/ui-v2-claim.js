@@ -50,7 +50,7 @@ function mount(){
 
     <section class="claimv2-outstanding">
       <div class="claimv2-outstanding-head">
-        <div><h3>ยอดค้างแยกตามไซด์งาน</h3><p>แสดงเฉพาะไซด์งานที่ยังมียอดค้าง โดยแยกตามเดือน</p></div>
+        <div><h3>ยอดค้างแยกตามไซด์งาน</h3><p>แสดงเดือนที่ยังค้าง พร้อมจำนวนรายและยอดค้าง</p></div>
         <div class="claimv2-outstanding-total"><span>ยอดค้างรวมทุกไซด์</span><b id="claimv2OutstandingGrand">0.00</b></div>
       </div>
       <div id="claimv2OutstandingGroups" class="claimv2-outstanding-groups"><div class="claimv2-empty">กำลังคำนวณยอดค้าง...</div></div>
@@ -127,7 +127,7 @@ function buildOutstandingGroups(){
       const key=branch.toLowerCase();
       if(!groups.has(key))groups.set(key,{branch,rows:[],total:0});
       const g=groups.get(key);
-      g.rows.push({monthKey,monthLabel:month.label||monthKey,claim:Number(r.claim_amount||0),penalty:Number(r.penalty_raw||0),received:Number(r.received||0),outstanding});
+      g.rows.push({monthKey,monthLabel:month.label||monthKey,billCount:Number(r.bill_count||0),outstanding});
       g.total+=outstanding;
     });
   });
@@ -141,11 +141,11 @@ function renderOutstanding(){
   el('claimv2OutstandingGrand').textContent=money(grand);
   if(!groups.length){host.innerHTML='<div class="claimv2-empty">ไม่พบไซด์งานที่มียอดค้าง</div>';return}
   host.innerHTML=groups.map(g=>`<article class="claimv2-outstanding-card">
-    <div class="claimv2-outstanding-title"><h4>${esc(g.branch)}</h4><span>ค้าง ${num(g.rows.length)} เดือน</span></div>
+    <div class="claimv2-outstanding-title"><h4>${esc(g.branch)}</h4></div>
     <div class="claimv2-outstanding-tablewrap"><table class="claimv2-outstanding-table">
-      <thead><tr><th>เดือน</th><th>ยอดตั้งเบิก</th><th>ค่าปรับ</th><th>รับแล้ว</th><th>ยอดค้าง</th></tr></thead>
-      <tbody>${g.rows.map(r=>`<tr><td>${esc(r.monthLabel)}</td><td class="num">${money(r.claim)}</td><td class="num">${money(r.penalty)}</td><td class="num">${money(r.received)}</td><td class="num claimv2-due">${money(r.outstanding)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="4">รวมยอดค้าง ${esc(g.branch)}</td><td class="num">${money(g.total)}</td></tr></tfoot>
+      <thead><tr><th>เดือน</th><th>จำนวนราย</th><th>ยอดค้าง</th></tr></thead>
+      <tbody>${g.rows.map(r=>`<tr><td>${esc(r.monthLabel)}</td><td class="num">${num(r.billCount)}</td><td class="num claimv2-due">${money(r.outstanding)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="2">รวม</td><td class="num">${money(g.total)}</td></tr></tfoot>
     </table></div>
   </article>`).join('');
 }
