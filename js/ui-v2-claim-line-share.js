@@ -12,10 +12,53 @@ function loadPdfLib(){return new Promise((resolve,reject)=>{if(window.html2pdf)r
 function loadLiffSdk(){if(window.liff)return Promise.resolve(window.liff);if(liffSdkPromise)return liffSdkPromise;liffSdkPromise=new Promise((resolve,reject)=>{const old=document.querySelector('script[data-claim-liff-sdk]');if(old){old.addEventListener('load',()=>window.liff?resolve(window.liff):reject(new Error('ไม่พบ LINE LIFF')),{once:true});old.addEventListener('error',()=>reject(new Error('โหลด LINE LIFF ไม่สำเร็จ')),{once:true});return}const s=document.createElement('script');s.src=LIFF_SDK_URL;s.async=true;s.dataset.claimLiffSdk='1';s.onload=()=>window.liff?resolve(window.liff):reject(new Error('ไม่พบ LINE LIFF'));s.onerror=()=>reject(new Error('โหลด LINE LIFF ไม่สำเร็จ'));document.head.appendChild(s)}).catch(e=>{liffSdkPromise=null;throw e});return liffSdkPromise}
 async function ensureLiffReady(){await loadLiffSdk();if(!liffReadyPromise)liffReadyPromise=window.liff.init({liffId:LIFF_ID}).catch(e=>{liffReadyPromise=null;throw e});await liffReadyPromise;return window.liff}
 function selectedLabel(){const s=el('claimv2Month');if(!s)return'รายงาน';const o=s.options[s.selectedIndex];return o?o.textContent.trim():'รายงาน'}
-function makeReport(){const root=document.querySelector('.workspace[data-workspace="claim"] .claimv2');const tableWrap=root&&root.querySelector('.claimv2-tablewrap');if(!root||!tableWrap)throw new Error('ยังไม่พบรายงานสำหรับสร้าง PDF');const report=document.createElement('div');report.style.cssText='width:100%;background:#fff;color:#111;font-family:Tahoma,"Noto Sans Thai",Arial,sans-serif;font-size:14px;padding:12mm;box-sizing:border-box;';const title=document.createElement('h1');title.textContent='รายงานตั้งเบิกค่าตอบแทน';title.style.cssText='font-size:22px;margin:0 0 4px;text-align:left;';const sub=document.createElement('div');sub.textContent='ช่วงข้อมูล: '+selectedLabel();sub.style.cssText='font-size:14px;margin:0 0 12px;text-align:left;';const total=document.createElement('div');total.textContent='ยอดค้างรวม: '+((el('claimv2Outstanding')&&el('claimv2Outstanding').textContent)||'0.00')+' บาท';total.style.cssText='font-size:16px;font-weight:700;margin:0 0 12px;text-align:left;';const table=tableWrap.querySelector('table').cloneNode(true);table.style.cssText='width:100%;border-collapse:collapse;table-layout:auto;min-width:0;';table.querySelectorAll('th,td').forEach(cell=>{cell.style.textAlign='left';cell.style.border='1px solid #9aa4b2';cell.style.padding='6px 7px';cell.style.fontSize='12px';cell.style.lineHeight='1.35';cell.style.background=cell.tagName==='TH'?'#eef2f7':'#fff';cell.style.color='#111';cell.style.verticalAlign='top'});table.querySelectorAll('.claimv2-site-total td').forEach(cell=>{cell.style.fontWeight='700';cell.style.background='#f4f7fb'});table.querySelectorAll('.claimv2-all-grand td').forEach(cell=>{cell.style.fontWeight='700';cell.style.background='#f7f7f7';cell.style.borderTop='2px solid #333'});report.append(title,sub,total,table);report.style.position='fixed';report.style.left='-100000px';report.style.top='0';document.body.appendChild(report);return report}
+function makeReport(){const root=document.querySelector('.workspace[data-workspace="claim"] .claimv2');const tableWrap=root&&root.querySelector('.claimv2-tablewrap');if(!root||!tableWrap)throw new Error('ยังไม่พบรายงานสำหรับสร้าง PDF');const report=document.createElement('div');report.style.cssText='width:100%;background:#fff;color:#111;font-family:Tahoma,"Noto Sans Thai",Arial,sans-serif;font-size:14px;padding:12mm;box-sizing:border-box;';const title=document.createElement('h1');title.textContent='รายงานตั้งเบิกค่าตอบแทน';title.style.cssText='font-size:22px;margin:0 0 4px;text-align:left;';const sub=document.createElement('div');sub.textContent='ช่วงข้อมูล: '+selectedLabel();sub.style.cssText='font-size:14px;margin:0 0 12px;text-align:left;';const total=document.createElement('div');total.textContent='ยอดค้างรวม: '+((el('claimv2Outstanding')&&el('claimv2Outstanding').textContent)||'0.00')+' บาท';total.style.cssText='font-size:16px;font-weight:700;margin:0 0 12px;text-align:left;';const table=tableWrap.querySelector('table').cloneNode(true);table.style.cssText='width:100%;border-collapse:collapse;table-layout:auto;min-width:0;';table.querySelectorAll('th,td').forEach(cell=>{cell.style.textAlign='left';cell.style.border='1px solid #9aa4b2';cell.style.padding='6px 7px';cell.style.fontSize='12px';cell.style.lineHeight='1.35';cell.style.background=cell.tagName==='TH'?'#eef2f7':'#fff';cell.style.color='#111';cell.style.verticalAlign='top'});table.querySelectorAll('.claimv2-site-total td').forEach(cell=>{cell.style.fontWeight='700';cell.style.background='#f4f7fb'});table.querySelectorAll('.claimv2-all-grand td').forEach(cell=>{cell.style.fontWeight='700';cell.style.background='#f7f7f7';cell.style.borderTop='2px solid #333'});report.append(title,sub,total,table);return report}
 function fallbackSave(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
-async function sharePdf(){const btn=el('claimv2LinePdf');if(!btn)return;const old=btn.textContent;btn.disabled=true;let report=null;try{btn.textContent='กำลังเตรียม LINE...';const liff=await ensureLiffReady();if(!liff.isLoggedIn()){if(liff.isInClient()){location.href=LIFF_V2_URL}else{liff.login({redirectUri:loginReturnUrl()})}return}if(liff.isApiAvailable&&liff.isApiAvailable('shareTargetPicker')){btn.textContent='เลือกรายชื่อใน LINE...';const total=((el('claimv2Outstanding')&&el('claimv2Outstanding').textContent)||'0.00');const msg='รายงานตั้งเบิกค่าตอบแทน\nช่วงข้อมูล: '+selectedLabel()+'\nยอดค้างรวม: '+total+' บาท\n\nเปิดรายงาน: '+location.origin+'/ui-v2-preview';await liff.shareTargetPicker([{type:'text',text:msg}],{isMultiple:true});return}btn.textContent='กำลังสร้าง PDF...';await loadPdfLib();report=makeReport();const label=selectedLabel().replace(/[\\/:*?"<>|]/g,'-');const name='รายงานยอดค้าง-'+label+'.pdf';const opt={margin:0,filename:name,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy']}};const blob=await window.html2pdf().set(opt).from(report).outputPdf('blob');const file=new File([blob],name,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){await navigator.share({title:'รายงานยอดค้าง',text:'รายงานยอดค้าง '+selectedLabel(),files:[file]});return}fallbackSave(blob,name);alert('LINE Share Target Picker ใช้งานไม่ได้บนอุปกรณ์นี้ ระบบสร้าง PDF ให้ดาวน์โหลดแทน');}catch(e){if(e&&e.name==='AbortError')return;console.error(e);alert('เปิด LINE ไม่สำเร็จ: '+((e&&e.message)||e));}finally{if(report&&report.parentNode)report.parentNode.removeChild(report);btn.disabled=false;btn.textContent=old}}
-function install(){const bar=document.querySelector('.workspace[data-workspace="claim"] .claimv2-commandbar');if(!bar||el('claimv2LinePdf'))return false;const b=document.createElement('button');b.id='claimv2LinePdf';b.type='button';b.className='claimv2-btn';b.textContent='แชร์ LINE';b.style.cssText='background:#06c755;color:#fff;border-color:#06c755;';b.addEventListener('click',sharePdf);bar.appendChild(b);return true}
+function showPdfActions(file){
+ const previous=el('claimv2PdfDialog');if(previous)previous.remove();
+ const dialog=document.createElement('dialog');dialog.id='claimv2PdfDialog';
+ dialog.style.cssText='max-width:420px;width:calc(100% - 48px);border:0;border-radius:12px;padding:24px;font-family:Tahoma,Arial,sans-serif;';
+ const title=document.createElement('h2');title.textContent='PDF พร้อมแล้ว';
+ const name=document.createElement('p');name.textContent=file.name;name.style.overflowWrap='anywhere';
+ const status=document.createElement('p');status.setAttribute('role','status');
+ const share=document.createElement('button');share.type='button';share.textContent='แชร์ไฟล์ PDF — เลือก LINE';
+ const download=document.createElement('button');download.type='button';download.textContent='ดาวน์โหลด PDF';
+ const close=document.createElement('button');close.type='button';close.textContent='ปิด';
+ [share,download,close].forEach(b=>{b.className='claimv2-btn';b.style.margin='4px'});
+ let canShare=false;try{canShare=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}))}catch(_){}
+ share.hidden=!canShare;
+ status.textContent=canShare?'กดแชร์ไฟล์ แล้วเลือก LINE ในเมนูแชร์ของเครื่อง หากไม่มี LINE ให้ดาวน์โหลดแล้วแนบไฟล์ในแชต':'เบราว์เซอร์นี้แชร์ไฟล์โดยตรงไม่ได้ กรุณาดาวน์โหลด PDF แล้วแนบไฟล์ในแชต LINE';
+ // A fresh click after rendering preserves the user activation required for file sharing.
+ share.addEventListener('click',async()=>{
+  share.disabled=true;
+  try{await navigator.share({files:[file]});status.textContent='เปิดเมนูแชร์แล้ว'}
+  catch(e){status.textContent=e&&e.name==='AbortError'?'ยกเลิกการแชร์แล้ว สามารถกดแชร์ใหม่หรือดาวน์โหลดได้':'แชร์ไฟล์ไม่ได้ กรุณากดดาวน์โหลด PDF แล้วแนบใน LINE'}
+  finally{share.disabled=false}
+ });
+ download.addEventListener('click',()=>fallbackSave(file,file.name));
+ close.addEventListener('click',()=>dialog.close());
+ dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+ dialog.append(title,name,status,share,download,close);document.body.appendChild(dialog);dialog.showModal();
+}
+async function sharePdf(){
+ const btn=el('claimv2LinePdf');if(!btn)return;
+ const old=btn.textContent;btn.disabled=true;let report=null;
+ try{
+  const month=el('claimv2Month');
+  if(!month||!month.options.length)throw new Error('กรุณารอให้ข้อมูลรายงานโหลดเสร็จก่อน');
+  btn.textContent='กำลังสร้าง PDF...';
+  await loadPdfLib();
+  report=makeReport();
+  const label=selectedLabel().replace(/[\\\\/:*?"<>|]/g,'-');
+  const name='รายงานยอดค้าง-'+label+'.pdf';
+  const opt={margin:0,filename:name,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['css','legacy']}};
+  const blob=await window.html2pdf().set(opt).from(report).outputPdf('blob');
+  if(!blob||!blob.size)throw new Error('สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่');
+  showPdfActions(new File([blob],name,{type:'application/pdf'}));
+ }catch(e){console.error(e);alert('สร้าง PDF ไม่สำเร็จ: '+((e&&e.message)||e))}
+ finally{if(report&&report.parentNode)report.parentNode.removeChild(report);btn.disabled=false;btn.textContent=old}
+}
+function install(){const bar=document.querySelector('.workspace[data-workspace="claim"] .claimv2-commandbar');if(!bar||el('claimv2LinePdf'))return false;const b=document.createElement('button');b.id='claimv2LinePdf';b.type='button';b.className='claimv2-btn';b.textContent='แชร์ PDF ไป LINE';b.style.cssText='background:#06c755;color:#fff;border-color:#06c755;';b.addEventListener('click',sharePdf);bar.appendChild(b);return true}
 function prepareLineReturn(){
  const params=new URLSearchParams(location.search);
  if(!params.has('claim_line')&&!params.has('liff.state')&&!params.has('code'))return;
@@ -28,7 +71,7 @@ function prepareLineReturn(){
    if(!month||!month.options.length||!el('claimv2LinePdf')||!nav||nav.hidden)return false;
    if(wanted&&Array.from(month.options).some(o=>o.value===wanted)){month.value=wanted;month.dispatchEvent(new Event('change',{bubbles:true}))}
    nav.click();
-   el('claimv2LinePdf').textContent='เลือกรายชื่อใน LINE';
+   el('claimv2LinePdf').textContent='แชร์ PDF ไป LINE';
    return true;
   };
   if(!restore()){const observer=new MutationObserver(()=>{if(restore())observer.disconnect()});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});setTimeout(()=>observer.disconnect(),15000)}
