@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>แผนการจดหน่วย - กฟส.ปราสาท</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f6f7fb;color:#1f2430}
+    .wrap{max-width:1180px;margin:0 auto;padding:24px 18px 48px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+    .nav{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{border:0;border-radius:11px;padding:11px 16px;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+    .btn-light{background:white;color:#43258b;border:1px solid #dfd5f7}
+    .btn-primary{background:#6c4ed9;color:white}
+    .hero{background:linear-gradient(135deg,#5d3ccf,#8a65ea);color:white;border-radius:22px;padding:26px;box-shadow:0 12px 34px rgba(78,48,150,.22)}
+    .hero h1{margin:0;font-size:30px;line-height:1.25}
+    .hero .sub{margin-top:8px;opacity:.92;font-size:17px}
+    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+    .stat{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:16px;padding:16px}
+    .stat-label{font-size:13px;opacity:.9}
+    .stat-value{font-size:30px;font-weight:900;margin-top:4px}
+    .stat-unit{font-size:13px;opacity:.92}
+    .card{background:#fff;margin-top:18px;border-radius:20px;padding:20px;box-shadow:0 5px 22px rgba(0,0,0,.07)}
+    .card-head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    .card h2{margin:0;font-size:22px}
+    .muted{color:#707787;font-size:14px}
+    table{width:100%;border-collapse:separate;border-spacing:0 10px}
+    thead th{text-align:left;font-size:13px;color:#727989;padding:0 14px 4px}
+    tbody tr{background:#fafaff;transition:.15s}
+    tbody tr:hover{background:#f3efff}
+    tbody td{padding:14px;border-top:1px solid #eee9fb;border-bottom:1px solid #eee9fb}
+    tbody td:first-child{border-left:1px solid #eee9fb;border-radius:12px 0 0 12px}
+    tbody td:last-child{border-right:1px solid #eee9fb;border-radius:0 12px 12px 0}
+    .date-main{font-weight:900;font-size:16px}
+    .portion{display:inline-flex;min-width:48px;justify-content:center;padding:7px 10px;border-radius:999px;background:#eee8ff;color:#5a31b6;font-weight:900}
+    .count{font-size:24px;font-weight:950;color:#4a278f;text-align:right;white-space:nowrap}
+    .status{display:inline-flex;padding:7px 10px;border-radius:999px;background:#eef8f1;color:#20713e;font-weight:800;font-size:12px}
+    tfoot td{padding:17px 14px;font-weight:900;background:#2f2160;color:white}
+    tfoot td:first-child{border-radius:12px 0 0 12px}
+    tfoot td:last-child{border-radius:0 12px 12px 0;text-align:right;font-size:24px}
+    .note{margin-top:14px;padding:14px 16px;background:#fff8e7;border:1px solid #f1d99c;border-radius:12px;color:#6d5415;font-size:14px;line-height:1.55}
+    @media(max-width:760px){
+      .wrap{padding:14px 10px 36px}.hero{padding:20px 16px}.hero h1{font-size:24px}.summary{grid-template-columns:1fr}.stat-value{font-size:27px}
+      .card{padding:14px 10px}.desktop-only{display:none} table{border-spacing:0 8px} thead{display:none}
+      tbody tr{display:grid;grid-template-columns:1fr auto;position:relative;border:1px solid #eee9fb;border-radius:14px;padding:13px}
+      tbody td{border:0!important;padding:3px 2px!important;background:transparent!important}.date-main{font-size:16px}.count{font-size:26px;grid-column:2;grid-row:1/3;align-self:center;padding-left:12px!important}
+      .mobile-label:before{content:attr(data-label);display:block;font-size:11px;color:#8b92a0;font-weight:700;margin-bottom:2px}
+      tfoot tr{display:grid;grid-template-columns:1fr auto;background:#2f2160;border-radius:14px;padding:13px} tfoot td{background:transparent;padding:2px!important;border-radius:0!important} tfoot td:last-child{font-size:24px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="nav">
+        <button class="btn btn-light" onclick="history.back()">← ย้อนกลับ</button>
+        <a class="btn btn-light" href="/">⌂ กลับสู่เมนูหลัก</a>
+      </div>
+      <div class="muted">Divergent Corporation จำกัด</div>
+    </div>
+
+    <section class="hero">
+      <h1>การไฟฟ้าส่วนภูมิภาค สาขาปราสาท</h1>
+      <div class="sub">แผนการจดหน่วย (M) · 15–24 มิถุนายน 2569</div>
+      <div class="summary">
+        <div class="stat"><div class="stat-label">จำนวนวันจดหน่วย</div><div class="stat-value">10</div><div class="stat-unit">วัน</div></div>
+        <div class="stat"><div class="stat-label">ยอดรวมตามแผน</div><div class="stat-value">45,570</div><div class="stat-unit">ราย</div></div>
+        <div class="stat"><div class="stat-label">เฉลี่ยต่อวัน</div><div class="stat-value">4,557</div><div class="stat-unit">ราย / วัน</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><h2>ตารางแผนจดหน่วย</h2><div class="muted">เรียงตามวันที่ปฏิบัติงานและ Portion</div></div>
+        <span class="status">ข้อมูลจากแผนต้นฉบับ</span>
+      </div>
+
+      <table>
+        <thead><tr><th>วันที่ปฏิบัติงาน</th><th>Portion</th><th>สถานะ</th><th style="text-align:right">จำนวนราย</th></tr></thead>
+        <tbody>
+          <tr><td><div class="date-main">15 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">A1</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">5,079</td></tr>
+          <tr><td><div class="date-main">16 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">A2</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,967</td></tr>
+          <tr><td><div class="date-main">17 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">A3</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,378</td></tr>
+          <tr><td><div class="date-main">18 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">A4</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,344</td></tr>
+          <tr><td><div class="date-main">19 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">B1</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,468</td></tr>
+          <tr><td><div class="date-main">20 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">B2</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,509</td></tr>
+          <tr><td><div class="date-main">21 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">B3</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,366</td></tr>
+          <tr><td><div class="date-main">22 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">B4</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,485</td></tr>
+          <tr><td><div class="date-main">23 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">C1</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,294</td></tr>
+          <tr><td><div class="date-main">24 มิ.ย. 2569</div></td><td class="mobile-label" data-label="Portion"><span class="portion">C2</span></td><td class="desktop-only"><span class="status">ตามแผน</span></td><td class="count">4,680</td></tr>
+        </tbody>
+        <tfoot><tr><td colspan="3">รวมปราสาท (M) · 10 วัน</td><td>45,570 ราย</td></tr></tfoot>
+      </table>
+
+      <div class="note">หมายเหตุ: หน้านี้เป็นหน้าแผนจดหน่วยของ <b>ปราสาท (M)</b> ชุดแรก เมื่อเชื่อมข้อมูลปฏิบัติงานจริงในขั้นต่อไป จะเพิ่มคอลัมน์ <b>ทำแล้ว / คงเหลือ / % ความคืบหน้า</b> ให้เทียบกับจำนวนรายตามแผนได้ทันที</div>
+    </section>
+  </div>
+</body>
+</html>
