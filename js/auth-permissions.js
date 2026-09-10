@@ -213,3 +213,83 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadEmployeeAdvanceModule,{once:true});
   else loadEmployeeAdvanceModule();
 })();
+
+/* Layout stability guard.
+ * Keeps the application at its original content width and prevents the
+ * home 5-column helper from shrinking every workspace after page load.
+ * This is intentionally isolated from authentication/permission logic.
+ */
+(function(){
+  'use strict';
+
+  const STYLE_ID='divergent-layout-stability-v1';
+
+  function installStableCss(){
+    if(document.getElementById(STYLE_ID)) return;
+    const style=document.createElement('style');
+    style.id=STYLE_ID;
+    style.textContent=`
+      body.home-grid5-mode .main-shell .container{
+        max-width:1100px!important;
+        padding-left:20px!important;
+        padding-right:20px!important;
+      }
+      @media (max-width:700px){
+        body.home-grid5-mode .main-shell .container{
+          padding-left:12px!important;
+          padding-right:12px!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function isHomeVisible(){
+    const home=document.getElementById('homeWorkspace');
+    if(!home) return false;
+    const cs=window.getComputedStyle(home);
+    return cs.display!=='none' && cs.visibility!=='hidden' && !home.hidden;
+  }
+
+  function syncHomeScope(){
+    if(!document.body) return;
+    const shouldUseHomeGrid=isHomeVisible();
+    if(shouldUseHomeGrid){
+      document.body.classList.add('home-grid5-mode');
+    }else{
+      document.body.classList.remove('home-grid5-mode');
+    }
+  }
+
+  function boot(){
+    installStableCss();
+    syncHomeScope();
+
+    const home=document.getElementById('homeWorkspace');
+    if(home){
+      new MutationObserver(syncHomeScope).observe(home,{
+        attributes:true,
+        attributeFilter:['style','class','hidden']
+      });
+    }
+
+    new MutationObserver(function(){
+      if(!isHomeVisible() && document.body.classList.contains('home-grid5-mode')){
+        document.body.classList.remove('home-grid5-mode');
+      }
+    }).observe(document.body,{attributes:true,attributeFilter:['class']});
+
+    window.addEventListener('hashchange',syncHomeScope);
+    window.addEventListener('popstate',syncHomeScope);
+    window.addEventListener('divergent:permissions',function(){setTimeout(syncHomeScope,0);});
+    setTimeout(syncHomeScope,0);
+    setTimeout(syncHomeScope,800);
+    setTimeout(syncHomeScope,2000);
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',boot,{once:true});
+  }else{
+    boot();
+  }
+})();
