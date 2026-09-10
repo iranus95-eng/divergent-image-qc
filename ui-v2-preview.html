@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Divergent Image Rescue — UI V2</title>
-<link rel="stylesheet" href="ui-v2.css?v=20260910-2">
+<link rel="stylesheet" href="ui-v2.css?v=20260910-3">
 </head>
 <body>
 <div class="app">
@@ -32,7 +32,7 @@
   <div class="toolbar"><button id="btnBack">← ย้อนกลับ</button><button id="btnHome">⌂ กลับสู่เมนูหลัก</button></div>
 
   <section class="workspace active" data-workspace="home" data-title="Divergent Corporation">
-    <div class="hero"><h1>ยินดีต้อนรับเข้าสู่ Divergent Image Rescue</h1><p>UI V2 ใช้ CSS และ Navigation ชุดเดียว และเริ่มเชื่อมสิทธิ์ผู้ใช้จริงจาก backend เดิมแล้ว</p></div>
+    <div class="hero"><h1>ยินดีต้อนรับเข้าสู่ Divergent Image Rescue</h1><p>UI V2 ใช้ CSS และ Navigation ชุดเดียว และเชื่อม Login / Session / สิทธิ์กับ backend เดิม</p></div>
     <div class="grid">
       <div class="card" data-open="claim"><div class="icon">▣</div><h3>ตั้งเบิกค่าตอบแทน</h3><p>บันทึกและตรวจสอบรายการตั้งเบิก</p></div>
       <div class="card" data-open="payroll"><div class="icon">฿</div><h3>จัดการเงินเดือน</h3><p>ข้อมูลเงินเดือนและรายการที่เกี่ยวข้อง</p></div>
@@ -44,14 +44,14 @@
       <div class="card" data-open="invoice"><div class="icon">▧</div><h3>จัดทำใบตั้งหนี้</h3><p>จัดทำเอกสารใบตั้งหนี้</p></div>
       <div class="card" data-open="billing"><div class="icon">▦</div><h3>จัดทำใบวางบิล</h3><p>จัดทำเอกสารใบวางบิล</p></div>
     </div>
-    <div class="note">ขั้นนี้เชื่อมเฉพาะ Session และสิทธิ์เมนูจริง โดยยังไม่แตะ index.html เว็บเดิม เมนูที่ผู้ใช้ไม่มีสิทธิ์จะถูกซ่อนอัตโนมัติเมื่อระบบยืนยันสิทธิ์สำเร็จ</div>
+    <div class="note">V2 ใช้ Session key และ API Login เดียวกับเว็บเดิมแล้ว เมนูจะถูกแสดงตามสิทธิ์จริงหลังเข้าสู่ระบบสำเร็จ โดยยังไม่แตะ index.html เว็บเดิม</div>
   </section>
 
   <section class="workspace" data-workspace="claim" data-title="ตั้งเบิกค่าตอบแทน"><div class="panel"><h2>ตั้งเบิกค่าตอบแทน</h2><span class="status">รอย้ายโมดูลจริง</span><p>Backend เดิมจะถูกคงไว้ และย้ายเฉพาะหน้าจอเข้ามาทีละส่วน</p></div></section>
   <section class="workspace" data-workspace="payroll" data-title="จัดการเงินเดือน"><div class="panel"><h2>จัดการเงินเดือน</h2><span class="status">รอย้ายโมดูลจริง</span><p>แยก UI ออกจากระบบคำนวณเดิม เพื่อไม่ให้ CSS ของหน้าอื่นกระทบกัน</p></div></section>
   <section class="workspace" data-workspace="advance" data-title="พนักงานเบิกเงินล่วงหน้า"><div class="panel"><h2>พนักงานเบิกเงินล่วงหน้า</h2><span class="status">รอย้ายโมดูลจริง</span><p>จะย้ายรายการ อนุมัติ และยอดรวมเข้ามาหลัง QC</p></div></section>
   <section class="workspace" data-workspace="expenses" data-title="ค่าใช้จ่าย"><div class="panel"><h2>ค่าใช้จ่าย</h2><span class="status">รอย้ายโมดูลจริง</span><p>พื้นที่สำหรับโมดูลค่าใช้จ่ายบนโครงใหม่</p></div></section>
-  <section class="workspace" data-workspace="qc" data-title="ตรวจสอบงาน"><div class="panel"><h2>ตรวจสอบงาน</h2><span class="status">ขั้นถัดไป: ย้ายข้อมูลจริง</span><p>สิทธิ์เมนู QC เชื่อมกับ backend จริงแล้ว ขั้นต่อไปจะย้ายรายการภาพ พิกัด และสถานะงานเข้าหน้านี้โดยตรง</p></div></section>
+  <section class="workspace" data-workspace="qc" data-title="ตรวจสอบงาน"><div class="panel"><h2>ตรวจสอบงาน</h2><span class="status">ขั้นถัดไป: ย้ายข้อมูลจริง</span><p>หลัง Login/Session ผ่าน จะย้ายรายการภาพ พิกัด และสถานะงานเข้าหน้านี้โดยตรง</p></div></section>
   <section class="workspace" data-workspace="search" data-title="ค้นหาข้อมูล"><div class="panel"><h2>ค้นหาข้อมูล</h2><span class="status">รอย้ายโมดูลจริง</span><p>พื้นที่สำหรับระบบค้นหาโดยไม่ใช้ CSS เดิมของหน้า index</p></div></section>
   <section class="workspace" data-workspace="users" data-title="จัดการผู้ใช้งาน"><div class="panel"><h2>จัดการผู้ใช้งาน</h2><span class="status">รอย้ายโมดูลจริง</span><p>สิทธิ์และผู้ใช้จะคง backend เดิม แต่ย้ายเฉพาะหน้าจอ</p></div></section>
   <section class="workspace" data-workspace="invoice" data-title="จัดทำใบตั้งหนี้"><div class="panel"><h2>จัดทำใบตั้งหนี้</h2><span class="status">รอย้ายโมดูลจริง</span><p>เอกสารจะใช้ stylesheet เฉพาะใบตั้งหนี้ ไม่ให้ฟอนต์ไปกระทบทั้งเว็บ</p></div></section>
@@ -59,7 +59,7 @@
 </section>
 </main>
 </div>
-<script src="js/ui-v2-auth.js?v=20260910-1"></script>
-<script src="js/ui-v2-shell.js?v=20260910-2"></script>
+<script src="js/ui-v2-auth.js?v=20260910-3"></script>
+<script src="js/ui-v2-shell.js?v=20260910-3"></script>
 </body>
 </html>
