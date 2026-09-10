@@ -214,31 +214,58 @@
   else loadEmployeeAdvanceModule();
 })();
 
-/* Layout stability guard.
- * Keeps the application at its original content width and prevents the
- * home 5-column helper from shrinking every workspace after page load.
- * This is intentionally isolated from authentication/permission logic.
+/* UI shell v2: wide responsive desktop layout + safe in-app navigation.
+ * Authentication and permission logic above is intentionally unchanged.
  */
 (function(){
   'use strict';
 
-  const STYLE_ID='divergent-layout-stability-v1';
+  const STYLE_ID='divergent-ui-shell-v2';
+  const NAV_ID='divergentPageNavV2';
+  const navStack=['navHome'];
+  let replaying=false;
 
-  function installStableCss(){
+  function installCss(){
+    const old=document.getElementById('divergent-layout-stability-v1');
+    if(old) old.remove();
     if(document.getElementById(STYLE_ID)) return;
     const style=document.createElement('style');
     style.id=STYLE_ID;
     style.textContent=`
+      .main-shell .container,
       body.home-grid5-mode .main-shell .container{
-        max-width:1100px!important;
-        padding-left:20px!important;
-        padding-right:20px!important;
+        width:min(1500px,calc(100vw - 48px))!important;
+        max-width:1500px!important;
+        margin-left:auto!important;
+        margin-right:auto!important;
+        padding-left:24px!important;
+        padding-right:24px!important;
+        transform:none!important;
+        zoom:1!important;
       }
-      @media (max-width:700px){
+      #${NAV_ID}{
+        position:fixed;left:18px;top:92px;z-index:11050;
+        display:flex;gap:8px;align-items:center;
+        padding:7px;background:rgba(255,255,255,.94);
+        border:1px solid #e2d7f2;border-radius:13px;
+        box-shadow:0 7px 22px rgba(49,24,82,.13);
+        backdrop-filter:blur(6px);
+      }
+      #${NAV_ID} button{
+        border:1px solid #d9c9ed;background:#fff;color:#4c237b;
+        border-radius:9px;padding:9px 12px;font-size:14px;
+        font-weight:800;line-height:1;cursor:pointer;white-space:nowrap;
+        box-shadow:none;
+      }
+      #${NAV_ID} button:hover{background:#f5effd;border-color:#bfa3e5}
+      @media(max-width:700px){
+        .main-shell .container,
         body.home-grid5-mode .main-shell .container{
-          padding-left:12px!important;
-          padding-right:12px!important;
+          width:100%!important;max-width:none!important;
+          padding-left:12px!important;padding-right:12px!important;
         }
+        #${NAV_ID}{left:8px;right:8px;top:auto;bottom:10px;justify-content:center}
+        #${NAV_ID} button{flex:1;padding:11px 8px}
       }
     `;
     document.head.appendChild(style);
@@ -247,32 +274,81 @@
   function isHomeVisible(){
     const home=document.getElementById('homeWorkspace');
     if(!home) return false;
-    const cs=window.getComputedStyle(home);
+    const cs=getComputedStyle(home);
     return cs.display!=='none' && cs.visibility!=='hidden' && !home.hidden;
   }
 
   function syncHomeScope(){
     if(!document.body) return;
-    const shouldUseHomeGrid=isHomeVisible();
-    if(shouldUseHomeGrid){
-      document.body.classList.add('home-grid5-mode');
-    }else{
-      document.body.classList.remove('home-grid5-mode');
+    document.body.classList.toggle('home-grid5-mode',isHomeVisible());
+  }
+
+  function triggerNav(id){
+    const el=document.getElementById(id);
+    if(!el) return false;
+    const cs=getComputedStyle(el);
+    if(cs.display==='none' || cs.visibility==='hidden') return false;
+    replaying=true;
+    try{el.click();}finally{setTimeout(function(){replaying=false;syncHomeScope();},0);}
+    return true;
+  }
+
+  function goHome(){
+    navStack.length=1;
+    navStack[0]='navHome';
+    if(triggerNav('navHome')) return;
+    if(typeof window.showHome==='function'){
+      try{window.showHome();syncHomeScope();return;}catch(_){}
     }
+    const candidate=document.querySelector('.nav-item[data-page="home"],[data-workspace="home"]');
+    if(candidate){candidate.click();return;}
+    location.replace(location.origin+location.pathname);
+  }
+
+  function goBack(){
+    if(navStack.length>1){
+      navStack.pop();
+      const previous=navStack[navStack.length-1];
+      if(previous && triggerNav(previous)) return;
+    }
+    goHome();
+  }
+
+  function installNav(){
+    if(document.getElementById(NAV_ID)) return;
+    const box=document.createElement('div');
+    box.id=NAV_ID;
+    box.setAttribute('aria-label','การนำทางภายในระบบ');
+    box.innerHTML='<button type="button" data-dv-back>← ย้อนกลับ</button><button type="button" data-dv-home>⌂ กลับสู่เมนูหลัก</button>';
+    box.querySelector('[data-dv-back]').addEventListener('click',goBack);
+    box.querySelector('[data-dv-home]').addEventListener('click',goHome);
+    document.body.appendChild(box);
+  }
+
+  function trackNavigation(event){
+    if(replaying) return;
+    const nav=event.target && event.target.closest ? event.target.closest('.nav-item[id]') : null;
+    if(!nav || !nav.id || nav.closest('#'+NAV_ID)) return;
+    if(nav.id==='navHome'){
+      navStack.length=1;
+      navStack[0]='navHome';
+    }else if(navStack[navStack.length-1]!==nav.id){
+      navStack.push(nav.id);
+      if(navStack.length>20) navStack.splice(1,navStack.length-20);
+    }
+    setTimeout(syncHomeScope,0);
   }
 
   function boot(){
-    installStableCss();
+    installCss();
+    installNav();
     syncHomeScope();
+    document.addEventListener('click',trackNavigation,true);
 
     const home=document.getElementById('homeWorkspace');
     if(home){
-      new MutationObserver(syncHomeScope).observe(home,{
-        attributes:true,
-        attributeFilter:['style','class','hidden']
-      });
+      new MutationObserver(syncHomeScope).observe(home,{attributes:true,attributeFilter:['style','class','hidden']});
     }
-
     new MutationObserver(function(){
       if(!isHomeVisible() && document.body.classList.contains('home-grid5-mode')){
         document.body.classList.remove('home-grid5-mode');
@@ -282,14 +358,11 @@
     window.addEventListener('hashchange',syncHomeScope);
     window.addEventListener('popstate',syncHomeScope);
     window.addEventListener('divergent:permissions',function(){setTimeout(syncHomeScope,0);});
-    setTimeout(syncHomeScope,0);
-    setTimeout(syncHomeScope,800);
-    setTimeout(syncHomeScope,2000);
+    setTimeout(syncHomeScope,100);
+    setTimeout(syncHomeScope,900);
+    setTimeout(syncHomeScope,2100);
   }
 
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',boot,{once:true});
-  }else{
-    boot();
-  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
 })();
