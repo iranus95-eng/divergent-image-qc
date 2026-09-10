@@ -47,8 +47,16 @@ function mount(){
     <div class="claimv2-tablewrap"><table class="claimv2-table"><thead><tr>
       <th>ลำดับ</th><th>การไฟฟ้า / ไซด์งาน</th><th>ผู้ติดต่อ</th><th>จำนวนราย</th><th>ทำจริง</th><th>เรต</th><th>ยอดตั้งเบิก</th><th>ค่าปรับ</th><th>ยอดรับจริง</th><th>วันที่รับเงิน</th>
     </tr></thead><tbody id="claimv2Body"><tr><td colspan="10">กำลังโหลด...</td></tr></tbody></table></div>
+
+    <section class="claimv2-outstanding">
+      <div class="claimv2-outstanding-head">
+        <div><h3>ยอดค้างแยกตามไซด์งาน</h3><p>แสดงเฉพาะไซด์งานที่ยังมียอดค้าง โดยแยกตามเดือน</p></div>
+        <div class="claimv2-outstanding-total"><span>ยอดค้างรวมทุกไซด์</span><b id="claimv2OutstandingGrand">0.00</b></div>
+      </div>
+      <div id="claimv2OutstandingGroups" class="claimv2-outstanding-groups"><div class="claimv2-empty">กำลังคำนวณยอดค้าง...</div></div>
+    </section>
   </div>`;
-  el('claimv2Reload').addEventListener('click',init);
+  el('claimv2Reload').addEventListener('click',()=>{sourceData=null;init()});
   el('claimv2Month').addEventListener('change',e=>{currentMonth=e.target.value;render()});
   el('claimv2Search').addEventListener('input',e=>{searchTerm=String(e.target.value||'').trim().toLowerCase();renderTable()});
   init();
@@ -64,9 +72,11 @@ async function init(){
     el('claimv2Month').innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===currentMonth?'selected':''}>${esc(data[k].label||k)}</option>`).join('');
     el('claimv2State').textContent='เชื่อมข้อมูลระบบเดิมแล้ว ✓';
     render();
+    renderOutstanding();
   }catch(e){
     el('claimv2State').textContent='โหลดข้อมูลไม่สำเร็จ';
     el('claimv2Body').innerHTML='<tr><td colspan="10" class="claimv2-error">'+esc(e.message||e)+'</td></tr>';
+    if(el('claimv2OutstandingGroups'))el('claimv2OutstandingGroups').innerHTML='<div class="claimv2-empty">'+esc(e.message||e)+'</div>';
   }
 }
 
@@ -96,6 +106,48 @@ function renderTable(){
     <td class="num">${num(r.bill_count)}</td><td class="num">${num(r.actual_count)}</td><td class="num">${money(r.rate)}</td>
     <td class="num">${money(r.claim_amount)}</td><td class="num">${money(r.penalty_raw)}</td><td class="num">${money(r.received)}</td><td>${esc(r.received_date||'-')}</td>
   </tr>`).join('');
+}
+
+function outstandingAmount(r){
+  const claim=Number(r.claim_amount||0);
+  const penalty=Number(r.penalty_raw||0);
+  const received=Number(r.received||0);
+  return Math.max(0,claim-penalty-received);
+}
+function buildOutstandingGroups(){
+  const groups=new Map();
+  if(!sourceData)return groups;
+  MONTH_ORDER.forEach(monthKey=>{
+    const month=sourceData[monthKey];
+    if(!month||!Array.isArray(month.records))return;
+    month.records.forEach(r=>{
+      const outstanding=outstandingAmount(r);
+      if(outstanding<=0.005)return;
+      const branch=String(r.branch||'ไม่ระบุไซด์งาน').trim();
+      const key=branch.toLowerCase();
+      if(!groups.has(key))groups.set(key,{branch,rows:[],total:0});
+      const g=groups.get(key);
+      g.rows.push({monthKey,monthLabel:month.label||monthKey,claim:Number(r.claim_amount||0),penalty:Number(r.penalty_raw||0),received:Number(r.received||0),outstanding});
+      g.total+=outstanding;
+    });
+  });
+  return groups;
+}
+function renderOutstanding(){
+  const host=el('claimv2OutstandingGroups');
+  if(!host)return;
+  const groups=[...buildOutstandingGroups().values()].sort((a,b)=>a.branch.localeCompare(b.branch,'th'));
+  const grand=groups.reduce((s,g)=>s+g.total,0);
+  el('claimv2OutstandingGrand').textContent=money(grand);
+  if(!groups.length){host.innerHTML='<div class="claimv2-empty">ไม่พบไซด์งานที่มียอดค้าง</div>';return}
+  host.innerHTML=groups.map(g=>`<article class="claimv2-outstanding-card">
+    <div class="claimv2-outstanding-title"><h4>${esc(g.branch)}</h4><span>ค้าง ${num(g.rows.length)} เดือน</span></div>
+    <div class="claimv2-outstanding-tablewrap"><table class="claimv2-outstanding-table">
+      <thead><tr><th>เดือน</th><th>ยอดตั้งเบิก</th><th>ค่าปรับ</th><th>รับแล้ว</th><th>ยอดค้าง</th></tr></thead>
+      <tbody>${g.rows.map(r=>`<tr><td>${esc(r.monthLabel)}</td><td class="num">${money(r.claim)}</td><td class="num">${money(r.penalty)}</td><td class="num">${money(r.received)}</td><td class="num claimv2-due">${money(r.outstanding)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="4">รวมยอดค้าง ${esc(g.branch)}</td><td class="num">${money(g.total)}</td></tr></tfoot>
+    </table></div>
+  </article>`).join('');
 }
 function boot(){mount();window.addEventListener('divergent:v2-auth',mount)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
