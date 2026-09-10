@@ -6,149 +6,36 @@ const el=id=>document.getElementById(id);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=v=>Number(v||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
 const num=v=>Number(v||0).toLocaleString('en-US',{maximumFractionDigits:0});
+const csvCell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
 
 async function loadLegacyData(){
   if(sourceData)return sourceData;
-  const r=await fetch('/index.html',{cache:'no-store'});
-  if(!r.ok)throw new Error('อ่านข้อมูลตั้งเบิกเดิมไม่สำเร็จ HTTP '+r.status);
-  const text=await r.text();
-  const marker='const CLAIM_SOURCE_DATA=';
-  const start=text.indexOf(marker);
-  if(start<0)throw new Error('ไม่พบข้อมูล CLAIM_SOURCE_DATA ในระบบเดิม');
+  const r=await fetch('/index.html',{cache:'no-store'});if(!r.ok)throw new Error('อ่านข้อมูลตั้งเบิกเดิมไม่สำเร็จ HTTP '+r.status);
+  const text=await r.text(),marker='const CLAIM_SOURCE_DATA=',start=text.indexOf(marker);if(start<0)throw new Error('ไม่พบข้อมูล CLAIM_SOURCE_DATA ในระบบเดิม');
   let i=start+marker.length,depth=0,inStr=false,quote='',escNext=false,end=-1;
-  for(;i<text.length;i++){
-    const ch=text[i];
-    if(inStr){if(escNext){escNext=false;continue}if(ch==='\\'){escNext=true;continue}if(ch===quote){inStr=false;quote=''}continue}
-    if(ch==='"'||ch==="'"){inStr=true;quote=ch;continue}
-    if(ch==='{')depth++;else if(ch==='}'){depth--;if(depth===0){end=i+1;break}}
-  }
+  for(;i<text.length;i++){const ch=text[i];if(inStr){if(escNext){escNext=false;continue}if(ch==='\\'){escNext=true;continue}if(ch===quote){inStr=false;quote=''}continue}if(ch==='"'||ch==="'"){inStr=true;quote=ch;continue}if(ch==='{')depth++;else if(ch==='}'){depth--;if(depth===0){end=i+1;break}}}
   if(end<0)throw new Error('โครงสร้างข้อมูลตั้งเบิกเดิมไม่สมบูรณ์');
-  const raw=text.slice(start+marker.length,end);
-  try{sourceData=JSON.parse(raw)}catch(e){throw new Error('แปลงข้อมูลตั้งเบิกเดิมไม่สำเร็จ')}
-  return sourceData;
+  try{sourceData=JSON.parse(text.slice(start+marker.length,end))}catch(e){throw new Error('แปลงข้อมูลตั้งเบิกเดิมไม่สำเร็จ')}return sourceData;
 }
-
+function outstandingAmount(r){return Math.max(0,Number(r.claim_amount||0)-Number(r.penalty_raw||0)-Number(r.received||0))}
 function mount(){
-  const ws=document.querySelector('.workspace[data-workspace="claim"]');
-  if(!ws||ws.dataset.claimV2Mounted==='1')return;
-  ws.dataset.claimV2Mounted='1';
+  const ws=document.querySelector('.workspace[data-workspace="claim"]');if(!ws||ws.dataset.claimV2Mounted==='1')return;ws.dataset.claimV2Mounted='1';
   ws.innerHTML=`<div class="claimv2">
-    <div class="claimv2-head"><div><h2>ตั้งเบิกค่าตอบแทน</h2><div id="claimv2State" class="claimv2-state">กำลังอ่านข้อมูลจากระบบเดิม...</div></div>
-      <div class="claimv2-controls"><label>เดือน<select id="claimv2Month"></select></label><button id="claimv2Reload" type="button">รีเฟรช</button></div>
-    </div>
-    <div class="claimv2-kpis">
-      <div><span>จำนวนไซด์งาน</span><b id="claimv2Sites">0</b></div>
-      <div><span>จำนวนรายตั้งเบิก</span><b id="claimv2Bills">0</b></div>
-      <div><span>ยอดตั้งเบิก</span><b id="claimv2Claim">0.00</b></div>
-      <div><span>ยอดรับจริง</span><b id="claimv2Received">0.00</b></div>
-      <div><span>ค่าปรับ</span><b id="claimv2Penalty">0.00</b></div>
-    </div>
-    <div class="claimv2-tools"><input id="claimv2Search" type="search" placeholder="ค้นหาไซด์งาน / ผู้ติดต่อ"><span id="claimv2Count"></span></div>
-    <div class="claimv2-tablewrap"><table class="claimv2-table"><thead><tr>
-      <th>ลำดับ</th><th>การไฟฟ้า / ไซด์งาน</th><th>ผู้ติดต่อ</th><th>จำนวนราย</th><th>ทำจริง</th><th>เรต</th><th>ยอดตั้งเบิก</th><th>ค่าปรับ</th><th>ยอดรับจริง</th><th>วันที่รับเงิน</th>
-    </tr></thead><tbody id="claimv2Body"><tr><td colspan="10">กำลังโหลด...</td></tr></tbody></table></div>
-
-    <section class="claimv2-outstanding">
-      <div class="claimv2-outstanding-head">
-        <div><h3>ยอดค้างแยกตามไซด์งาน</h3><p>แสดงเดือนที่ยังค้าง พร้อมจำนวนรายและยอดค้าง</p></div>
-        <div class="claimv2-outstanding-total"><span>ยอดค้างรวมทุกไซด์</span><b id="claimv2OutstandingGrand">0.00</b></div>
-      </div>
-      <div id="claimv2OutstandingGroups" class="claimv2-outstanding-groups"><div class="claimv2-empty">กำลังคำนวณยอดค้าง...</div></div>
-    </section>
+    <div class="claimv2-head"><div><h2>ตั้งเบิกค่าตอบแทน</h2><div id="claimv2State" class="claimv2-state">ตรวจสอบและติดตามการตั้งเบิกค่าตอบแทนรายเดือน</div></div></div>
+    <div class="claimv2-commandbar"><label>เลือกเดือน<select id="claimv2Month"></select></label><label class="claimv2-searchlabel">ค้นหาไซด์งาน<input id="claimv2Search" type="search" placeholder="พิมพ์ชื่อไซด์งาน..."></label><button id="claimv2Reload" class="claimv2-btn primary" type="button">↻ คำนวณ/รีเฟรช</button><button id="claimv2Print" class="claimv2-btn success" type="button">▣ พิมพ์รายงาน</button><button id="claimv2Export" class="claimv2-btn" type="button">Export Excel</button></div>
+    <div class="claimv2-kpis"><div class="blue"><span>จำนวนไซด์งาน</span><b id="claimv2Sites">0</b><small>ไซด์</small></div><div class="green"><span>จำนวนรายรวม</span><b id="claimv2Bills">0</b><small>ราย</small></div><div class="amber"><span>ยอดตั้งเบิกรวม</span><b id="claimv2Claim">0.00</b><small>บาท</small></div><div class="red"><span>ยอดรับแล้ว</span><b id="claimv2Received">0.00</b><small>บาท</small></div><div class="purple"><span>ยอดค้างรวม</span><b id="claimv2Outstanding">0.00</b><small>บาท</small></div></div>
+    <div class="claimv2-tablewrap"><table class="claimv2-table"><thead><tr><th>ลำดับ</th><th>ไซด์งาน</th><th>เดือน</th><th>จำนวนราย</th><th>ทำจริง</th><th>เรต (บาท)</th><th>ยอดตั้งเบิก</th><th>ค่าปรับ</th><th>ยอดรับจริง</th><th>ยอดค้าง</th><th>วันที่รับเงิน</th><th>สถานะ</th></tr></thead><tbody id="claimv2Body"><tr><td colspan="12">กำลังโหลด...</td></tr></tbody></table></div>
+    <div id="claimv2Count" class="claimv2-count"></div>
+    <section class="claimv2-outstanding"><div class="claimv2-outstanding-head"><div><h3>ยอดค้างแยกตามไซด์งาน</h3><p>แสดงยอดค้างรายเดือนของแต่ละไซด์งาน (เฉพาะรายการที่มียอดค้าง)</p></div></div><div id="claimv2OutstandingGroups" class="claimv2-outstanding-groups"></div><div class="claimv2-grand"><span>∑ รวมยอดค้างทั้งหมด</span><b id="claimv2OutstandingGrand">0.00 บาท</b></div></section>
   </div>`;
-  el('claimv2Reload').addEventListener('click',()=>{sourceData=null;init()});
-  el('claimv2Month').addEventListener('change',e=>{currentMonth=e.target.value;render()});
-  el('claimv2Search').addEventListener('input',e=>{searchTerm=String(e.target.value||'').trim().toLowerCase();renderTable()});
-  init();
+  el('claimv2Reload').addEventListener('click',()=>{sourceData=null;init()});el('claimv2Month').addEventListener('change',e=>{currentMonth=e.target.value;render()});el('claimv2Search').addEventListener('input',e=>{searchTerm=String(e.target.value||'').trim().toLowerCase();renderTable()});el('claimv2Print').addEventListener('click',()=>window.print());el('claimv2Export').addEventListener('click',exportCsv);init();
 }
-
-async function init(){
-  try{
-    el('claimv2State').textContent='กำลังอ่านข้อมูลจากระบบเดิม...';
-    const data=await loadLegacyData();
-    const keys=MONTH_ORDER.filter(k=>data[k]);
-    if(!keys.length)throw new Error('ไม่พบข้อมูลรายเดือน');
-    if(!data[currentMonth])currentMonth=keys[keys.length-1];
-    el('claimv2Month').innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===currentMonth?'selected':''}>${esc(data[k].label||k)}</option>`).join('');
-    el('claimv2State').textContent='เชื่อมข้อมูลระบบเดิมแล้ว ✓';
-    render();
-    renderOutstanding();
-  }catch(e){
-    el('claimv2State').textContent='โหลดข้อมูลไม่สำเร็จ';
-    el('claimv2Body').innerHTML='<tr><td colspan="10" class="claimv2-error">'+esc(e.message||e)+'</td></tr>';
-    if(el('claimv2OutstandingGroups'))el('claimv2OutstandingGroups').innerHTML='<div class="claimv2-empty">'+esc(e.message||e)+'</div>';
-  }
-}
-
-function monthRows(){return (sourceData&&sourceData[currentMonth]&&sourceData[currentMonth].records)||[]}
-function render(){
-  const rows=monthRows();
-  const bill=rows.reduce((s,r)=>s+Number(r.bill_count||0),0);
-  const claim=rows.reduce((s,r)=>s+Number(r.claim_amount||0),0);
-  const received=rows.reduce((s,r)=>s+Number(r.received||0),0);
-  const penalty=rows.reduce((s,r)=>s+Number(r.penalty_raw||0),0);
-  el('claimv2Sites').textContent=num(rows.length);
-  el('claimv2Bills').textContent=num(bill);
-  el('claimv2Claim').textContent=money(claim);
-  el('claimv2Received').textContent=money(received);
-  el('claimv2Penalty').textContent=money(penalty);
-  const meta=sourceData&&sourceData[currentMonth];
-  el('claimv2State').textContent=(meta&&meta.period?meta.period:'เชื่อมข้อมูลระบบเดิมแล้ว ✓');
-  renderTable();
-}
-function renderTable(){
-  let rows=monthRows();
-  if(searchTerm)rows=rows.filter(r=>[r.branch,r.contact,r.phone].some(v=>String(v||'').toLowerCase().includes(searchTerm)));
-  el('claimv2Count').textContent='แสดง '+num(rows.length)+' รายการ';
-  if(!rows.length){el('claimv2Body').innerHTML='<tr><td colspan="10">ไม่พบรายการ</td></tr>';return}
-  el('claimv2Body').innerHTML=rows.map((r,i)=>`<tr>
-    <td>${esc(r.seq||i+1)}</td><td class="claimv2-branch">${esc(r.branch||'-')}</td><td>${esc(r.contact||'-')}${r.phone?'<small>'+esc(r.phone)+'</small>':''}</td>
-    <td class="num">${num(r.bill_count)}</td><td class="num">${num(r.actual_count)}</td><td class="num">${money(r.rate)}</td>
-    <td class="num">${money(r.claim_amount)}</td><td class="num">${money(r.penalty_raw)}</td><td class="num">${money(r.received)}</td><td>${esc(r.received_date||'-')}</td>
-  </tr>`).join('');
-}
-
-function outstandingAmount(r){
-  const claim=Number(r.claim_amount||0);
-  const penalty=Number(r.penalty_raw||0);
-  const received=Number(r.received||0);
-  return Math.max(0,claim-penalty-received);
-}
-function buildOutstandingGroups(){
-  const groups=new Map();
-  if(!sourceData)return groups;
-  MONTH_ORDER.forEach(monthKey=>{
-    const month=sourceData[monthKey];
-    if(!month||!Array.isArray(month.records))return;
-    month.records.forEach(r=>{
-      const outstanding=outstandingAmount(r);
-      if(outstanding<=0.005)return;
-      const branch=String(r.branch||'ไม่ระบุไซด์งาน').trim();
-      const key=branch.toLowerCase();
-      if(!groups.has(key))groups.set(key,{branch,rows:[],total:0});
-      const g=groups.get(key);
-      g.rows.push({monthKey,monthLabel:month.label||monthKey,billCount:Number(r.bill_count||0),outstanding});
-      g.total+=outstanding;
-    });
-  });
-  return groups;
-}
-function renderOutstanding(){
-  const host=el('claimv2OutstandingGroups');
-  if(!host)return;
-  const groups=[...buildOutstandingGroups().values()].sort((a,b)=>a.branch.localeCompare(b.branch,'th'));
-  const grand=groups.reduce((s,g)=>s+g.total,0);
-  el('claimv2OutstandingGrand').textContent=money(grand);
-  if(!groups.length){host.innerHTML='<div class="claimv2-empty">ไม่พบไซด์งานที่มียอดค้าง</div>';return}
-  host.innerHTML=groups.map(g=>`<article class="claimv2-outstanding-card">
-    <div class="claimv2-outstanding-title"><h4>${esc(g.branch)}</h4></div>
-    <div class="claimv2-outstanding-tablewrap"><table class="claimv2-outstanding-table">
-      <thead><tr><th>เดือน</th><th>จำนวนราย</th><th>ยอดค้าง</th></tr></thead>
-      <tbody>${g.rows.map(r=>`<tr><td>${esc(r.monthLabel)}</td><td class="num">${num(r.billCount)}</td><td class="num claimv2-due">${money(r.outstanding)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="2">รวม</td><td class="num">${money(g.total)}</td></tr></tfoot>
-    </table></div>
-  </article>`).join('');
-}
-function boot(){mount();window.addEventListener('divergent:v2-auth',mount)}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+async function init(){try{el('claimv2State').textContent='กำลังอ่านข้อมูล...';const data=await loadLegacyData(),keys=MONTH_ORDER.filter(k=>data[k]);if(!keys.length)throw new Error('ไม่พบข้อมูลรายเดือน');if(!data[currentMonth])currentMonth=keys[keys.length-1];el('claimv2Month').innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===currentMonth?'selected':''}>${esc(data[k].label||k)}</option>`).join('');render();renderOutstanding()}catch(e){el('claimv2State').textContent='โหลดข้อมูลไม่สำเร็จ';el('claimv2Body').innerHTML='<tr><td colspan="12" class="claimv2-error">'+esc(e.message||e)+'</td></tr>'}}
+function monthRows(){return(sourceData&&sourceData[currentMonth]&&sourceData[currentMonth].records)||[]}
+function render(){const rows=monthRows(),bill=rows.reduce((s,r)=>s+Number(r.bill_count||0),0),claim=rows.reduce((s,r)=>s+Number(r.claim_amount||0),0),received=rows.reduce((s,r)=>s+Number(r.received||0),0),due=rows.reduce((s,r)=>s+outstandingAmount(r),0);el('claimv2Sites').textContent=num(rows.length);el('claimv2Bills').textContent=num(bill);el('claimv2Claim').textContent=money(claim);el('claimv2Received').textContent=money(received);el('claimv2Outstanding').textContent=money(due);const meta=sourceData&&sourceData[currentMonth];el('claimv2State').textContent=(meta&&meta.period?meta.period:'เชื่อมข้อมูลระบบเดิมแล้ว ✓');renderTable()}
+function renderTable(){let rows=monthRows();if(searchTerm)rows=rows.filter(r=>[r.branch,r.contact,r.phone].some(v=>String(v||'').toLowerCase().includes(searchTerm)));el('claimv2Count').textContent='แสดง '+num(rows.length)+' รายการ';if(!rows.length){el('claimv2Body').innerHTML='<tr><td colspan="12">ไม่พบรายการ</td></tr>';return}const monthLabel=(sourceData[currentMonth]&&sourceData[currentMonth].label)||currentMonth;el('claimv2Body').innerHTML=rows.map((r,i)=>{const due=outstandingAmount(r),complete=due<=.005;return`<tr><td>${esc(r.seq||i+1)}</td><td class="claimv2-branch">${esc(r.branch||'-')}</td><td>${esc(monthLabel)}</td><td class="num">${num(r.bill_count)}</td><td class="num">${num(r.actual_count)}</td><td class="num">${money(r.rate)}</td><td class="num">${money(r.claim_amount)}</td><td class="num">${money(r.penalty_raw)}</td><td class="num">${money(r.received)}</td><td class="num ${complete?'':'claimv2-due'}">${money(due)}</td><td>${esc(r.received_date||'-')}</td><td><span class="claimv2-status ${complete?'complete':'pending'}">${complete?'ครบ':'ค้าง'}</span></td></tr>`}).join('')}
+function buildOutstandingGroups(){const groups=new Map();if(!sourceData)return groups;MONTH_ORDER.forEach(monthKey=>{const month=sourceData[monthKey];if(!month||!Array.isArray(month.records))return;month.records.forEach(r=>{const outstanding=outstandingAmount(r);if(outstanding<=.005)return;const branch=String(r.branch||'ไม่ระบุไซด์งาน').trim(),key=branch.toLowerCase();if(!groups.has(key))groups.set(key,{branch,rows:[],total:0,totalBills:0});const g=groups.get(key);g.rows.push({monthKey,monthLabel:month.label||monthKey,billCount:Number(r.bill_count||0),outstanding});g.total+=outstanding;g.totalBills+=Number(r.bill_count||0)})});return groups}
+function renderOutstanding(){const host=el('claimv2OutstandingGroups');if(!host)return;const groups=[...buildOutstandingGroups().values()].sort((a,b)=>a.branch.localeCompare(b.branch,'th')),grand=groups.reduce((s,g)=>s+g.total,0);el('claimv2OutstandingGrand').textContent=money(grand)+' บาท';if(!groups.length){host.innerHTML='<div class="claimv2-empty">ไม่พบไซด์งานที่มียอดค้าง</div>';return}host.innerHTML=groups.map((g,idx)=>`<article class="claimv2-outstanding-card tone${idx%4}"><div class="claimv2-outstanding-title"><h4>${esc(g.branch)}</h4><b>ยอดค้างรวม ${money(g.total)} บาท</b></div><div class="claimv2-outstanding-tablewrap"><table class="claimv2-outstanding-table"><thead><tr><th>เดือน</th><th>จำนวนราย</th><th>ยอดค้าง (บาท)</th></tr></thead><tbody>${g.rows.map(r=>`<tr><td>${esc(r.monthLabel)}</td><td class="num">${num(r.billCount)}</td><td class="num">${money(r.outstanding)}</td></tr>`).join('')}</tbody><tfoot><tr><td>รวม</td><td class="num">${num(g.totalBills)}</td><td class="num">${money(g.total)}</td></tr></tfoot></table></div></article>`).join('')}
+function exportCsv(){let rows=monthRows();const monthLabel=(sourceData&&sourceData[currentMonth]&&sourceData[currentMonth].label)||currentMonth,head=['ลำดับ','ไซด์งาน','เดือน','จำนวนราย','ทำจริง','เรต','ยอดตั้งเบิก','ค่าปรับ','ยอดรับจริง','ยอดค้าง','วันที่รับเงิน','สถานะ'];const lines=[head.map(csvCell).join(',')];rows.forEach((r,i)=>{const due=outstandingAmount(r);lines.push([r.seq||i+1,r.branch||'',monthLabel,r.bill_count||0,r.actual_count||0,r.rate||0,r.claim_amount||0,r.penalty_raw||0,r.received||0,due,r.received_date||'',due<=.005?'ครบ':'ค้าง'].map(csvCell).join(','))});const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='claim-'+currentMonth+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function boot(){mount();window.addEventListener('divergent:v2-auth',mount)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
