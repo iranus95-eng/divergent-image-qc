@@ -5,7 +5,7 @@ let sourceData=null,currentMonth='สค',searchTerm='';
 const el=id=>document.getElementById(id);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=v=>Number(v||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
-const num=v=>Number(v||0).toLocaleString('th-TH');
+const num=v=>Number(v||0).toLocaleString('en-US',{maximumFractionDigits:0});
 
 async function loadLegacyData(){
   if(sourceData)return sourceData;
