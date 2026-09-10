@@ -244,6 +244,48 @@ async function signed(objectPath){
   }catch(_){return''}
 }
 
+async function shareImageToLine(x,c,btn){
+  const oldText=btn?btn.textContent:'';
+  try{
+    if(btn){btn.disabled=true;btn.textContent='กำลังเตรียม LINE...'}
+    const url=await signed(x.objectPath);
+    if(!url)throw new Error('โหลดลิงก์รูปไม่สำเร็จ');
+    const d=c.route&&Number.isFinite(Number(c.route.distance_m))?Number(c.route.distance_m):null;
+    const siteName=currentBatch?(currentBatch.site_name||currentBatch.site_code||'-'):'-';
+    const workDate=currentBatch?fmtDate(currentBatch.raw_date):'-';
+    const batchId=currentBatch&&currentBatch.batch_id?currentBatch.batch_id:'-';
+    const text=[
+      '❌ ตรวจงาน QC: รูปไม่ผ่าน',
+      'Site: '+siteName,
+      'วันที่งาน: '+workDate,
+      'CA: '+(x.ca||'-'),
+      'ไฟล์: '+(x.name||'-'),
+      'ระยะทางถนน: '+(d==null?'-':Math.round(d).toLocaleString()+' เมตร'),
+      'Batch: '+batchId
+    ].join('\n');
+    if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()&&liff.isApiAvailable&&liff.isApiAvailable('shareTargetPicker')){
+      if(btn)btn.textContent='เลือกรายชื่อใน LINE...';
+      await liff.shareTargetPicker([
+        {type:'text',text},
+        {type:'image',originalContentUrl:url,previewImageUrl:url}
+      ],{isMultiple:true});
+      return;
+    }
+    const copyText=text+'\nรูป: '+url;
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(copyText);
+      alert('อุปกรณ์นี้ยังเปิดหน้ารายชื่อ LINE ไม่ได้ ระบบคัดลอกข้อมูลและลิงก์รูปให้แล้ว');
+      return;
+    }
+    throw new Error('กรุณาเปิดผ่าน LINE/LIFF และเข้าสู่ระบบ LINE ก่อน');
+  }catch(e){
+    if(String(e&&e.name||'')==='AbortError')return;
+    alert('แจ้งทาง LINE ไม่สำเร็จ: '+(e&&e.message?e.message:e));
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=oldText||'❌ ยืนยันรูปไม่ผ่าน · ส่งเข้า LINE'}
+  }
+}
+
 function coordMap(){
   const m={};
   for(const x of (detailData&&detailData.coordinates||[]))m[String(x.ca||'')]=x;
@@ -328,13 +370,16 @@ async function openImageDetail(x,c,index,total){
         <p><b>ระยะทางถนน:</b> ${d==null?'-':Math.round(d).toLocaleString()+' เมตร'}</p>
         <div class="qcv2-coord"><strong>พิกัดใบแจ้งเตือน</strong><span>${fmtCoord(n.actual_latitude)}, ${fmtCoord(n.actual_longitude)}</span>${n.actual_latitude!=null&&n.actual_longitude!=null?`<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${encodeURIComponent(n.actual_latitude+','+n.actual_longitude)}">เปิดแผนที่</a>`:''}</div>
         <div class="qcv2-coord"><strong>พิกัดมิเตอร์</strong><span>${fmtCoord(m.latitude)}, ${fmtCoord(m.longitude)}</span>${m.latitude!=null&&m.longitude!=null?`<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${encodeURIComponent(m.latitude+','+m.longitude)}">เปิดแผนที่</a>`:''}</div>
+        <button id="qcv2LineShare" type="button" style="width:100%;margin-top:14px;padding:12px 14px;border:0;border-radius:10px;background:#06c755;color:#fff;font-size:15px;font-weight:800;cursor:pointer">❌ ยืนยันรูปไม่ผ่าน · ส่งเข้า LINE</button>
       </div>
     </div>`;
   el('qcv2Modal').classList.add('open');
   const prev=el('qcv2Prev');
   const next=el('qcv2Next');
+  const lineBtn=el('qcv2LineShare');
   if(prev)prev.addEventListener('click',()=>moveModal(-1));
   if(next)next.addEventListener('click',()=>moveModal(1));
+  if(lineBtn)lineBtn.addEventListener('click',()=>shareImageToLine(x,c,lineBtn));
 
   const url=await signed(x.objectPath);
   if(requestId!==modalRequestSeq)return;
