@@ -3,6 +3,7 @@
 
 const API='https://neauzvqroaszvqffahkv.functions.supabase.co/qc-api';
 const BATCH_API='https://neauzvqroaszvqffahkv.functions.supabase.co/qc-batch-data';
+const LIFF_ID='2011407195-ZXPgFEKe';
 const SITES=[
   ['PHUTTHAISONG','การไฟฟ้าส่วนภูมิภาคสาขาพุทไธสง'],
   ['NONGSONGHONG','การไฟฟ้าส่วนภูมิภาคสาขาหนองสองห้อง'],
@@ -22,6 +23,7 @@ let imageLimit=30;
 let activeFilter='all';
 let currentModalIndex=-1;
 let modalRequestSeq=0;
+let liffReadyPromise=null;
 const signedUrlCache=new Map();
 
 function token(){
@@ -244,10 +246,34 @@ async function signed(objectPath){
   }catch(_){return''}
 }
 
+async function ensureLineReady(btn){
+  if(!window.liff)throw new Error('LINE SDK ยังไม่พร้อม กรุณารีเฟรชหน้าแล้วลองอีกครั้ง');
+  if(!liffReadyPromise){
+    liffReadyPromise=liff.init({liffId:LIFF_ID,withLoginOnExternalBrowser:true}).catch(e=>{
+      liffReadyPromise=null;
+      throw e;
+    });
+  }
+  await liffReadyPromise;
+  if(!liff.isLoggedIn()){
+    if(btn)btn.textContent='กำลังเข้าสู่ระบบ LINE...';
+    sessionStorage.setItem('qcv2_line_login_return','1');
+    liff.login({redirectUri:location.href});
+    return false;
+  }
+  if(!(liff.isApiAvailable&&liff.isApiAvailable('shareTargetPicker'))){
+    throw new Error('LINE บัญชี/อุปกรณ์นี้ยังไม่รองรับการเปิดรายชื่อผู้รับ');
+  }
+  return true;
+}
+
 async function shareImageToLine(x,c,btn){
   const oldText=btn?btn.textContent:'';
   try{
-    if(btn){btn.disabled=true;btn.textContent='กำลังเตรียม LINE...'}
+    if(btn){btn.disabled=true;btn.textContent='กำลังเชื่อมต่อ LINE...'}
+    const ready=await ensureLineReady(btn);
+    if(!ready)return;
+    if(btn)btn.textContent='กำลังเตรียมรูป...';
     const url=await signed(x.objectPath);
     if(!url)throw new Error('โหลดลิงก์รูปไม่สำเร็จ');
     const d=c.route&&Number.isFinite(Number(c.route.distance_m))?Number(c.route.distance_m):null;
@@ -263,24 +289,15 @@ async function shareImageToLine(x,c,btn){
       'ระยะทางถนน: '+(d==null?'-':Math.round(d).toLocaleString()+' เมตร'),
       'Batch: '+batchId
     ].join('\n');
-    if(window.liff&&liff.isLoggedIn&&liff.isLoggedIn()&&liff.isApiAvailable&&liff.isApiAvailable('shareTargetPicker')){
-      if(btn)btn.textContent='เลือกรายชื่อใน LINE...';
-      await liff.shareTargetPicker([
-        {type:'text',text},
-        {type:'image',originalContentUrl:url,previewImageUrl:url}
-      ],{isMultiple:true});
-      return;
-    }
-    const copyText=text+'\nรูป: '+url;
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      await navigator.clipboard.writeText(copyText);
-      alert('อุปกรณ์นี้ยังเปิดหน้ารายชื่อ LINE ไม่ได้ ระบบคัดลอกข้อมูลและลิงก์รูปให้แล้ว');
-      return;
-    }
-    throw new Error('กรุณาเปิดผ่าน LINE/LIFF และเข้าสู่ระบบ LINE ก่อน');
+    if(btn)btn.textContent='เลือกรายชื่อใน LINE...';
+    await liff.shareTargetPicker([
+      {type:'text',text},
+      {type:'image',originalContentUrl:url,previewImageUrl:url}
+    ],{isMultiple:true});
   }catch(e){
     if(String(e&&e.name||'')==='AbortError')return;
-    alert('แจ้งทาง LINE ไม่สำเร็จ: '+(e&&e.message?e.message:e));
+    const msg=e&&e.message?e.message:String(e||'');
+    alert('แจ้งทาง LINE ไม่สำเร็จ: '+msg);
   }finally{
     if(btn){btn.disabled=false;btn.textContent=oldText||'❌ ยืนยันรูปไม่ผ่าน · ส่งเข้า LINE'}
   }
