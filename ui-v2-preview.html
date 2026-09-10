@@ -3,40 +3,62 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Divergent Image Rescue — UI V2 Preview</title>
-<style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;background:#f6f7fb;color:#202231}body{font-size:16px}.app{min-height:100vh;display:grid;grid-template-columns:260px minmax(0,1fr)}.side{background:linear-gradient(180deg,#35115e,#57258b);color:#fff;padding:24px 18px;position:sticky;top:0;height:100vh}.brand{font-size:21px;font-weight:800;line-height:1.25;margin:4px 8px 28px}.brand small{display:block;font-size:12px;font-weight:500;opacity:.7;margin-top:5px}.nav{display:grid;gap:7px}.nav button{width:100%;border:0;background:transparent;color:#eee;text-align:left;padding:12px 13px;border-radius:11px;font:inherit;cursor:pointer}.nav button:hover,.nav button.active{background:rgba(255,255,255,.14);color:#fff}.main{min-width:0}.topbar{height:70px;background:#fff;border-bottom:1px solid #e8e9ef;display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:5}.topbar strong{font-size:18px}.user{font-size:14px;color:#666}.content{width:min(1480px,calc(100% - 48px));margin:28px auto 60px}.toolbar{display:flex;gap:10px;margin-bottom:18px}.toolbar button{border:1px solid #dddfea;background:#fff;padding:10px 15px;border-radius:10px;font:inherit;cursor:pointer}.hero{background:linear-gradient(135deg,#fff,#f3edff);border:1px solid #e5dcf5;border-radius:20px;padding:28px 30px;margin-bottom:22px;box-shadow:0 7px 28px rgba(45,20,80,.06)}.hero h1{margin:0 0 7px;font-size:30px}.hero p{margin:0;color:#686779}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{background:#fff;border:1px solid #e8e9ef;border-radius:16px;padding:20px;min-height:145px;box-shadow:0 4px 18px rgba(30,25,45,.045);cursor:pointer;transition:.15s}.card:hover{transform:translateY(-2px);border-color:#cbb8ea;box-shadow:0 8px 24px rgba(55,25,95,.09)}.icon{width:42px;height:42px;border-radius:12px;background:#efe7ff;display:grid;place-items:center;font-size:21px;margin-bottom:14px}.card h3{font-size:18px;margin:0 0 6px}.card p{font-size:14px;line-height:1.55;color:#777587;margin:0}.note{margin-top:22px;padding:14px 17px;border:1px dashed #cfc7dc;border-radius:12px;color:#6d6875;background:#fff;font-size:14px}.mobilebar{display:none}@media(max-width:1180px){.grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.app{display:block}.side{display:none}.topbar{padding:0 16px}.content{width:calc(100% - 28px);margin-top:18px}.grid{grid-template-columns:repeat(2,1fr)}.mobilebar{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.mobilebar button{white-space:nowrap;border:1px solid #e1d9ee;background:#fff;padding:9px 12px;border-radius:10px}}@media(max-width:560px){body{font-size:15px}.grid{grid-template-columns:1fr}.hero{padding:22px}.hero h1{font-size:24px}.toolbar{position:sticky;top:78px;z-index:4}.toolbar button{flex:1}.content{width:calc(100% - 20px)}}
-</style>
+<title>Divergent Image Rescue — UI V2</title>
+<link rel="stylesheet" href="ui-v2.css?v=20260910-1">
 </head>
 <body>
 <div class="app">
 <aside class="side">
   <div class="brand">Divergent Image Rescue<small>QC CENTER · UI V2</small></div>
   <nav class="nav">
-    <button class="active">⌂ หน้าหลัก</button><button>▣ ตั้งเบิกค่าตอบแทน</button><button>฿ จัดการเงินเดือน</button><button>◈ พนักงานเบิกเงินล่วงหน้า</button><button>▤ ค่าใช้จ่าย</button><button>✓ ตรวจสอบงาน</button><button>⌕ ค้นหาข้อมูล</button><button>♟ จัดการผู้ใช้งาน</button><button>▧ จัดทำใบตั้งหนี้</button><button>▦ จัดทำใบวางบิล</button>
+    <button data-page="home">⌂ หน้าหลัก</button>
+    <button data-page="claim">▣ ตั้งเบิกค่าตอบแทน</button>
+    <button data-page="payroll">฿ จัดการเงินเดือน</button>
+    <button data-page="advance">◈ พนักงานเบิกเงินล่วงหน้า</button>
+    <button data-page="expenses">▤ ค่าใช้จ่าย</button>
+    <button data-page="qc">✓ ตรวจสอบงาน</button>
+    <button data-page="search">⌕ ค้นหาข้อมูล</button>
+    <button data-page="users">♟ จัดการผู้ใช้งาน</button>
+    <button data-page="invoice">▧ จัดทำใบตั้งหนี้</button>
+    <button data-page="billing">▦ จัดทำใบวางบิล</button>
   </nav>
 </aside>
 <main class="main">
-<header class="topbar"><strong>Divergent Corporation</strong><div class="user">ตัวอย่างโครงหน้าใหม่ · ยังไม่เชื่อมระบบจริง</div></header>
+<header class="topbar"><strong id="pageTitle">Divergent Corporation</strong><div class="user" id="authStatus">โหมดทดสอบ UI V2</div></header>
 <section class="content">
-  <div class="mobilebar"><button>หน้าหลัก</button><button>ตรวจสอบงาน</button><button>ค้นหา</button><button>เงินเดือน</button></div>
-  <div class="toolbar"><button onclick="history.length>1?history.back():void 0">← ย้อนกลับ</button><button onclick="window.scrollTo({top:0,behavior:'smooth'})">⌂ กลับสู่เมนูหลัก</button></div>
-  <div class="hero"><h1>ยินดีต้อนรับเข้าสู่ Divergent Image Rescue</h1><p>โครงหน้าใหม่แยกจากระบบเดิมทั้งหมด ไม่มี JavaScript ปรับขนาดหลังโหลด และไม่มี CSS hotfix ซ้อนกัน</p></div>
-  <div class="grid">
-    <div class="card"><div class="icon">⌂</div><h3>หน้าหลัก</h3><p>ภาพรวมและทางลัดเข้าสู่ระบบงาน</p></div>
-    <div class="card"><div class="icon">▣</div><h3>ตั้งเบิกค่าตอบแทน</h3><p>บันทึกและตรวจสอบรายการตั้งเบิก</p></div>
-    <div class="card"><div class="icon">฿</div><h3>จัดการเงินเดือน</h3><p>ข้อมูลเงินเดือนและรายการที่เกี่ยวข้อง</p></div>
-    <div class="card"><div class="icon">◈</div><h3>พนักงานเบิกเงินล่วงหน้า</h3><p>รายการเบิกล่วงหน้าและสถานะอนุมัติ</p></div>
-    <div class="card"><div class="icon">▤</div><h3>ค่าใช้จ่าย</h3><p>บันทึกและติดตามค่าใช้จ่าย</p></div>
-    <div class="card"><div class="icon">✓</div><h3>ตรวจสอบงาน</h3><p>ตรวจสอบภาพ พิกัด และสถานะงาน</p></div>
-    <div class="card"><div class="icon">⌕</div><h3>ค้นหาข้อมูล</h3><p>ค้นหาข้อมูลจากระบบกลาง</p></div>
-    <div class="card"><div class="icon">♟</div><h3>จัดการผู้ใช้งาน</h3><p>ผู้ใช้งาน บทบาท และสิทธิ์เมนู</p></div>
-    <div class="card"><div class="icon">▧</div><h3>จัดทำใบตั้งหนี้</h3><p>จัดทำเอกสารใบตั้งหนี้</p></div>
-    <div class="card"><div class="icon">▦</div><h3>จัดทำใบวางบิล</h3><p>จัดทำเอกสารใบวางบิล</p></div>
+  <div class="mobilebar">
+    <button data-page="home">หน้าหลัก</button><button data-page="qc">ตรวจสอบงาน</button><button data-page="search">ค้นหา</button><button data-page="payroll">เงินเดือน</button>
   </div>
-  <div class="note">Preview นี้ไม่แก้ index.html และไม่แตะ Login / Supabase / สิทธิ์ / QC / Payroll ของเว็บจริง ใช้สำหรับทดสอบขนาด ฟอนต์ Sidebar และ Responsive ก่อนย้ายโมดูลจริงเข้ามาทีละส่วน</div>
+  <div class="toolbar"><button id="btnBack">← ย้อนกลับ</button><button id="btnHome">⌂ กลับสู่เมนูหลัก</button></div>
+
+  <section class="workspace active" data-workspace="home" data-title="Divergent Corporation">
+    <div class="hero"><h1>ยินดีต้อนรับเข้าสู่ Divergent Image Rescue</h1><p>โครงสร้างหน้าใหม่ใช้ CSS และ Navigation ชุดเดียว ไม่มีการ resize หรือย่อหน้าหลังโหลด</p></div>
+    <div class="grid">
+      <div class="card" data-open="claim"><div class="icon">▣</div><h3>ตั้งเบิกค่าตอบแทน</h3><p>บันทึกและตรวจสอบรายการตั้งเบิก</p></div>
+      <div class="card" data-open="payroll"><div class="icon">฿</div><h3>จัดการเงินเดือน</h3><p>ข้อมูลเงินเดือนและรายการที่เกี่ยวข้อง</p></div>
+      <div class="card" data-open="advance"><div class="icon">◈</div><h3>พนักงานเบิกเงินล่วงหน้า</h3><p>รายการเบิกล่วงหน้าและสถานะอนุมัติ</p></div>
+      <div class="card" data-open="expenses"><div class="icon">▤</div><h3>ค่าใช้จ่าย</h3><p>บันทึกและติดตามค่าใช้จ่าย</p></div>
+      <div class="card" data-open="qc"><div class="icon">✓</div><h3>ตรวจสอบงาน</h3><p>ตรวจสอบภาพ พิกัด และสถานะงาน</p></div>
+      <div class="card" data-open="search"><div class="icon">⌕</div><h3>ค้นหาข้อมูล</h3><p>ค้นหาข้อมูลจากระบบกลาง</p></div>
+      <div class="card" data-open="users"><div class="icon">♟</div><h3>จัดการผู้ใช้งาน</h3><p>ผู้ใช้งาน บทบาท และสิทธิ์เมนู</p></div>
+      <div class="card" data-open="invoice"><div class="icon">▧</div><h3>จัดทำใบตั้งหนี้</h3><p>จัดทำเอกสารใบตั้งหนี้</p></div>
+      <div class="card" data-open="billing"><div class="icon">▦</div><h3>จัดทำใบวางบิล</h3><p>จัดทำเอกสารใบวางบิล</p></div>
+    </div>
+    <div class="note">V2 นี้ยังไม่แทนเว็บจริง และยังไม่แตะ index.html ตอนนี้เริ่มแยก Frontend shell ออกจาก logic เดิมแล้ว เพื่อย้ายแต่ละโมดูลเข้ามาทีละส่วนโดยไม่ทำให้ส่วนอื่นพัง</div>
+  </section>
+
+  <section class="workspace" data-workspace="claim" data-title="ตั้งเบิกค่าตอบแทน"><div class="panel"><h2>ตั้งเบิกค่าตอบแทน</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>พื้นที่นี้จะเชื่อมกับ logic เดิมหลังตรวจโครงหน้าใหม่ผ่าน</p></div></section>
+  <section class="workspace" data-workspace="payroll" data-title="จัดการเงินเดือน"><div class="panel"><h2>จัดการเงินเดือน</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>แยก UI ออกจากระบบคำนวณเดิม เพื่อไม่ให้ CSS ของหน้าอื่นกระทบกัน</p></div></section>
+  <section class="workspace" data-workspace="advance" data-title="พนักงานเบิกเงินล่วงหน้า"><div class="panel"><h2>พนักงานเบิกเงินล่วงหน้า</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>จะย้ายรายการ อนุมัติ และยอดรวมเข้ามาหลัง shell ผ่านการทดสอบ</p></div></section>
+  <section class="workspace" data-workspace="expenses" data-title="ค่าใช้จ่าย"><div class="panel"><h2>ค่าใช้จ่าย</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>พื้นที่สำหรับโมดูลค่าใช้จ่ายบนโครงใหม่</p></div></section>
+  <section class="workspace" data-workspace="qc" data-title="ตรวจสอบงาน"><div class="panel"><h2>ตรวจสอบงาน</h2><span class="status">โมดูลแรกที่ควรย้าย</span><p>จะเริ่มย้าย QC เข้ามาเป็นโมดูลแรก เพราะใช้ทดสอบรูปภาพ พิกัด และข้อมูลจริงได้ชัดเจน</p></div></section>
+  <section class="workspace" data-workspace="search" data-title="ค้นหาข้อมูล"><div class="panel"><h2>ค้นหาข้อมูล</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>พื้นที่สำหรับระบบค้นหาโดยไม่ใช้ CSS เดิมของหน้า index</p></div></section>
+  <section class="workspace" data-workspace="users" data-title="จัดการผู้ใช้งาน"><div class="panel"><h2>จัดการผู้ใช้งาน</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>สิทธิ์และผู้ใช้จะคง backend เดิม แต่ย้ายเฉพาะหน้าจอ</p></div></section>
+  <section class="workspace" data-workspace="invoice" data-title="จัดทำใบตั้งหนี้"><div class="panel"><h2>จัดทำใบตั้งหนี้</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>เอกสารจะใช้ stylesheet เฉพาะใบตั้งหนี้ ไม่ให้ฟอนต์ไปกระทบทั้งเว็บ</p></div></section>
+  <section class="workspace" data-workspace="billing" data-title="จัดทำใบวางบิล"><div class="panel"><h2>จัดทำใบวางบิล</h2><span class="status">เตรียมย้ายโมดูลจริง</span><p>แยกจากใบตั้งหนี้และใช้ style ของตัวเอง</p></div></section>
 </section>
 </main>
 </div>
+<script src="js/ui-v2-shell.js?v=20260910-1"></script>
 </body>
 </html>
