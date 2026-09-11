@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Divergent Image Rescue - QC Center</title>
+  <title>Divergent Image Rescue — V2</title>
 
   <style>
     * { box-sizing: border-box; }
@@ -1097,9 +1097,8 @@
 </style>
 <style id="sidebar-session-lock-v4">
 body.session-sidebar-lock #navHome{display:flex!important}
-body.session-sidebar-lock #navStaffPayroll{display:none!important}
-body.session-sidebar-lock.perm-claim #navClaim,body.session-sidebar-lock.perm-claim-pending #navClaimPending,body.session-sidebar-lock.perm-payroll #navPayroll,body.session-sidebar-lock.perm-expense #navStaffExpense,body.session-sidebar-lock.perm-qc #navQc,body.session-sidebar-lock.perm-qc #navSearch,body.session-sidebar-lock.perm-users #navUsers,body.session-sidebar-lock.perm-invoice #navInvoice,body.session-sidebar-lock.perm-billing #navBilling{display:flex!important}
-body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:not(.perm-claim-pending) #navClaimPending,body.session-sidebar-lock:not(.perm-payroll) #navPayroll,body.session-sidebar-lock:not(.perm-expense) #navStaffExpense,body.session-sidebar-lock:not(.perm-qc) #navQc,body.session-sidebar-lock:not(.perm-qc) #navSearch,body.session-sidebar-lock:not(.perm-users) #navUsers,body.session-sidebar-lock:not(.perm-invoice) #navInvoice,body.session-sidebar-lock:not(.perm-billing) #navBilling{display:none!important}
+body.session-sidebar-lock.perm-claim #navClaim,body.session-sidebar-lock.perm-claim-pending #navClaimPending,body.session-sidebar-lock.perm-staff-payroll #navStaffPayroll,body.session-sidebar-lock.perm-payroll #navPayroll,body.session-sidebar-lock.perm-expense #navStaffExpense,body.session-sidebar-lock.perm-qc #navQc,body.session-sidebar-lock.perm-qc #navSearch,body.session-sidebar-lock.perm-qc #navLocation,body.session-sidebar-lock.perm-users #navUsers,body.session-sidebar-lock.perm-invoice #navInvoice,body.session-sidebar-lock.perm-billing #navBilling{display:flex!important}
+body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:not(.perm-claim-pending) #navClaimPending,body.session-sidebar-lock:not(.perm-staff-payroll) #navStaffPayroll,body.session-sidebar-lock:not(.perm-payroll) #navPayroll,body.session-sidebar-lock:not(.perm-expense) #navStaffExpense,body.session-sidebar-lock:not(.perm-qc) #navQc,body.session-sidebar-lock:not(.perm-qc) #navSearch,body.session-sidebar-lock:not(.perm-qc) #navLocation,body.session-sidebar-lock:not(.perm-users) #navUsers,body.session-sidebar-lock:not(.perm-invoice) #navInvoice,body.session-sidebar-lock:not(.perm-billing) #navBilling{display:none!important}
 </style>
 
   <!-- QC_BATCH_ZIP_HOTFIX_V1 -->
@@ -1187,9 +1186,10 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
   grid-column:3 !important;
 }
 </style>
+  <link rel="stylesheet" href="./app-v2.css?v=20260911-1" />
 </head>
 
-<body>
+<body data-app-version="2" data-app-status="production">
   <div class="app-shell">
     <aside class="sidebar" aria-label="Main navigation">
       <div class="side-brand">
@@ -1204,9 +1204,11 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         <div class="nav-item" id="navClaim" onclick="openClaimManagement()"><span class="nav-ico">▣</span><span>ตั้งเบิกค่าตอบแทน</span></div>
         <div class="nav-item" id="navClaimPending" style="display:none" onclick="openClaimPendingManagement()"><span class="nav-ico">⚠</span><span>การไฟฟ้าที่ยังเบิกไม่ได้</span></div>
         <div class="nav-item" id="navPayroll" onclick="openPayrollManagement()"><span class="nav-ico">฿</span><span>จัดการเงินเดือน</span></div>
+        <div class="nav-item" id="navStaffPayroll" style="display:none" onclick="openStaffPayrollManagement()"><span class="nav-ico">฿</span><span>เงินเดือนสตาฟ</span></div>
         <div class="nav-item" id="navStaffExpense" onclick="openStaffExpenseManagement()"><span class="nav-ico">🧾</span><span>ค่าใช้จ่าย</span></div>
         <div class="nav-item" id="navQc" onclick="switchWorkspace('qc')"><span class="nav-ico">✓</span><span>ตรวจสอบงาน</span></div>
         <div class="nav-item" id="navSearch" onclick="switchWorkspace('search')"><span class="nav-ico">⌕</span><span>ค้นหาข้อมูล</span></div>
+        <div class="nav-item" id="navLocation" onclick="switchWorkspace('location')"><span class="nav-ico">⌖</span><span>ค้นหาพิกัดตำแหน่ง</span></div>
         <div class="nav-item" id="navUsers" onclick="openUserManagement()"><span class="nav-ico">👥</span><span>จัดการผู้ใช้งาน</span></div>
         <div class="nav-item" id="navInvoice" style="display:none" onclick="openInvoiceManagement()"><span class="nav-ico">▤</span><span>จัดทำใบตั้งหนี้</span></div>
         <div class="nav-item" id="navBilling" style="display:none" onclick="openBillingManagement()"><span class="nav-ico">▤</span><span>จัดทำใบวางบิล</span></div>
@@ -2111,7 +2113,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     hydrateUserAdminCache();
 
     function setNavActive(activeId) {
-      ["navHome","navQc","navSearch","navUsers","navPayroll","navStaffPayroll","navClaim","navClaimPending","navPnL","navStaffExpense","navInvoice","navBilling"].forEach(id => {
+      ["navHome","navQc","navSearch","navLocation","navUsers","navPayroll","navStaffPayroll","navClaim","navClaimPending","navPnL","navStaffExpense","navInvoice","navBilling"].forEach(id => {
         const el=document.getElementById(id); if(!el) return;
         el.classList.toggle("active", id===activeId);
         el.classList.toggle("muted", id!==activeId);
@@ -2142,7 +2144,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       if(expense) expense.style.display=name==="expense"?"block":"none";
       if(invoice) invoice.style.display="none";
       if(billing) billing.style.display="none";
-      setNavActive(name==="home"?"navHome":name==="search"||name==="location"?"navSearch":name==="users"?"navUsers":name==="payroll"?"navPayroll":name==="staffpayroll"?"navStaffPayroll":name==="expense"?"navStaffExpense":"navQc");
+      setNavActive(name==="home"?"navHome":name==="search"?"navSearch":name==="location"?"navLocation":name==="users"?"navUsers":name==="payroll"?"navPayroll":name==="staffpayroll"?"navStaffPayroll":name==="expense"?"navStaffExpense":"navQc");
       if(name==="search") setTimeout(()=>document.getElementById("caSearchInput")?.focus(),30);
       if(name==="location") setTimeout(()=>document.getElementById("locationCaInput")?.focus(),30);
       if(name==="users") applyUserManagementPermissions();
@@ -2162,11 +2164,12 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       setMenuVisible("navHome",true);
       setMenuVisible("navClaim",!!a.claim);
       setMenuVisible("navClaimPending",!!a.claim_pending);
-      setMenuVisible("navStaffPayroll",false);
+      setMenuVisible("navStaffPayroll",!!a.staff_payroll);
       setMenuVisible("navPayroll",!!a.payroll);
       setMenuVisible("navStaffExpense",!!a.staff_expense);
       setMenuVisible("navQc",!!a.qc);
       setMenuVisible("navSearch",!!a.qc);
+      setMenuVisible("navLocation",!!a.qc);
       // QC controls follow the same effective permission as the QC menu.
       // This keeps Username/Password sessions usable even when LIFF is absent.
       try{ setQcEnabled(!!a.qc); }catch(_){ }
@@ -5164,7 +5167,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     async function profitLossApi(action,payload={}){
       const accessToken=await getLineAccessToken();
       if(!accessToken)throw new Error("ยังไม่ได้เข้าสู่ระบบ LINE");
-      const apiUrl=action==="staff_payroll_rows"?"https://neauzvqroaszvqffahkv.functions.supabase.co/legacy-staff-payroll-api":PROFIT_LOSS_API_URL;
+      const apiUrl=action==="staff_payroll_rows"?"https://neauzvqroaszvqffahkv.functions.supabase.co/staff-payroll-report-api":PROFIT_LOSS_API_URL;
       const r=await fetch(apiUrl,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
       const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PROFIT_LOSS_INVALID_RESPONSE")}
       if(!r.ok)throw new Error(d.error||("HTTP_"+r.status)); return d;
@@ -6139,7 +6142,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 
-<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;Version 2.5.0 WEB DIRECT LOGIN</div>
+<div class="divergent-footer">Created by&nbsp;<strong>Divergent Corporation</strong>&nbsp;© 2026&nbsp;·&nbsp;V2 UNIFIED</div>
 
 <div class="money-report-modal" id="moneyReportModal">
   <div class="money-report-card">
@@ -6154,5 +6157,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
   </div>
 </div>
 <script src="./js/invoice-master-dropdowns.js?v=20260907-1"></script>
+<script src="./js/app-v2.js?v=20260911-1"></script>
 </body>
 </html>
+

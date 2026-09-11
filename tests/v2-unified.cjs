@@ -1,0 +1,19 @@
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const root=path.join(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+assert.match(html,/<body data-app-version="2" data-app-status="production">/);
+assert.match(html,/app-v2\.css/);
+assert.match(html,/js\/app-v2\.js/);
+assert.doesNotMatch(html,/legacy-staff-payroll-api|ui-v2-preview/);
+const ids=['navHome','navClaim','navClaimPending','navPayroll','navStaffPayroll','navStaffExpense','navQc','navSearch','navLocation','navUsers','navInvoice','navBilling','navPnL'];
+for(const id of ids)assert.match(html,new RegExp(`id="${id}"`),`missing ${id}`);
+const functions=['switchWorkspace','openClaimManagement','openClaimPendingManagement','openPayrollManagement','openStaffPayrollManagement','openStaffExpenseManagement','openUserManagement','openInvoiceManagement','openBillingManagement','openProfitLossManagement'];
+for(const name of functions)assert.match(html,new RegExp(`function\\s+${name}\\s*\\(`),`missing ${name}`);
+for(const [,code] of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi))new vm.Script(code);
+for(const file of ['js/app-v2.js','js/auth-permissions.js','js/employee-advance.js','js/invoice-master-dropdowns.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'));
+JSON.parse(fs.readFileSync(path.join(root,'vercel.json'),'utf8'));
+console.log('PASS: V2 root, all menus, feature handlers, scripts and deployment config');
+

@@ -14,8 +14,8 @@ const rows=[{base_salary:0,social_security:0,advance_deduction:182.98,net_paid:-
 const db={from(table){return {select(){return this},eq(){return this},async maybeSingle(){
   return {data:table==='app_sessions'?{user_id:role,is_active:true,expires_at:'2099-01-01'}:
     {id:role,is_active:true,expires_at:'2099-01-01'}};
-}}},async rpc(name,args){calls.push([name,args]);return {data:name==='legacy_staff_payroll_rows'?rows:0}}};
-let source=readFileSync(path.join(root,'supabase/functions/legacy-staff-payroll-api/index.ts'),'utf8');
+}}},async rpc(name,args){calls.push([name,args]);return {data:name==='staff_payroll_report_rows'?rows:0}}};
+let source=readFileSync(path.join(root,'supabase/functions/staff-payroll-report-api/index.ts'),'utf8');
 source=source.replace(/^import .*\n/,'').replace('export function payrollSummary','function payrollSummary');
 vm.runInNewContext(stripTypeScriptTypes(source),{createClient:()=>db,Deno:{env:{get:()=>''},serve:fn=>handler=fn},
   Response,Request,fetch:()=>{throw Error('unexpected external request')},Intl,Date,console:{error(){}}});
@@ -33,6 +33,7 @@ const req=(body,token)=>new Request('https://example.test',{method:'POST',header
   assert.equal(data.summary.staff_advance_deduction,202.98);
   assert.equal(data.summary.staff_payroll_net,-202.98);
   assert.equal(data.summary.salary_pending,true);
-  assert(calls.some(([name,args])=>name==='legacy_staff_payroll_rows'&&args.p_month==='2026-09-01'));
+  assert(calls.some(([name,args])=>name==='staff_payroll_report_rows'&&args.p_month==='2026-09-01'));
   console.log('PASS: inline syntax, config, API authentication, authorization, month validation, summary and route isolation');
 })().catch(error=>{console.error(error);process.exitCode=1});
+

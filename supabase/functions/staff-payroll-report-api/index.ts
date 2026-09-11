@@ -72,10 +72,10 @@ Deno.serve(async req=>{
     const currentMonth=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit"}).format(new Date());
     // The scheduled job creates months without a browser. This is its retry path.
     if(body.month===currentMonth && month>="2026-09-01"){
-      const {error}=await db.rpc("ensure_legacy_staff_payroll_month",{p_month:month});
+      const {error}=await db.rpc("ensure_staff_payroll_month",{p_month:month});
       if(error)throw error;
     }
-    const {data,error}=await db.rpc("legacy_staff_payroll_rows",{p_month:month});
+    const {data,error}=await db.rpc("staff_payroll_report_rows",{p_month:month});
     if(error)throw error;
     const rows=data||[];
     return J({ok:true,rows,summary:payrollSummary(rows)});
@@ -84,8 +84,11 @@ Deno.serve(async req=>{
     const status=message==="AUTH_FAILED"||message==="SESSION_EXPIRED"?401:
       message==="LINE_NOT_LINKED"||message.includes("DENIED")?403:
       message.startsWith("INVALID_")?400:500;
-    console.error("legacy-staff-payroll-api",message);
+    console.error("staff-payroll-report-api",message);
     return J({error:status===500?"SERVER_ERROR":message},status);
   }
 });
+
+
+
 

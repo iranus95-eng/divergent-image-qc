@@ -1,0 +1,61 @@
+:root{
+  --v2-ink:#25133d;--v2-muted:#746585;--v2-purple:#6f35c5;--v2-purple-dark:#4d218c;
+  --v2-panel:#fff;--v2-line:#e8def2;--v2-bg:#f7f4fb;--v2-green:#168a4c;
+  --v2-shadow:0 18px 48px rgba(52,25,85,.10);--v2-radius:18px;
+}
+html{background:var(--v2-bg)}
+body[data-app-version="2"]{background:radial-gradient(circle at 82% -12%,#eadcff 0,transparent 34%),var(--v2-bg);color:var(--v2-ink)}
+body[data-app-version="2"] .app-shell{min-height:100vh;background:transparent}
+body[data-app-version="2"] .sidebar{background:linear-gradient(180deg,#32135f 0%,#1f0e3a 100%);border:0;box-shadow:14px 0 38px rgba(34,14,61,.12)}
+body[data-app-version="2"] .side-brand{padding-top:25px}
+body[data-app-version="2"] .side-brand::after{content:"V2";display:inline-flex;margin:8px auto 0;padding:4px 9px;border-radius:999px;background:#8c55e5;color:#fff;font-size:10px;font-weight:900;letter-spacing:.13em}
+body[data-app-version="2"] .side-nav{gap:5px;padding:8px 10px}
+body[data-app-version="2"] .nav-item{border:1px solid transparent;border-radius:12px;color:#e8dcfa;transition:background .16s ease,border-color .16s ease,transform .16s ease}
+body[data-app-version="2"] .nav-item:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.12);transform:translateX(2px)}
+body[data-app-version="2"] .nav-item.active{background:#fff;color:var(--v2-purple-dark);border-color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.15)}
+body[data-app-version="2"] .nav-ico{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.10)}
+body[data-app-version="2"] .nav-item.active .nav-ico{background:#f0e8fb}
+body[data-app-version="2"] .main-shell{background:transparent}
+body[data-app-version="2"] .header{position:sticky;top:0;z-index:80;margin:0 -24px 22px;padding:16px 28px;background:rgba(255,255,255,.88);border-bottom:1px solid rgba(111,53,197,.12);backdrop-filter:blur(18px);box-shadow:0 8px 30px rgba(52,25,85,.05)}
+body[data-app-version="2"] .header h1{font-size:22px;color:var(--v2-ink)}
+body[data-app-version="2"] .header p{font-size:13px;color:var(--v2-muted)}
+body[data-app-version="2"] .header p::after{content:" · V2";color:var(--v2-purple);font-weight:900}
+body[data-app-version="2"] .card,
+body[data-app-version="2"] .home-workspace,
+body[data-app-version="2"] .payroll-workspace,
+body[data-app-version="2"] .invoice-workspace,
+body[data-app-version="2"] .billing-workspace,
+body[data-app-version="2"] .user-workspace,
+body[data-app-version="2"] .expense-workspace{border:1px solid var(--v2-line);border-radius:var(--v2-radius);box-shadow:var(--v2-shadow);background:rgba(255,255,255,.96)}
+body[data-app-version="2"] button{font-family:inherit}
+body[data-app-version="2"] button:not(:disabled):focus-visible,
+body[data-app-version="2"] input:focus-visible,
+body[data-app-version="2"] select:focus-visible,
+body[data-app-version="2"] textarea:focus-visible{outline:3px solid rgba(111,53,197,.24);outline-offset:2px}
+body[data-app-version="2"] input,
+body[data-app-version="2"] select,
+body[data-app-version="2"] textarea{border-color:#dcd0e9;border-radius:11px}
+body[data-app-version="2"] .home-hero{background:linear-gradient(135deg,#fff 0%,#f4edff 100%);border:1px solid var(--v2-line);border-radius:24px;box-shadow:var(--v2-shadow)}
+body[data-app-version="2"] .home-feature{border-radius:16px;border:1px solid var(--v2-line);box-shadow:0 10px 28px rgba(52,25,85,.07)}
+body[data-app-version="2"] .home-note{border-radius:14px;background:#f1eafb;color:var(--v2-purple-dark)}
+body[data-app-version="2"] .workspace-title,
+body[data-app-version="2"] .payroll-head{border-bottom:1px solid var(--v2-line);padding-bottom:14px}
+body[data-app-version="2"] .workspace-badge{background:#eee4fb;color:var(--v2-purple-dark)}
+body[data-app-version="2"] .payroll-table-wrap,
+body[data-app-version="2"] .expense-table-wrap{border-color:var(--v2-line);border-radius:14px}
+body[data-app-version="2"] .payroll-table th,
+body[data-app-version="2"] .expense-table th{background:#f3edf9;color:#503270;position:sticky;top:0;z-index:2}
+body[data-app-version="2"] .modal,
+body[data-app-version="2"] .payroll-modal,
+body[data-app-version="2"] .money-report-modal{backdrop-filter:blur(5px)}
+body[data-app-version="2"] .divergent-footer{color:#806f91;font-size:11px;letter-spacing:.05em}
+body[data-app-version="2"] .v2-mobile-nav{display:none}
+@media(max-width:900px){
+  body[data-app-version="2"]{padding-bottom:72px}
+  body[data-app-version="2"] .header{margin-left:-14px;margin-right:-14px;padding:13px 16px}
+  body[data-app-version="2"] .v2-mobile-nav{position:fixed;left:10px;right:10px;bottom:9px;z-index:10020;display:flex;gap:6px;padding:7px;overflow-x:auto;background:rgba(37,19,61,.94);border:1px solid rgba(255,255,255,.15);border-radius:16px;box-shadow:0 14px 38px rgba(22,8,39,.28);backdrop-filter:blur(16px)}
+  body[data-app-version="2"] .v2-mobile-nav button{flex:0 0 auto;padding:9px 12px;border-radius:10px;background:transparent;color:#eee4fb;font-size:12px;font-weight:800}
+  body[data-app-version="2"] .v2-mobile-nav button.active{background:#fff;color:var(--v2-purple-dark)}
+}
+@media print{body[data-app-version="2"] .v2-mobile-nav{display:none!important}}
+

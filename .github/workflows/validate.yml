@@ -37,3 +37,6 @@ jobs:
           PY
           node --check js/auth-permissions.js
           for file in /tmp/inline-*.js; do node --check "$file"; done
+          node tests/v2-unified.cjs
+          node tests/staff-payroll-v2.cjs
+
