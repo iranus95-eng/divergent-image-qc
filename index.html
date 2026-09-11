@@ -2646,8 +2646,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     async function deleteAdminUser(id){const u=adminUsers.find(x=>Number(x.id)===Number(id)); if(!u)return; if(!confirm(`ลบบัญชี ${u.username} ถาวร?`))return; try{await userAdminApi("delete",{id}); await loadAdminUsers();}catch(e){alert("ลบไม่สำเร็จ: "+(e.message||e));}}
 
 
-    async function payrollApi(action,payload={}){
-      const accessToken=await getLineAccessToken();
+    async function payrollApi(action,payload={}){const accessToken=await getBestDataToken();if(!accessToken)throw new Error("AUTH_REQUIRED");
       const r=await fetch(PAYROLL_WEB_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
       const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PAYROLL_INVALID_RESPONSE")}
       if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d;
