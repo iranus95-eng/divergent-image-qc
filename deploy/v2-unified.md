@@ -13,4 +13,3 @@ Validation:
 - `node tests/v2-unified.cjs`
 - `node tests/staff-payroll-v2.cjs`
 - Run `tests/staff-payroll-v2.sql` against the September fixture; it rolls back every mutation.
-

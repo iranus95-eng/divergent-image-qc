@@ -27,4 +27,3 @@ Desktop and mobile navigation use the same permission checks as each module. No 
 ## Deployment checks
 
 CI validates the V2 root, all module entry points, browser script syntax, deployment configuration, payroll API access control, and the approved-advance summary fixture of 202.98 baht.
-

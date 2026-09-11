@@ -49,4 +49,3 @@ $$;
 
 revoke all on function public.internal_payroll_web_list(text) from public, anon, authenticated;
 grant execute on function public.internal_payroll_web_list(text) to service_role;
-

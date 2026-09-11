@@ -11,6 +11,13 @@ assert.doesNotMatch(html,/legacy-staff-payroll-api|ui-v2-preview/);
 assert.match(html,/id="payrollBody"[\s\S]*?colspan="10"/);
 assert.match(html,/<th>หักเบิกล่วงหน้า<\/th>/);
 assert.match(html,/claimMoney\(x\.advance_deduction\)/);
+assert.match(html,/function\s+payrollChildRows\s*\(/);
+assert.match(html,/function\s+collectPayrollRateDrafts\s*\(/);
+assert.match(html,/function\s+collectPayrollAdjustmentDrafts\s*\(/);
+assert.match(html,/rates:collectPayrollRateDrafts\(\),adjustments:collectPayrollAdjustmentDrafts\(\)/);
+assert.match(html,/let detail=\{\};if\(id\)\{detail=await payrollApi\("get_employee",\{id\}\)/);
+assert.doesNotMatch(html,/payrollApi\("add_rate"/);
+assert.doesNotMatch(html,/payrollApi\("add_adjustment"/);
 const ids=['navHome','navClaim','navClaimPending','navPayroll','navStaffPayroll','navStaffExpense','navQc','navSearch','navLocation','navUsers','navInvoice','navBilling','navPnL'];
 for(const id of ids)assert.match(html,new RegExp(`id="${id}"`),`missing ${id}`);
 const functions=['switchWorkspace','openClaimManagement','openClaimPendingManagement','openPayrollManagement','openStaffPayrollManagement','openStaffExpenseManagement','openUserManagement','openInvoiceManagement','openBillingManagement','openProfitLossManagement'];
@@ -19,4 +26,3 @@ for(const [,code] of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)
 for(const file of ['js/app-v2.js','js/auth-permissions.js','js/employee-advance.js','js/invoice-master-dropdowns.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'));
 JSON.parse(fs.readFileSync(path.join(root,'vercel.json'),'utf8'));
 console.log('PASS: V2 root, all menus, feature handlers, scripts and deployment config');
-

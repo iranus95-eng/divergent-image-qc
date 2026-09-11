@@ -36,4 +36,3 @@ const req=(body,token)=>new Request('https://example.test',{method:'POST',header
   assert(calls.some(([name,args])=>name==='staff_payroll_report_rows'&&args.p_month==='2026-09-01'));
   console.log('PASS: inline syntax, config, API authentication, authorization, month validation, summary and route isolation');
 })().catch(error=>{console.error(error);process.exitCode=1});
-

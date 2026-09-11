@@ -2074,6 +2074,9 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     let pnlRemoteSummary={employee_payroll_net:0,employee_payroll_count:0,employee_data_available:false,staff_payroll_net:0,staff_social_security:0,staff_expense_total:0,staff_expense_count:0,staff_expense_data_available:false};
     let staffPayrollRows=[];
     let payrollEmployees=[]; let payrollCanManage=false;
+    // Child payroll rows are kept in the modal and submitted with the employee
+    // update.  This preserves their ids so an edit never turns into a new row.
+    let payrollRateDrafts=[]; let payrollAdjustmentDrafts=[];
     let payrollPage=1; const PAYROLL_PAGE_SIZE=200; let payrollFilterTimer=null; let payrollVisibleRows=[];
     const PAYROLL_CACHE_KEY="divergent_payroll_list_cache_v2"; const PAYROLL_CACHE_TTL=5*60*1000;
     function readPayrollCache(){try{const x=JSON.parse(localStorage.getItem(PAYROLL_CACHE_KEY)||"null");if(!x||!Array.isArray(x.employees))return null;return x}catch(_){return null}}
@@ -2858,14 +2861,31 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(formatNationalIdOriginal(x.national_id||x.national_id_last4))}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td class="num"><b>${claimMoney(x.advance_deduction)}</b></td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
       const pi=document.getElementById("payrollPagerInfo");if(pi)pi.textContent=`แสดง ${start+1}-${Math.min(start+rows.length,payrollVisibleRows.length)} จาก ${payrollVisibleRows.length} รายการ • หน้า ${payrollPage}/${pages}`;
     }
+    function payrollChildRows(source,keys){
+      for(const key of keys){if(Array.isArray(source?.[key]))return source[key];}
+      return [];
+    }
+    function payrollRateValue(rate){return rate.rate_amount??rate.rate_per_unit??rate.amount??""}
+    function renderPayrollRateDrafts(){
+      const host=document.getElementById("peRates");if(!host)return;
+      host.innerHTML=payrollRateDrafts.map((r,i)=>`<div class="payroll-rate-row" data-rate-index="${i}"><input data-rate-site value="${escapeHtml(r.site_name??r.site??"")}" placeholder="พื้นที่"><input data-rate-amount type="number" step="0.01" data-rate-amount value="${escapeHtml(payrollRateValue(r))}" placeholder="บาท/ราย"><label><input type="checkbox" data-rate-active ${r.is_active!==false?"checked":""}> ใช้งาน</label><button type="button" onclick="removePayrollDetailRow(this)">ลบ</button></div>`).join("")||"ยังไม่มีเรต";
+    }
+    function renderPayrollAdjustmentDrafts(){
+      const host=document.getElementById("peAdjustments");if(!host)return;
+      host.innerHTML=payrollAdjustmentDrafts.map((a,i)=>`<div class="payroll-adjust-row" data-adjustment-index="${i}"><select data-adjustment-type><option value="BONUS" ${a.adjustment_type==="BONUS"?"selected":""}>เงินพิเศษ</option><option value="DEDUCTION" ${a.adjustment_type==="DEDUCTION"?"selected":""}>รายการหัก</option><option value="OTHER" ${a.adjustment_type==="OTHER"?"selected":""}>อื่นๆ</option></select><input data-adjustment-amount type="number" step="0.01" value="${escapeHtml(a.amount??"")}" placeholder="จำนวนเงิน"><input data-adjustment-start type="date" value="${escapeHtml(a.period_start??"")}"><input data-adjustment-end type="date" value="${escapeHtml(a.period_end??"")}"><input data-adjustment-note value="${escapeHtml(a.note??"")}" placeholder="หมายเหตุ"><button type="button" onclick="removePayrollDetailRow(this)">ลบ</button></div>`).join("")||"ยังไม่มีรายการ";
+    }
+    function removePayrollDetailRow(button){button.closest(".payroll-rate-row,.payroll-adjust-row")?.remove()}
+    function collectPayrollRateDrafts(){return [...document.querySelectorAll("#peRates [data-rate-index]")].map(row=>{const old=payrollRateDrafts[Number(row.dataset.rateIndex)]||{};return {...old,site_name:row.querySelector("[data-rate-site]").value.trim(),rate_amount:Number(row.querySelector("[data-rate-amount]").value),is_active:row.querySelector("[data-rate-active]").checked};}).filter(x=>x.site_name&&Number.isFinite(x.rate_amount));}
+    function collectPayrollAdjustmentDrafts(){return [...document.querySelectorAll("#peAdjustments [data-adjustment-index]")].map(row=>{const old=payrollAdjustmentDrafts[Number(row.dataset.adjustmentIndex)]||{};return {...old,adjustment_type:row.querySelector("[data-adjustment-type]").value,amount:Number(row.querySelector("[data-adjustment-amount]").value),period_start:row.querySelector("[data-adjustment-start]").value,period_end:row.querySelector("[data-adjustment-end]").value,note:row.querySelector("[data-adjustment-note]").value.trim()};}).filter(x=>Number.isFinite(x.amount)&&x.period_start&&x.period_end);}
     async function openPayrollEmployee(id=null){
       document.getElementById("payrollModal").classList.add("show");document.getElementById("peStatus").textContent="";
-      let e={rates:[],adjustments:[]};if(id){const d=await payrollApi("get_employee",{id});e=d.employee;payrollCanManage=!!d.can_manage}
+      let e={rates:[],adjustments:[]};let detail={};if(id){detail=await payrollApi("get_employee",{id});e=detail.employee||{};payrollCanManage=!!detail.can_manage}
+      payrollRateDrafts=payrollChildRows(e,["rates","payroll_rates","employee_rates"]);if(!payrollRateDrafts.length)payrollRateDrafts=payrollChildRows(detail,["rates","payroll_rates","employee_rates"]);
+      payrollAdjustmentDrafts=payrollChildRows(e,["adjustments","payroll_adjustments","employee_adjustments"]);if(!payrollAdjustmentDrafts.length)payrollAdjustmentDrafts=payrollChildRows(detail,["adjustments","payroll_adjustments","employee_adjustments"]);
       document.getElementById("payrollEmployeeId").value=e.id||"";document.getElementById("payrollModalTitle").textContent=id?"ข้อมูลพนักงาน":"เพิ่มพนักงานใหม่";
       for(const [k,v] of [["peName",e.employee_name],["peNationalId",e.national_id],["peSite",e.site_name],["peBank",e.bank_name],["peAccount",e.bank_account],["pePhone",e.phone],["peRate",e.rate_per_unit],["peNotes",e.notes]])document.getElementById(k).value=v??"";
       document.getElementById("rateSection").style.display=id?"":"none";document.getElementById("adjustSection").style.display=id?"":"none";document.getElementById("peSaveBtn").style.display=payrollCanManage?"":"none";
-      document.getElementById("peRates").innerHTML=(e.rates||[]).map(r=>`<div class="payroll-rate-row"><div>${escapeHtml(r.site_name)}</div><b>${Number(r.rate_amount).toFixed(2)}</b><span>${r.is_active?"ใช้งาน":"ปิด"}</span></div>`).join("")||"ยังไม่มีเรต";
-      document.getElementById("peAdjustments").innerHTML=(e.adjustments||[]).map(a=>`<div style="padding:8px 0;border-bottom:1px solid #eee">${a.adjustment_type==="BONUS"?"เงินพิเศษ":a.adjustment_type==="DEDUCTION"?"รายการหัก":"อื่นๆ"} <b>${Number(a.amount).toFixed(2)} บาท</b> • ${a.period_start} ถึง ${a.period_end} ${a.note?"• "+escapeHtml(a.note):""}</div>`).join("")||"ยังไม่มีรายการ";
+      renderPayrollRateDrafts();renderPayrollAdjustmentDrafts();
     }
     function closePayrollModal(){document.getElementById("payrollModal").classList.remove("show")}
     async function savePayrollEmployee(){
@@ -2874,7 +2894,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       const st=document.getElementById("peStatus");
       if(!id && nid.length!==13){st.textContent="พนักงานใหม่ต้องกรอกเลขบัตรประชาชนให้ครบ 13 หลัก";peNationalId.focus();return}
       if(id && nid && nid.length!==13){st.textContent="เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";peNationalId.focus();return}
-      const p={employee_name:peName.value.trim(),national_id:nid,site_name:peSite.value.trim(),bank_name:peBank.value.trim(),bank_account:peAccount.value.trim(),phone:pePhone.value.trim(),rate_per_unit:peRate.value,notes:peNotes.value.trim()};
+      const p={employee_name:peName.value.trim(),national_id:nid,site_name:peSite.value.trim(),bank_name:peBank.value.trim(),bank_account:peAccount.value.trim(),phone:pePhone.value.trim(),rate_per_unit:peRate.value,notes:peNotes.value.trim(),rates:collectPayrollRateDrafts(),adjustments:collectPayrollAdjustmentDrafts()};
       if(!p.employee_name){st.textContent="กรุณากรอกชื่อพนักงาน";peName.focus();return}
       if(!p.site_name){st.textContent="กรุณากรอกไซด์งาน";peSite.focus();return}
       if(!p.bank_name){st.textContent="กรุณากรอกธนาคาร";peBank.focus();return}
@@ -2923,11 +2943,11 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         st.textContent="บันทึกไม่สำเร็จ: "+(map[msg]||msg);
       }
     }
-    async function addPayrollRate(){
-      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_rate",{id:id,site_name:newRateSite.value.trim(),rate_amount:Number(newRateAmount.value)});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มเรตไม่สำเร็จ: "+e.message}
+    function addPayrollRate(){
+      const site=newRateSite.value.trim(),amount=Number(newRateAmount.value);if(!site||!Number.isFinite(amount)){document.getElementById("peStatus").textContent="กรอกพื้นที่และค่าจ้างให้ครบ";return}payrollRateDrafts=collectPayrollRateDrafts();payrollRateDrafts.push({site_name:site,rate_amount:amount,is_active:true});newRateSite.value="";newRateAmount.value="";renderPayrollRateDrafts();document.getElementById("peStatus").textContent="เพิ่มเรตในรายการแล้ว — กดบันทึกข้อมูลพนักงานเพื่อยืนยัน";
     }
-    async function addPayrollAdjustment(){
-      const id=Number(document.getElementById("payrollEmployeeId").value);try{await payrollApi("add_adjustment",{id:id,adjustment_type:adjType.value,amount:Number(adjAmount.value),period_start:adjStart.value,period_end:adjEnd.value,note:adjNote.value.trim()});await openPayrollEmployee(id)}catch(e){document.getElementById("peStatus").textContent="เพิ่มรายการไม่สำเร็จ: "+e.message}
+    function addPayrollAdjustment(){
+      const amount=Number(adjAmount.value);if(!Number.isFinite(amount)||!adjStart.value||!adjEnd.value){document.getElementById("peStatus").textContent="กรอกจำนวนเงินและช่วงวันที่ให้ครบ";return}payrollAdjustmentDrafts=collectPayrollAdjustmentDrafts();payrollAdjustmentDrafts.push({adjustment_type:adjType.value,amount,period_start:adjStart.value,period_end:adjEnd.value,note:adjNote.value.trim()});adjAmount.value="";adjStart.value="";adjEnd.value="";adjNote.value="";renderPayrollAdjustmentDrafts();document.getElementById("peStatus").textContent="เพิ่มรายการในแบบร่างแล้ว — กดบันทึกข้อมูลพนักงานเพื่อยืนยัน";
     }
 
 
@@ -6160,4 +6180,3 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 <script src="./js/app-v2.js?v=20260911-1"></script>
 </body>
 </html>
-

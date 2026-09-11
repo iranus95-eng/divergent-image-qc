@@ -84,4 +84,3 @@ select public.staff_payroll_report_rows('2026-09-01') is not null as service_rol
 rollback;
 select 'PASS: total, employee, multiple requests, status, month boundary, net, idempotency, monthly drafts, shared-data isolation, permissions' result;
 
-

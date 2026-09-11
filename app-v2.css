@@ -58,4 +58,3 @@ body[data-app-version="2"] .v2-mobile-nav{display:none}
   body[data-app-version="2"] .v2-mobile-nav button.active{background:#fff;color:var(--v2-purple-dark)}
 }
 @media print{body[data-app-version="2"] .v2-mobile-nav{display:none!important}}
-

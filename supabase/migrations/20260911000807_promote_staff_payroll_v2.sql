@@ -95,4 +95,3 @@ grant execute on function public.staff_payroll_report_rows(date) to service_role
 select cron.unschedule('legacy-staff-payroll-monthly');
 select cron.schedule('staff-payroll-monthly','5 17 * * *',
   $$select public.ensure_staff_payroll_month(date_trunc('month',now() at time zone 'Asia/Bangkok')::date);$$);
-
