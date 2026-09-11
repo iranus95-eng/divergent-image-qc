@@ -1129,7 +1129,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
 (function(){
  const LABELS={navHome:['หน้าหลัก','ภาพรวมระบบ'],navClaim:['ตั้งเบิกค่าตอบแทน','บันทึกและส่งคำขอ'],navClaimPending:['การไฟฟ้าที่ยังเบิกไม่ได้','ติดตามงานค้าง'],navPayroll:['จัดการเงินเดือน','ข้อมูลเงินเดือน'],navAdvance:['พนักงานเบิกเงินล่วงหน้า','คำขอและอนุมัติ'],navStaffExpense:['ค่าใช้จ่าย','บันทึกค่าใช้จ่าย'],navQc:['ตรวจสอบงาน','ตรวจสอบรูปภาพ'],navSearch:['ค้นหาข้อมูล','ค้นหารูปภาพ/ข้อมูล'],navLocation:['ค้นหาพิกัดตำแหน่ง','ค้นหาและเปรียบเทียบพิกัด'],navUsers:['จัดการผู้ใช้งาน','จัดการสิทธิ์และผู้ใช้'],navInvoice:['จัดทำใบตั้งหนี้','สร้างใบแจ้งหนี้'],navBilling:['จัดทำใบวางบิล','สร้างใบวางบิล'],navProfitLoss:['กำไร-ขาดทุนรายเดือน','รายงานผล'],navStaffPayroll:['เงินเดือนพนักงาน','ข้อมูลพนักงาน']};
  const ICONS={navHome:'⌂',navClaim:'▤',navClaimPending:'⚠',navPayroll:'฿',navAdvance:'♟',navStaffExpense:'▣',navQc:'✓',navSearch:'⌕',navLocation:'⌖',navUsers:'♟',navInvoice:'▤',navBilling:'▤',navProfitLoss:'▥',navStaffPayroll:'฿'};
- function visible(el){const cs=getComputedStyle(el);return cs.display!=='none'&&cs.visibility!=='hidden'&&!el.classList.contains('muted')}
+ function visible(el){const cs=getComputedStyle(el);return cs.display!=='none'&&cs.visibility!=='hidden'}
  function build(){
    const home=document.getElementById('homeWorkspace'), nav=document.querySelector('.side-nav'); if(!home||!nav)return;
    document.body.classList.add('home-grid5-mode');
@@ -2115,46 +2115,54 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     }
     hydrateUserAdminCache();
 
-    const workspaceHistory=["navHome"];let workspaceRestoring=false;function rememberWorkspace(activeId){if(!workspaceRestoring&&activeId&&workspaceHistory[workspaceHistory.length-1]!==activeId)workspaceHistory.push(activeId)}function workspaceGoBack(){if(workspaceHistory.length<2){workspaceGoHome();return}workspaceHistory.pop();const target=workspaceHistory[workspaceHistory.length-1]||"navHome";workspaceRestoring=true;const button=document.getElementById(target);if(button)button.click();else switchWorkspace("home");workspaceRestoring=false}function workspaceGoHome(){workspaceHistory.length=1;workspaceRestoring=true;const home=document.getElementById("navHome");if(home)home.click();else switchWorkspace("home");workspaceRestoring=false}function setNavActive(activeId){rememberWorkspace(activeId);
-      ["navHome","navQc","navSearch","navLocation","navUsers","navPayroll","navStaffPayroll","navClaim","navClaimPending","navPnL","navStaffExpense","navInvoice","navBilling"].forEach(id => {
-        const el=document.getElementById(id); if(!el) return;
-        el.classList.toggle("active", id===activeId);
-        el.classList.toggle("muted", id!==activeId);
+    // Record only completed page transitions, never clicks or intermediate pages.
+    const workspaceRoutes = {
+      home: ["homeWorkspace", "navHome"], qc: ["qcWorkspace", "navQc"],
+      search: ["searchWorkspace", "navSearch"], location: ["locationWorkspace", "navLocation"],
+      users: ["userWorkspace", "navUsers"], payroll: ["payrollWorkspace", "navPayroll"],
+      staffpayroll: ["staffPayrollWorkspace", "navStaffPayroll"],
+      expense: ["staffExpenseWorkspace", "navStaffExpense"],
+      claim: ["claimWorkspace", "navClaim"], claimPending: ["claimPendingWorkspace", "navClaimPending"],
+      pnl: ["pnlWorkspace", "navPnL"], invoice: ["invoiceWorkspace", "navInvoice"],
+      billing: ["billingWorkspace", "navBilling"]
+    };
+    const workspaceHistory = ["home"];
+    function setNavActive(activeId) {
+      document.querySelectorAll(".side-nav .nav-item").forEach(el => {
+        el.classList.toggle("active", el.id === activeId);
       });
     }
-
+    function showWorkspace(name, record = true) {
+      const route = workspaceRoutes[name];
+      if (!route || !document.getElementById(route[0])) return false;
+      for (const [id] of Object.values(workspaceRoutes)) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id === route[0] ? "block" : "none";
+      }
+      setNavActive(route[1]);
+      if (record && workspaceHistory[workspaceHistory.length - 1] !== name) workspaceHistory.push(name);
+      window.scrollTo(0, 0);
+      return true;
+    }
+    function workspaceGoBack() {
+      if (workspaceHistory.length < 2) { workspaceGoHome(); return; }
+      workspaceHistory.pop();
+      showWorkspace(workspaceHistory[workspaceHistory.length - 1], false);
+    }
+    function workspaceGoHome() {
+      if (showWorkspace("home", false)) workspaceHistory.splice(0, workspaceHistory.length, "home");
+    }
     function switchWorkspace(name) {
       if(name==="qc" && !requireMenuAccess("qc","เมนูตรวจสอบงาน")) return;
       if((name==="search"||name==="location") && !requireMenuAccess("qc","เมนูค้นหาข้อมูล")) return;
       if(name==="users" && !effectiveMenuAccess().user_management && !(currentUserManagementPermissions?.can_access_user_management)){
         if(!requireMenuAccess("user_management","เมนูจัดการผู้ใช้งาน")) return;
       }
-      const home=document.getElementById("homeWorkspace");
-      const qc=document.getElementById("qcWorkspace");
-      const search=document.getElementById("searchWorkspace");
-      const users=document.getElementById("userWorkspace");
-      const payroll=document.getElementById("payrollWorkspace");
-      const expense=document.getElementById("staffExpenseWorkspace");
-      const location=document.getElementById("locationWorkspace");
-      const invoice=document.getElementById("invoiceWorkspace");
-      const billing=document.getElementById("billingWorkspace");
-      home.style.display=name==="home"?"block":"none";
-      qc.style.display=name==="qc"?"block":"none";
-      search.style.display=name==="search"?"block":"none";
-      if(location) location.style.display=name==="location"?"block":"none";
-      if(users) users.style.display=name==="users"?"block":"none";
-      if(payroll) payroll.style.display=name==="payroll"?"block":"none";
-      if(expense) expense.style.display=name==="expense"?"block":"none";
-      if(invoice) invoice.style.display="none";
-      if(billing) billing.style.display="none";
-      setNavActive(name==="home"?"navHome":name==="search"?"navSearch":name==="location"?"navLocation":name==="users"?"navUsers":name==="payroll"?"navPayroll":name==="staffpayroll"?"navStaffPayroll":name==="expense"?"navStaffExpense":"navQc");
+      if (!showWorkspace(name)) return;
       if(name==="search") setTimeout(()=>document.getElementById("caSearchInput")?.focus(),30);
       if(name==="location") setTimeout(()=>document.getElementById("locationCaInput")?.focus(),30);
       if(name==="users") applyUserManagementPermissions();
-      window.scrollTo(0,0);
     }
-
-
 
     function setMenuVisible(id,show){
       const el=document.getElementById(id);
@@ -2308,7 +2316,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     async function openBillingManagement(){
       if(!menuAccess.billing){await refreshAllMenuAccess();}
       if(!requireMenuAccess("billing","เมนูจัดทำใบวางบิล"))return;
-      billingAccess=true;switchWorkspace("__billing__");const b=document.getElementById("billingWorkspace");if(b)b.style.display="block";setNavActive("navBilling");renderBilling();window.scrollTo(0,0);
+      billingAccess=true;showWorkspace("billing");renderBilling();window.scrollTo(0,0);
     }
     function printHtmlA4(html,title){const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 portrait;margin:0}body{margin:0;background:#fff}.invoice-paper{width:210mm;min-height:297mm;box-sizing:border-box;padding:0 9mm 7mm;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.08;color:#000;page-break-after:always}.invoice-paper:last-child{page-break-after:auto}.invoice-paper,.invoice-paper *{font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif!important}.invoice-signatures>div:only-child{grid-column:3!important}.invoice-head-img{width:100%;height:38mm;object-fit:cover;object-position:center top}.invoice-foot-img{width:100%;height:26mm;object-fit:cover;object-position:center bottom;margin-top:3mm}.invoice-doc-title{text-align:center;font-size:24pt;font-weight:700}.invoice-meta{display:flex;justify-content:flex-end;margin-top:-9mm;margin-bottom:6mm}.invoice-meta td{font-size:15pt;padding:0 1mm}.invoice-customer div{display:grid;grid-template-columns:24mm 1fr}.invoice-table{width:100%;border-collapse:collapse;font-size:14pt}.invoice-table th,.invoice-table td{border:1px solid #555;padding:1.5mm;background:#fff}.num{text-align:right}.center{text-align:center}.sumlabel{text-align:right;font-weight:700}.invoice-baht{text-align:center;font-weight:700;margin:3mm}.invoice-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:10mm;text-align:center;font-size:13pt}.sigline{margin-top:8mm}.siglabel{margin-top:2mm}</style></head><body>${html}</body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},500)}
     function printInvoiceA4(){const p=document.getElementById("invoicePaper");if(p)printHtmlA4(p.outerHTML,"ใบตั้งหนี้")}
@@ -2346,7 +2354,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       applyMenuAccess();
       return window.invoiceAccessAllowed;
     }
-    function openInvoiceManagement(){if(!requireMenuAccess("invoice","เมนูจัดทำใบตั้งหนี้"))return;window.invoiceAccessAllowed=true;switchWorkspace("home");document.getElementById("homeWorkspace").style.display="none";document.getElementById("invoiceWorkspace").style.display="block";setNavActive("navInvoice");invoiceLoadCustomers();renderInvoiceInputs();renderInvoicePreview();window.scrollTo(0,0)}
+    function openInvoiceManagement(){if(!requireMenuAccess("invoice","เมนูจัดทำใบตั้งหนี้"))return;window.invoiceAccessAllowed=true;showWorkspace("invoice");invoiceLoadCustomers();renderInvoiceInputs();renderInvoicePreview();window.scrollTo(0,0)}
     async function createInvoicePdfBlob(){if(typeof html2canvas!=="function"||!window.jspdf?.jsPDF)throw new Error("PDF_LIBRARY_NOT_READY");const paper=document.getElementById("invoicePaper");const canvas=await html2canvas(paper,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,width:794,height:1123,windowWidth:794,windowHeight:1123});const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});pdf.addImage(canvas.toDataURL("image/jpeg",.96),"JPEG",0,0,210,297);return pdf.output("blob")}
     function invoiceFileName(){return `Divergent_Invoice_${reportSafeFilePart(document.getElementById("invNo")?.value||"invoice")}.pdf`}
     async function downloadInvoicePdf(){try{pnlPdfProgress(true,"กำลังสร้าง PDF","กำลังจัดทำใบแจ้งหนี้...");const blob=await createInvoicePdfBlob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=invoiceFileName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}catch(e){alert("สร้าง PDF ไม่สำเร็จ: "+(e?.message||e))}finally{pnlPdfProgress(false)}}
@@ -2654,11 +2662,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
 
     function openStaffPayrollManagement(){
       if(!requireMenuAccess("staff_payroll","เมนูเงินเดือนสตาฟ"))return;
-      document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
-      const nav=document.getElementById("navStaffPayroll"); if(nav)nav.classList.add("active");
-      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffExpenseWorkspace","claimWorkspace","claimPendingWorkspace","pnlWorkspace","invoiceWorkspace","billingWorkspace"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none";});
-      const w=document.getElementById("staffPayrollWorkspace"); if(w)w.style.display="block";
-      window.scrollTo(0,0);
+      showWorkspace("staffpayroll");
       const month=document.getElementById("staffPayrollMonth")?.value||"2026-03";
       if(staffPayrollRows.length && staffPayrollLoadedMonth===month && Date.now()-staffPayrollLoadedAt<30000)return;
       loadStaffPayrollTable();
@@ -2734,13 +2738,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
 
     function openClaimPendingManagement(){
       if(!requireMenuAccess("claim_pending","เมนูการไฟฟ้าที่ยังเบิกไม่ได้"))return;
-      document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
-      const nav=document.getElementById("navClaimPending"); if(nav)nav.classList.add("active");
-      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimWorkspace","pnlWorkspace"].forEach(id=>{
-        const el=document.getElementById(id);if(el)el.style.display="none";
-      });
-      const w=document.getElementById("claimPendingWorkspace");
-      if(w)w.style.display="block";
+      showWorkspace("claimPending");
       renderClaimPendingWorkspace();
     }
 
@@ -2752,26 +2750,14 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
           return;
         }
       }
-      document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
-      const nav=document.getElementById("navPnL"); if(nav)nav.classList.add("active");
-      ["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimWorkspace","claimPendingWorkspace"].forEach(id=>{
-        const el=document.getElementById(id); if(el)el.style.display="none";
-      });
-      const pnl=document.getElementById("pnlWorkspace");
-      if(pnl)pnl.style.display="block";
+      showWorkspace("pnl");
       renderPnL();
       loadPnLRemoteSummary();
     }
 
     function openClaimManagement(){
       if(!requireMenuAccess("claim","เมนูตั้งเบิกค่าตอบแทน"))return;
-      document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
-      const nav=document.getElementById("navClaim"); if(nav)nav.classList.add("active");
-
-      const ids=["homeWorkspace","qcWorkspace","searchWorkspace","userWorkspace","payrollWorkspace","staffPayrollWorkspace","staffExpenseWorkspace","claimPendingWorkspace","pnlWorkspace"];
-      ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});
-      const claim=document.getElementById("claimWorkspace");
-      if(claim)claim.style.display="block";
+      showWorkspace("claim");
       renderClaimWorkspace();
     }
 
