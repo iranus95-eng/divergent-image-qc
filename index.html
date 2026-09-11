@@ -5164,7 +5164,8 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     async function profitLossApi(action,payload={}){
       const accessToken=await getLineAccessToken();
       if(!accessToken)throw new Error("ยังไม่ได้เข้าสู่ระบบ LINE");
-      const r=await fetch(PROFIT_LOSS_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
+      const apiUrl=action==="staff_payroll_rows"?"https://neauzvqroaszvqffahkv.functions.supabase.co/legacy-staff-payroll-api":PROFIT_LOSS_API_URL;
+      const r=await fetch(apiUrl,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
       const t=await r.text(); let d={}; try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PROFIT_LOSS_INVALID_RESPONSE")}
       if(!r.ok)throw new Error(d.error||("HTTP_"+r.status)); return d;
     }
@@ -5228,6 +5229,21 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     }
 
     async function loadStaffPayrollTable(){
+      const monthSelect=document.getElementById("staffPayrollMonth");
+      if(monthSelect){
+        const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit"}).formatToParts(new Date());
+        const current=parts.find(p=>p.type==="year").value+"-"+parts.find(p=>p.type==="month").value;
+        for(let year=2026;year<=Number(current.slice(0,4));year++)for(let m=1;m<=12;m++){
+          const value=year+"-"+String(m).padStart(2,"0");
+          if(value>current||value<"2026-09")continue;
+          if(!Array.from(monthSelect.options).some(o=>o.value===value)){
+            const option=document.createElement("option");option.value=value;
+            option.textContent=new Intl.DateTimeFormat("th-TH",{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(value+"-01T00:00:00Z"));
+            monthSelect.appendChild(option);
+          }
+        }
+        if(!monthSelect.dataset.monthlyReady){monthSelect.value=current;monthSelect.dataset.monthlyReady="1";}
+      }
       const month=document.getElementById("staffPayrollMonth")?.value||"2026-03";
       if(staffPayrollLoadPromise)return staffPayrollLoadPromise;
       const body=document.getElementById("staffPayrollBody"),st=document.getElementById("staffPayrollStatus");
@@ -5256,7 +5272,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
           <td>${escapeHtml(r.note||"-")}</td>
         </tr>`).join(""):'<tr><td colspan="14">ยังไม่มีข้อมูลเดือนนี้</td></tr>';
         staffPayrollLoadedAt=Date.now();staffPayrollLoadedMonth=month;
-        if(st)st.textContent=`ข้อมูลจาก เงินเดือนสตาฟ.xlsx • ยอดจ่ายสุทธิ ${claimMoney(s.staff_payroll_net)} บาท • ประกันสังคม ${claimMoney(s.staff_social_security)} บาท`;
+        if(st)st.textContent=s.salary_pending?`รอกรอกเงินเดือนหลังเสร็จงาน • เบิกล่วงหน้าอนุมัติ ${claimMoney(s.staff_advance_deduction)} บาท • ยอดสุทธิยังไม่ใช่ยอดจ่ายจริงจนกว่าจะกรอกเงินเดือน`:`ยอดจ่ายสุทธิ ${claimMoney(s.staff_payroll_net)} บาท • เบิกล่วงหน้าอนุมัติ ${claimMoney(s.staff_advance_deduction)} บาท • ประกันสังคม ${claimMoney(s.staff_social_security)} บาท`;
       }catch(e){
         if(body&&!staffPayrollRows.length)body.innerHTML='<tr><td colspan="14">โหลดข้อมูลไม่สำเร็จ</td></tr>';
         if(st)st.textContent="โหลดข้อมูลไม่สำเร็จ: "+e.message;
