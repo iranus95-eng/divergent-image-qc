@@ -1825,7 +1825,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       </div>
       <div class="payroll-tools"><input id="payrollSearch" placeholder="ค้นหาชื่อ / ไซด์งาน / เลขบัตร / ธนาคาร / เลขบัญชี" oninput="schedulePayrollFilter()"><button onclick="loadPayrollEmployees(true)">รีเฟรช</button></div>
       <div id="payrollPager" style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:-4px 0 10px;color:#735c8c;font-size:12px"><span id="payrollPagerInfo"></span><div style="display:flex;gap:6px"><button class="payroll-edit" onclick="payrollPrevPage()">‹ ก่อนหน้า</button><button class="payroll-edit" onclick="payrollNextPage()">ถัดไป ›</button></div></div>
-      <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>เลขบัตรประชาชน</th><th>ไซด์งาน</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="9">กำลังโหลด...</td></tr></tbody></table></div>
+      <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>เลขบัตรประชาชน</th><th>ไซด์งาน</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>หักเบิกล่วงหน้า</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="10">กำลังโหลด...</td></tr></tbody></table></div>
       <div class="payroll-status" id="payrollStatus"></div>
     </section>
 
@@ -2809,7 +2809,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       const body=document.getElementById("payrollBody");
       if(!payrollEmployees.length)usePayrollCache();
       if(payrollEmployees.length){filterPayrollEmployees();if(st)st.textContent=force?"กำลังรีเฟรชข้อมูลล่าสุด...":"แสดงข้อมูลล่าสุดที่บันทึกไว้ • กำลังตรวจสอบข้อมูลใหม่เบื้องหลัง...";}
-      else{if(body)body.innerHTML='<tr><td colspan="9" style="padding:18px;text-align:center">กำลังโหลดข้อมูลเงินเดือน... <span style="color:#7a5a96">หากเกิน 8 วินาทีระบบจะลองเชื่อมต่อสำรองอัตโนมัติ</span></td></tr>';if(st)st.textContent="กำลังเชื่อมต่อฐานข้อมูลเงินเดือน...";}
+      else{if(body)body.innerHTML='<tr><td colspan="10" style="padding:18px;text-align:center">กำลังโหลดข้อมูลเงินเดือน... <span style="color:#7a5a96">หากเกิน 8 วินาทีระบบจะลองเชื่อมต่อสำรองอัตโนมัติ</span></td></tr>';if(st)st.textContent="กำลังเชื่อมต่อฐานข้อมูลเงินเดือน...";}
       try{
         const d=await payrollListApi();
         payrollEmployees=(d.employees||[]).slice().sort((a,b)=>{
@@ -2853,9 +2853,9 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     }
     function renderPayrollPage(){
       const b=document.getElementById("payrollBody");if(!b)return;
-      if(!payrollVisibleRows.length){b.innerHTML='<tr><td colspan="9">ไม่พบรายการ</td></tr>';const pi=document.getElementById("payrollPagerInfo");if(pi)pi.textContent="0 รายการ";return}
+      if(!payrollVisibleRows.length){b.innerHTML='<tr><td colspan="10">ไม่พบรายการ</td></tr>';const pi=document.getElementById("payrollPagerInfo");if(pi)pi.textContent="0 รายการ";return}
       const pages=Math.max(1,Math.ceil(payrollVisibleRows.length/PAYROLL_PAGE_SIZE)),start=(payrollPage-1)*PAYROLL_PAGE_SIZE,rows=payrollVisibleRows.slice(start,start+PAYROLL_PAGE_SIZE);
-      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(formatNationalIdOriginal(x.national_id||x.national_id_last4))}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
+      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(formatNationalIdOriginal(x.national_id||x.national_id_last4))}</td><td>${escapeHtml(x.site_name||"-")}</td><td>${x.rate_per_unit??"-"}</td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td class="num"><b>${claimMoney(x.advance_deduction)}</b></td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
       const pi=document.getElementById("payrollPagerInfo");if(pi)pi.textContent=`แสดง ${start+1}-${Math.min(start+rows.length,payrollVisibleRows.length)} จาก ${payrollVisibleRows.length} รายการ • หน้า ${payrollPage}/${pages}`;
     }
     async function openPayrollEmployee(id=null){
