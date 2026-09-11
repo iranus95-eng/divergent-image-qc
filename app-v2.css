@@ -58,3 +58,23 @@ body[data-app-version="2"] .v2-mobile-nav{display:none}
   body[data-app-version="2"] .v2-mobile-nav button.active{background:#fff;color:var(--v2-purple-dark)}
 }
 @media print{body[data-app-version="2"] .v2-mobile-nav{display:none!important}}
+
+/* Minimal light theme refresh */
+:root{--v2-ink:#16213a;--v2-muted:#6d7890;--v2-purple:#4f64d9;--v2-purple-dark:#3447bb;--v2-panel:#fff;--v2-line:#e5eaf2;--v2-bg:#f7f9fc;--v2-green:#1d9a6c;--v2-shadow:0 10px 30px rgba(31,54,88,.08);--v2-radius:16px}
+body[data-app-version="2"]{background:linear-gradient(145deg,#fbfcfe 0%,#f3f6fc 100%);color:var(--v2-ink)}
+body[data-app-version="2"] .sidebar{background:#1f304d;box-shadow:8px 0 28px rgba(22,36,61,.12)}
+body[data-app-version="2"] .side-brand::after{content:"WORKSPACE";background:rgba(255,255,255,.13);color:#dbe6ff;font-size:9px}
+body[data-app-version="2"] .side-nav{padding:10px}
+body[data-app-version="2"] .nav-item{border-radius:11px;color:#d4deec}
+body[data-app-version="2"] .nav-item.active{color:#2f4696;box-shadow:0 7px 18px rgba(12,28,54,.16)}
+body[data-app-version="2"] .nav-ico{border-radius:8px}body[data-app-version="2"] .nav-item.active .nav-ico{background:#edf1ff}
+body[data-app-version="2"] .header{border-bottom-color:var(--v2-line);box-shadow:0 6px 22px rgba(31,54,88,.045)}
+body[data-app-version="2"] .header p::after{content:""}
+body[data-app-version="2"] .card,body[data-app-version="2"] .home-workspace,body[data-app-version="2"] .payroll-workspace,body[data-app-version="2"] .invoice-workspace,body[data-app-version="2"] .billing-workspace,body[data-app-version="2"] .user-workspace,body[data-app-version="2"] .expense-workspace{border-color:var(--v2-line)}
+body[data-app-version="2"] input,body[data-app-version="2"] select,body[data-app-version="2"] textarea{border-color:#dbe3ef;border-radius:10px}
+body[data-app-version="2"] .home-hero{background:linear-gradient(135deg,#fff 0%,#f2f5ff 100%);border-radius:22px}
+body[data-app-version="2"] .home-note,body[data-app-version="2"] .workspace-badge{background:#eef2ff;color:#354aa4}
+body[data-app-version="2"] .payroll-table-wrap,body[data-app-version="2"] .expense-table-wrap{border-color:var(--v2-line);border-radius:13px}
+body[data-app-version="2"] .payroll-table th,body[data-app-version="2"] .expense-table th{background:#f6f8fc;color:#53617a}
+body[data-app-version="2"] .divergent-footer{color:#7c8aa1}
+@media(max-width:900px){body[data-app-version="2"] .v2-mobile-nav{background:rgba(31,48,77,.96);border-radius:15px;box-shadow:0 14px 34px rgba(22,36,61,.24)}body[data-app-version="2"] .v2-mobile-nav button{color:#e3ebf7}body[data-app-version="2"] .v2-mobile-nav button.active{color:#354aa4}}
