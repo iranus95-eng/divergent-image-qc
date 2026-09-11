@@ -6164,3 +6164,21 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 <script src="./js/app-v2.js?v=20260911-1"></script>
 </body>
 </html>
+<script>
+(function(){
+  var KEY='divergent-nav-trail-v2',trail=[];
+  try{trail=JSON.parse(sessionStorage.getItem(KEY)||'[]')}catch(_){trail=[]}
+  function text(el){return (el&&el.textContent||'').replace(/\s+/g,' ').trim()}
+  function menu(){return Array.prototype.slice.call(document.querySelectorAll('.side-nav .nav-item,.v2-mobile-nav [data-v2-page]'))}
+  function key(el){return el&&(el.id||el.dataset.v2Page||'')}
+  function save(){try{sessionStorage.setItem(KEY,JSON.stringify(trail.slice(-20)))}catch(_){}}
+  function open(id){var el=document.getElementById(id)||menu().find(function(x){return key(x)===id});if(el)el.click();else{var home=document.getElementById('navHome');if(home)home.click()}}
+  var active=document.querySelector('.side-nav .nav-item.active'),current=key(active)||'navHome';
+  document.addEventListener('click',function(e){
+    var control=e.target.closest('button,a,[role="button"]');if(!control)return;var label=text(control);
+    if(label.indexOf('ย้อนกลับ')>-1){e.preventDefault();e.stopImmediatePropagation();open(trail.pop());save();return}
+    if(label.indexOf('เมนูหลัก')>-1){e.preventDefault();e.stopImmediatePropagation();trail=[];save();open('navHome');return}
+    var item=control.closest('.side-nav .nav-item,.v2-mobile-nav [data-v2-page]');if(item){var next=key(item);if(next&&next!==current){trail.push(current);current=next;save()}}
+  },true);
+})();
+                                                     </script>
