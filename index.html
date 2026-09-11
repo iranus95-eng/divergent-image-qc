@@ -1189,7 +1189,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
   <link rel="stylesheet" href="./app-v2.css?v=20260911-1" />
 </head>
 
-<body data-app-version="2" data-app-status="production">
+<body data-app-version="2" data-app-status="production"><style id="global-workspace-navigation">.global-workspace-navigation{position:fixed;right:22px;bottom:58px;z-index:10060;display:flex;gap:8px;align-items:center;padding:8px;border:1px solid #ded0f0;border-radius:14px;background:rgba(255,255,255,.96);box-shadow:0 10px 28px rgba(53,26,85,.18);backdrop-filter:blur(10px)}.global-workspace-navigation button{border:0;border-radius:9px;padding:9px 12px;font:700 13px Arial,sans-serif;cursor:pointer;white-space:nowrap}.workspace-back-button{background:#f1eafa;color:#552b8c}.workspace-home-button{background:linear-gradient(135deg,#6531b4,#8952d4);color:#fff}@media(max-width:620px){.global-workspace-navigation{right:12px;bottom:54px}.global-workspace-navigation button{padding:9px 10px;font-size:12px}}</style><nav class="global-workspace-navigation" aria-label="การนำทางหน้าจอ"><button class="workspace-back-button" type="button" onclick="workspaceGoBack()">← ย้อนกลับ</button><button class="workspace-home-button" type="button" onclick="workspaceGoHome()">⌂ กลับสู่เมนูหลัก</button></nav>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Main navigation">
       <div class="side-brand">
@@ -2115,7 +2115,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     }
     hydrateUserAdminCache();
 
-    function setNavActive(activeId) {
+    const workspaceHistory=["navHome"];let workspaceRestoring=false;document.addEventListener("click",ev=>{const item=ev.target.closest?.(".nav-item");const id=item?.id;if(id&&!workspaceRestoring&&workspaceHistory[workspaceHistory.length-1]!==id)workspaceHistory.push(id)},true);function workspaceGoBack(){if(workspaceHistory.length<=1){workspaceGoHome();return}workspaceHistory.pop();const target=workspaceHistory[workspaceHistory.length-1];workspaceRestoring=true;if(target==="navHome")switchWorkspace("home");else document.getElementById(target)?.click();workspaceRestoring=false}function workspaceGoHome(){workspaceHistory.splice(1);workspaceRestoring=true;document.querySelectorAll("[id$=Workspace]").forEach(el=>{if(el.id!=="homeWorkspace")el.style.display="none"});switchWorkspace("home");workspaceRestoring=false}function setNavActive(activeId) {
       ["navHome","navQc","navSearch","navLocation","navUsers","navPayroll","navStaffPayroll","navClaim","navClaimPending","navPnL","navStaffExpense","navInvoice","navBilling"].forEach(id => {
         const el=document.getElementById(id); if(!el) return;
         el.classList.toggle("active", id===activeId);
