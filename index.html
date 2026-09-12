@@ -4349,19 +4349,29 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         }
         const n=d?.notice||null,m=d?.meter||null;
         const nlat=Number(n?.actual_latitude),nlng=Number(n?.actual_longitude);
-        const mlat=Number(m?.latitude),mlng=Number(m?.longitude);
+        let mlat=Number(m?.latitude),mlng=Number(m?.longitude);
         const nok=validCoordV174(nlat,nlng);
-        const mok=validCoordV174(mlat,mlng);
+        let mok=validCoordV174(mlat,mlng);
+        const meterUsesWorkFallback=!mok && nok;
+        if(meterUsesWorkFallback){
+          mlat=nlat;
+          mlng=nlng;
+          mok=true;
+        }
         let html='<div class="batch-distance-title">📍 พิกัดงาน</div>'+
           '<div class="batch-distance-coord"><span class="coord-label">🏠 งาน/ใบแจ้งเตือน</span><span class="coord-value">'+(nok ? coordTextV167(nlat,nlng) : 'ยังไม่มีข้อมูลในระบบ')+'</span></div>'+
-          '<div class="batch-distance-coord"><span class="coord-label">📟 มิเตอร์</span><span class="coord-value">'+(mok ? coordTextV167(mlat,mlng) : 'ยังไม่มีข้อมูลในระบบ')+'</span></div>';
+          '<div class="batch-distance-coord"><span class="coord-label">📟 มิเตอร์'+(meterUsesWorkFallback?' (ใช้พิกัดงานชั่วคราว)':'')+'</span><span class="coord-value">'+(mok ? coordTextV167(mlat,mlng) : 'ยังไม่มีข้อมูลในระบบ')+'</span></div>';
         if(nok&&mok){
-          const cached=Number(d?.route?.distance_m);
-          const dist=Number.isFinite(cached) ? cached
-            : await routeDistanceV167({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});
-          html += dist!=null
-            ? '<div class="batch-distance-value">'+formatDistanceV167(dist)+'</div>'
-            : '<div class="batch-distance-note">วัดระยะทางขับรถไม่ได้</div>';
+          if(meterUsesWorkFallback){
+            html += '<div class="batch-distance-note">ℹ️ ยังไม่มีพิกัดมิเตอร์ในฐานลูกค้า จึงแสดงพิกัดงานแทนชั่วคราว</div>';
+          }else{
+            const cached=Number(d?.route?.distance_m);
+            const dist=Number.isFinite(cached) ? cached
+              : await routeDistanceV167({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});
+            html += dist!=null
+              ? '<div class="batch-distance-value">'+formatDistanceV167(dist)+'</div>'
+              : '<div class="batch-distance-note">วัดระยะทางขับรถไม่ได้</div>';
+          }
         }else{
           html += '<div class="batch-distance-note">'+
             (!nok && mok ? '⚠️ ยังไม่มีพิกัดงาน/ใบแจ้งเตือนของ CA นี้' :
