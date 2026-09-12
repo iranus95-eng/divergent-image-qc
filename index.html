@@ -4335,8 +4335,17 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       if(!box) return;
       try{
         let d=window._qcBatchCoordinateMap?.get(String(img.ca||""))||null;
-        if(!d){
-          d=await fetchDualCoordinate(img.ca);
+        if(!d || !d?.notice){
+          try{
+            const fallback=await fetchDualCoordinate(img.ca);
+            d={
+              ...(d||{}),
+              ...(fallback||{}),
+              notice:d?.notice||fallback?.notice||null,
+              meter:d?.meter||fallback?.meter||null,
+              route:d?.route||fallback?.route||null
+            };
+          }catch(_){ }
         }
         const n=d?.notice||null,m=d?.meter||null;
         const nlat=Number(n?.actual_latitude),nlng=Number(n?.actual_longitude);
