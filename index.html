@@ -546,9 +546,9 @@
   background:#fbeaff;border:1px solid #ecd5f7;min-height:76px;
 }
 .batch-distance-title{font-size:12px;font-weight:900;color:#6d2ba5;}
-.batch-distance-coord{font-size:10px;font-weight:700;color:#574762;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.batch-distance-coord{font-size:10px;font-weight:700;color:#574762;margin-top:5px;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35;overflow-wrap:anywhere;}\r\n.batch-distance-coord .coord-label{display:block;color:#6b5a78;font-size:9px;margin-bottom:1px;}\r\n.batch-distance-coord .coord-value{display:block;color:#3f3150;font-size:11px;font-weight:900;font-variant-numeric:tabular-nums;word-break:break-word;}
 .batch-distance-value{font-size:18px;font-weight:950;color:#32107b;text-align:center;margin-top:5px;}
-.batch-distance-note{font-size:11px;font-weight:700;color:#7c6c87;text-align:center;margin-top:5px;}
+.batch-distance-note{font-size:11px;font-weight:700;color:#7c6c87;text-align:left;margin-top:7px;line-height:1.35;white-space:normal;overflow-wrap:anywhere;}
 @media(max-width:1100px){.overview-grid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;}}
 @media(max-width:850px){.overview-grid{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
 @media(max-width:620px){.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
@@ -4352,9 +4352,9 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         const mlat=Number(m?.latitude),mlng=Number(m?.longitude);
         const nok=validCoordV174(nlat,nlng);
         const mok=validCoordV174(mlat,mlng);
-        let html='<div class="batch-distance-title">📍 ระยะห่างระหว่างพิกัด</div>'+
-          '<div class="batch-distance-coord">🏠 บ้าน/ใบแจ้งเตือน: '+(nok ? coordTextV167(nlat,nlng) : 'ยังไม่มีข้อมูลในระบบ')+'</div>'+
-          '<div class="batch-distance-coord">📟 มิเตอร์: '+(mok ? coordTextV167(mlat,mlng) : 'ยังไม่มีข้อมูลในระบบ')+'</div>';
+        let html='<div class="batch-distance-title">📍 พิกัดงาน</div>'+
+          '<div class="batch-distance-coord"><span class="coord-label">🏠 งาน/ใบแจ้งเตือน</span><span class="coord-value">'+(nok ? coordTextV167(nlat,nlng) : 'ยังไม่มีข้อมูลในระบบ')+'</span></div>'+
+          '<div class="batch-distance-coord"><span class="coord-label">📟 มิเตอร์</span><span class="coord-value">'+(mok ? coordTextV167(mlat,mlng) : 'ยังไม่มีข้อมูลในระบบ')+'</span></div>';
         if(nok&&mok){
           const cached=Number(d?.route?.distance_m);
           const dist=Number.isFinite(cached) ? cached
