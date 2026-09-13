@@ -24,6 +24,7 @@
 <script>
 const AUTH_URL='https://neauzvqroaszvqffahkv.functions.supabase.co/web-fallback-auth';
 const SESSION_KEY='divergent_web_session_token_v1';
+const FALLBACK_SESSION_KEY='divergent_fallback_session_token';
 const form=document.getElementById('loginForm'),btn=document.getElementById('loginBtn'),statusEl=document.getElementById('status');
 form.addEventListener('submit',async(e)=>{
   e.preventDefault();
@@ -39,6 +40,7 @@ form.addEventListener('submit',async(e)=>{
     const token=d.session_token||d.token||d.session?.token||'';
     if(!token)throw new Error('LOGIN_TOKEN_MISSING');
     localStorage.setItem(SESSION_KEY,token);
+    localStorage.setItem(FALLBACK_SESSION_KEY,token);
     localStorage.removeItem('divergent_menu_access_cache_v2');
     sessionStorage.removeItem('divergent_line_auto_login_attempted');
     location.replace('./');
