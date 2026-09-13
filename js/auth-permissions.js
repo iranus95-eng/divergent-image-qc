@@ -7,6 +7,7 @@
   'use strict';
 
   const FALLBACK_SESSION_KEY = 'divergent_fallback_session_token';
+  const WEB_SESSION_KEY = 'divergent_web_session_token_v1';
   const MENU_ACCESS_CACHE_KEY = 'divergent_menu_access_cache_v2';
   const MENU_ACCESS_API_URL = 'https://neauzvqroaszvqffahkv.functions.supabase.co/menu-access-api';
 
@@ -34,12 +35,18 @@
   };
 
   function getSessionToken() {
-    try { return localStorage.getItem(FALLBACK_SESSION_KEY) || ''; }
-    catch (_) { return ''; }
+    try {
+      return localStorage.getItem(FALLBACK_SESSION_KEY)
+        || localStorage.getItem(WEB_SESSION_KEY)
+        || '';
+    } catch (_) { return ''; }
   }
 
   function clearSessionToken() {
-    try { localStorage.removeItem(FALLBACK_SESSION_KEY); } catch (_) {}
+    try {
+      localStorage.removeItem(FALLBACK_SESSION_KEY);
+      localStorage.removeItem(WEB_SESSION_KEY);
+    } catch (_) {}
   }
 
   function normalizeAccess(raw) {
