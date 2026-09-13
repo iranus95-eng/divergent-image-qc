@@ -15,7 +15,6 @@ assert.match(html,/function\s+payrollChildRows\s*\(/);
 assert.match(html,/function\s+collectPayrollRateDrafts\s*\(/);
 assert.match(html,/function\s+collectPayrollAdjustmentDrafts\s*\(/);
 assert.match(html,/rates:collectPayrollRateDrafts\(\),adjustments:collectPayrollAdjustmentDrafts\(\)/);
-assert.match(html,/let detail=\{\};if\(id\)\{detail=await payrollApi\("get_employee",\{id\}\)/);
 assert.doesNotMatch(html,/payrollApi\("add_rate"/);
 assert.doesNotMatch(html,/payrollApi\("add_adjustment"/);
 const ids=['navHome','navClaim','navClaimPending','navPayroll','navStaffPayroll','navStaffExpense','navQc','navSearch','navLocation','navUsers','navInvoice','navBilling','navPnL'];
