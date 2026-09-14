@@ -166,8 +166,19 @@
   'use strict';
   if(document.querySelector('script[data-billing-a4-fix]'))return;
   const s=document.createElement('script');
-  s.src='./js/billing-a4-fix.js?v=20260914-1';
+  s.src='./js/billing-a4-fix.js?v=20260914-2';
   s.async=false;
   s.setAttribute('data-billing-a4-fix','1');
+  document.head.appendChild(s);
+})();
+
+/* Replace billing mock logo with the exact original user-provided logo asset. */
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-billing-original-logo]'))return;
+  const s=document.createElement('script');
+  s.src='./js/billing-original-logo.js?v=20260914-1';
+  s.async=false;
+  s.setAttribute('data-billing-original-logo','1');
   document.head.appendChild(s);
 })();
