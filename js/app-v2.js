@@ -155,8 +155,19 @@
   'use strict';
   if(document.querySelector('script[data-billing-invoice-v1]'))return;
   const s=document.createElement('script');
-  s.src='./js/billing-invoice.js?v=20260914-1';
+  s.src='./js/billing-invoice.js?v=20260914-2';
   s.async=false;
   s.setAttribute('data-billing-invoice-v1','1');
+  document.head.appendChild(s);
+})();
+
+/* Billing logo + one-page A4 print fix. */
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-billing-a4-fix]'))return;
+  const s=document.createElement('script');
+  s.src='./js/billing-a4-fix.js?v=20260914-1';
+  s.async=false;
+  s.setAttribute('data-billing-a4-fix','1');
   document.head.appendChild(s);
 })();
