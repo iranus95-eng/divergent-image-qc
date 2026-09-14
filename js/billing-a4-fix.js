@@ -1,63 +1,65 @@
 (function(){
 'use strict';
-const STYLE_ID='billing-a4-fix-v6-style';
-const LOGO_DATA='data:image/jpeg;base64,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';
-const SCREEN_CSS=`
-#billingPaper.bi-paper{position:relative!important;width:794px!important;height:1123px!important;min-height:0!important;max-height:1123px!important;overflow:hidden!important;padding:26px 24px 22px!important;box-sizing:border-box!important;background:#fff!important;font-family:'Cordia New','CordiaUPC',Tahoma,sans-serif!important;font-size:14pt!important;line-height:1.08!important;color:#000!important}
-#billingPaper.bi-paper *{box-sizing:border-box!important}
-#billingPaper>.bi-logo-original{position:absolute!important;left:24px!important;top:24px!important;width:183px!important;height:61px!important;max-width:none!important;max-height:none!important;object-fit:contain!important;display:block!important;z-index:50!important}
-#billingPaper .bi-doc-head{display:grid!important;grid-template-columns:190px 1fr 145px!important;gap:12px!important;align-items:start!important;min-height:88px!important}
-#billingPaper .bi-company b{display:block!important;font-size:16pt!important;line-height:1.05!important}
-#billingPaper .bi-company .en{font-size:14pt!important;font-weight:800!important;line-height:1.05!important}
-#billingPaper .bi-company div{font-size:11pt!important;line-height:1.12!important}
-#billingPaper .bi-taxnote{font-size:11pt!important;padding:5px 4px!important;border-width:1.5px!important}
-#billingPaper .bi-customer-copy{font-size:11pt!important;margin-top:6px!important}
-#billingPaper .bi-title{margin:12px auto 10px!important;width:286px!important;padding:5px!important;border-width:1.5px!important}
-#billingPaper .bi-title b{font-size:18pt!important;line-height:1!important}
-#billingPaper .bi-title span{font-size:12pt!important;line-height:1.05!important}
-#billingPaper .bi-info{grid-template-columns:1fr 205px!important;gap:12px!important;margin-bottom:8px!important;font-size:12.5pt!important}
-#billingPaper .bi-info-line{grid-template-columns:98px 1fr!important;gap:5px!important;line-height:1.18!important}
-#billingPaper .bi-doc-table{font-size:12pt!important}
-#billingPaper .bi-doc-table th,#billingPaper .bi-doc-table td{height:22px!important;padding:2px 4px!important;line-height:1.08!important}
-#billingPaper .bi-doc-table tbody tr:first-child td{height:42px!important;vertical-align:top!important;padding-top:4px!important}
-#billingPaper .bi-bottom{grid-template-columns:1fr 225px!important;gap:10px!important;margin-top:8px!important;align-items:start!important}
-#billingPaper .bi-notes{font-size:10.5pt!important;line-height:1.25!important;margin-top:0!important}
-#billingPaper .bi-total-row{grid-template-columns:1fr 88px!important;padding:2px 5px!important;font-size:11pt!important;line-height:1.2!important}
-#billingPaper .bi-signs{gap:8px!important;margin-top:10px!important}
-#billingPaper .bi-sign{height:78px!important;padding:6px!important;font-size:10.5pt!important;line-height:1.2!important}
-`;
+/* Print-only fix for ใบแจ้งหนี้-ใบวางบิล.
+   Do not alter preview, logo, data, calculations, table content, or other menus. */
 const PRINT_CSS=`
-@page{size:A4 portrait;margin:0!important}html,body{margin:0!important;padding:0!important;width:210mm!important;height:297mm!important;overflow:hidden!important;background:#fff!important}body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-.bi-paper{position:relative!important;width:210mm!important;height:297mm!important;min-height:0!important;max-height:297mm!important;margin:0!important;padding:6.8mm 6.35mm 5.8mm!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important;font-family:'Cordia New','CordiaUPC',Tahoma,sans-serif!important;font-size:14pt!important;line-height:1.08!important;color:#000!important;page-break-after:avoid!important;break-after:avoid-page!important}.bi-paper *{box-sizing:border-box!important}
-.bi-paper>.bi-logo-original{position:absolute!important;left:6.35mm!important;top:6.35mm!important;width:48.4mm!important;height:16.1mm!important;object-fit:contain!important;display:block!important;z-index:50!important}
-.bi-doc-head{display:grid!important;grid-template-columns:50mm 1fr 38mm!important;gap:3mm!important;align-items:start!important;min-height:23mm!important}.bi-company b{display:block!important;font-size:16pt!important;line-height:1.05!important}.bi-company .en{font-size:14pt!important;font-weight:800!important;line-height:1.05!important}.bi-company div{font-size:11pt!important;line-height:1.12!important}.bi-taxnote{font-size:11pt!important;padding:1.3mm 1mm!important;border:1.5px solid #96362d!important;border-radius:2mm!important;text-align:center!important}.bi-customer-copy{text-align:center!important;font-size:11pt!important;margin-top:1.6mm!important}.bi-title{margin:3mm auto 2.5mm!important;width:75.5mm!important;padding:1.3mm!important;border:1.5px solid #97362e!important;border-radius:2mm!important;text-align:center!important}.bi-title b{font-size:18pt!important;line-height:1!important}.bi-title span{display:block!important;font-size:12pt!important;font-weight:800!important;line-height:1.05!important}.bi-info{display:grid!important;grid-template-columns:1fr 54mm!important;gap:3mm!important;margin-bottom:2mm!important;font-size:12.5pt!important}.bi-info-line{display:grid!important;grid-template-columns:26mm 1fr!important;gap:1.3mm!important;line-height:1.18!important}.bi-doc-table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:12pt!important}.bi-doc-table th,.bi-doc-table td{border:1px solid #111!important;height:5.8mm!important;padding:.55mm 1mm!important;line-height:1.08!important}.bi-doc-table th{background:#9c3a00!important;color:#fff!important;text-align:center!important}.bi-doc-table tbody tr:first-child td{height:11mm!important;vertical-align:top!important;padding-top:1mm!important}.c{text-align:center!important}.r{text-align:right!important}.bi-bottom{display:grid!important;grid-template-columns:1fr 59.5mm!important;gap:2.5mm!important;margin-top:2mm!important;align-items:start!important}.bi-notes{font-size:10.5pt!important;line-height:1.25!important;margin-top:0!important}.bi-totals{border:1px solid #111!important}.bi-total-row{display:grid!important;grid-template-columns:1fr 23mm!important;padding:.55mm 1.3mm!important;font-size:11pt!important;line-height:1.2!important}.bi-signs{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:2mm!important;margin-top:2.5mm!important}.bi-sign{border:1px solid #111!important;height:20.5mm!important;padding:1.5mm!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;font-size:10.5pt!important;line-height:1.2!important}.center{text-align:center!important}
+@page{size:A4 portrait;margin:0!important}
+html,body{margin:0!important;padding:0!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;overflow:hidden!important;background:#fff!important;writing-mode:horizontal-tb!important}
+body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+.bi-paper{position:relative!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;margin:0!important;padding:6.8mm 6.35mm 30mm!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important;font-family:'Cordia New','CordiaUPC',Tahoma,sans-serif!important;font-size:14pt!important;line-height:1.08!important;color:#000!important;transform:none!important;zoom:1!important;page-break-after:avoid!important;break-after:avoid-page!important}
+.bi-paper *{box-sizing:border-box!important}
+.bi-paper>.bi-logo-original,.bi-paper>.bi-logo{position:absolute!important;left:6.35mm!important;top:6.35mm!important;width:48.4mm!important;height:16.1mm!important;max-width:48.4mm!important;max-height:16.1mm!important;object-fit:contain!important;display:block!important;z-index:50!important}
+.bi-doc-head{display:grid!important;grid-template-columns:50mm 1fr 38mm!important;gap:3mm!important;align-items:start!important;min-height:23mm!important}
+.bi-company b{display:block!important;font-size:16pt!important;line-height:1.05!important}.bi-company .en{font-size:14pt!important;font-weight:800!important;line-height:1.05!important}.bi-company div{font-size:11pt!important;line-height:1.12!important}
+.bi-taxnote{font-size:11pt!important;padding:1.3mm 1mm!important;border:1.5px solid #96362d!important;border-radius:2mm!important;text-align:center!important}.bi-customer-copy{text-align:center!important;font-size:11pt!important;margin-top:1.6mm!important}
+.bi-title{margin:3mm auto 2.5mm!important;width:75.5mm!important;padding:1.3mm!important;border:1.5px solid #97362e!important;border-radius:2mm!important;text-align:center!important}.bi-title b{font-size:18pt!important;line-height:1!important}.bi-title span{display:block!important;font-size:12pt!important;font-weight:800!important;line-height:1.05!important}
+.bi-info{display:grid!important;grid-template-columns:1fr 54mm!important;gap:3mm!important;margin-bottom:2mm!important;font-size:12.5pt!important}.bi-info-line{display:grid!important;grid-template-columns:26mm 1fr!important;gap:1.3mm!important;line-height:1.18!important}
+.bi-doc-table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:12pt!important}.bi-doc-table th,.bi-doc-table td{border:1px solid #111!important;height:5.6mm!important;padding:.5mm 1mm!important;line-height:1.06!important}.bi-doc-table th{background:#9c3a00!important;color:#fff!important;text-align:center!important}.bi-doc-table tbody tr:first-child td{height:10.5mm!important;vertical-align:top!important;padding-top:.8mm!important}.c{text-align:center!important}.r{text-align:right!important}
+.bi-bottom{display:grid!important;grid-template-columns:1fr 59.5mm!important;gap:2.5mm!important;margin-top:1.8mm!important;align-items:start!important}.bi-notes{font-size:10.3pt!important;line-height:1.2!important;margin-top:0!important}.bi-totals{border:1px solid #111!important}.bi-total-row{display:grid!important;grid-template-columns:1fr 23mm!important;padding:.45mm 1.3mm!important;font-size:10.8pt!important;line-height:1.15!important}
+.bi-signs{position:absolute!important;left:6.35mm!important;right:6.35mm!important;bottom:6mm!important;display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:2mm!important;margin:0!important}.bi-sign{border:1px solid #111!important;height:20.5mm!important;padding:1.5mm!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;font-size:10.5pt!important;line-height:1.2!important}.center{text-align:center!important}
+@media print{html,body,.bi-paper{width:210mm!important;height:297mm!important;transform:none!important;zoom:1!important}}
 `;
-function installStyle(){if(document.getElementById(STYLE_ID))return;const s=document.createElement('style');s.id=STYLE_ID;s.textContent=SCREEN_CSS;document.head.appendChild(s)}
-function ensureLogo(root){
-  const paper=root?.querySelector?.('#billingPaper');if(!paper)return;
-  return paper.querySelector(':scope > .bi-logo-original');
+function printPortrait(root){
+  const paper=root&&root.querySelector('#billingPaper');
+  if(!paper)return;
+  const clone=paper.cloneNode(true);
+  clone.style.zoom='1';
+  clone.style.transform='none';
+  clone.style.margin='0';
+  const w=window.open('','_blank','width=850,height=1100');
+  if(!w){alert('กรุณาอนุญาต Pop-up เพื่อพิมพ์เอกสาร');return;}
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ใบแจ้งหนี้-ใบวางบิล</title><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`);
+  w.document.close();
 }
-function fitPreview(root){const wrap=root?.querySelector('.bi-preview-wrap'),paper=root?.querySelector('#billingPaper');if(!wrap||!paper)return;paper.style.zoom=String(Math.min(1,Math.max(.5,(wrap.clientWidth-24)/794)))}
-function printOnePage(root){
-  const paper=root?.querySelector('#billingPaper');if(!paper)return;ensureLogo(root);
-  const clone=paper.cloneNode(true);clone.style.zoom='1';clone.style.transform='none';clone.style.margin='0';
-  const w=window.open('','_blank','width=900,height=1100');if(!w){alert('กรุณาอนุญาต Pop-up เพื่อพิมพ์เอกสาร');return}
-  w.document.open();w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบแจ้งหนี้-ใบวางบิล</title><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script>window.onload=function(){setTimeout(function(){window.print()},220)}<\/script></body></html>`);w.document.close();
-}
-function patchRoot(){
-  installStyle();
-  const root=document.getElementById('billingInvoiceV1');if(!root)return;
-  ensureLogo(root);fitPreview(root);
-  const btn=root.querySelector('#biPrint');if(btn&&!btn.dataset.a4v6){btn.dataset.a4v6='1';btn.onclick=e=>{e.preventDefault();printOnePage(root)}}
+function patchPrint(){
+  const root=document.getElementById('billingInvoiceV1');
+  if(!root)return false;
+  const btn=root.querySelector('#biPrint');
+  if(!btn)return false;
+  btn.onclick=function(e){e.preventDefault();e.stopPropagation();printPortrait(root);};
+  return true;
 }
 function hookOpen(){
   if(typeof window.openBillingManagement!=='function')return false;
-  if(window.openBillingManagement.__a4v6)return true;
+  if(window.openBillingManagement.__printPortraitOnly)return true;
   const original=window.openBillingManagement;
-  const wrapped=function(){const r=original.apply(this,arguments);setTimeout(patchRoot,0);setTimeout(patchRoot,120);setTimeout(patchRoot,350);return r};
-  wrapped.__a4v6=true;window.openBillingManagement=wrapped;window.openBillingInvoiceManagement=wrapped;return true;
+  const wrapped=function(){
+    const r=original.apply(this,arguments);
+    setTimeout(patchPrint,0);
+    setTimeout(patchPrint,120);
+    setTimeout(patchPrint,350);
+    return r;
+  };
+  wrapped.__printPortraitOnly=true;
+  window.openBillingManagement=wrapped;
+  window.openBillingInvoiceManagement=wrapped;
+  return true;
 }
-installStyle();
-let tries=0;const timer=setInterval(()=>{tries++;if(hookOpen()||tries>100){clearInterval(timer);patchRoot()}},50);
-window.addEventListener('resize',()=>{const root=document.getElementById('billingInvoiceV1');if(root)fitPreview(root)});
+patchPrint();
+let tries=0;
+const timer=setInterval(function(){
+  tries++;
+  if(hookOpen()||tries>100){clearInterval(timer);setTimeout(patchPrint,0);}
+},50);
 })();
