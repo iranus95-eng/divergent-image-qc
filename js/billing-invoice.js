@@ -6,7 +6,7 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function num(v){const n=Number(String(v??'').replace(/,/g,''));return Number.isFinite(n)?n:0}
 function money(v){return num(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function thaiDate(v){if(!v)return'';const d=new Date(v+'T00:00:00');return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}).replace('พ.ศ.','').trim()}
-function logoHTML(){const img=document.querySelector('.side-brand img,.sidebar img');return img?`<img src="${esc(img.src)}" class="bi-logo">`:`<div class="bi-logo-fallback">◔</div>`}
+function logoHTML(){const src=new URL('images/divergent-logo-original.jpg',document.baseURI).href;return `<img src="${esc(src)}" class="bi-logo bi-logo-original" alt="Divergent Corporation Co., Ltd.">`}
 function defaultState(){return {customer:'การไฟฟ้าส่วนภูมิภาคจังหวัดอุดรธานี  ( สาขาที่ 00092 )',address:'เลขที่ 92 ถนนศรีชมชื่น ตำบลหมากแข้ง\nอำเภอเมืองอุดรธานี จังหวัดอุดรธานี 41000',tax:'0 9940 00165 50 1',branch:'00092',docNo:'IVT-202607001',date:'2026-07-01',period:'พฤษภาคม 2569 (31 พ.ค. 2569 - 29 มิ.ย. 2569)',detail:'ค่าจ้างจัดพิมพ์ใบแจ้งเตือนและส่งใบแจ้งเตือนค่าไฟฟ้า อุดรธานี',note:'',qty:15319,unit:'ฉบับ',rate:4.48,item:'ค่าจ้างจัดพิมพ์ (P00001)'} }
 function load(){try{return {...defaultState(),...JSON.parse(localStorage.getItem(STORE)||'{}')}}catch(_){return defaultState()}}
 function save(s){localStorage.setItem(STORE,JSON.stringify(s))}
