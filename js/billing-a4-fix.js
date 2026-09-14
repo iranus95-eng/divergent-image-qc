@@ -19,10 +19,32 @@ body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!importa
 .bi-signs{position:absolute!important;left:6.35mm!important;right:6.35mm!important;bottom:6mm!important;display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:2mm!important;margin:0!important}.bi-sign{border:1px solid #111!important;height:20.5mm!important;padding:1.5mm!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;font-size:10.5pt!important;line-height:1.2!important}.center{text-align:center!important}
 @media print{html,body,.bi-paper{width:210mm!important;height:297mm!important;transform:none!important;zoom:1!important}}
 `;
+function keepTaxIdSingleLine(root){
+  const lines=root&&root.querySelectorAll('#billingPaper .bi-info-line');
+  if(!lines)return false;
+  let line=null;
+  for(const item of lines){
+    const label=item.querySelector('b');
+    if(label&&(label.textContent||'').trim()==='เลขประจำตัวผู้เสียภาษี'){line=item;break;}
+  }
+  if(!line)return false;
+  line.style.setProperty('grid-template-columns','max-content minmax(0,1fr)','important');
+  line.style.setProperty('column-gap','7px','important');
+  line.style.setProperty('white-space','nowrap','important');
+  const label=line.querySelector('b');
+  const value=line.querySelector('span');
+  if(label)label.style.setProperty('white-space','nowrap','important');
+  if(value){
+    value.style.setProperty('white-space','nowrap','important');
+    value.style.setProperty('min-width','0','important');
+  }
+  return true;
+}
 function fitPreview(root){
   const wrap=root&&root.querySelector('.bi-preview-wrap');
   const paper=root&&root.querySelector('#billingPaper');
   if(!wrap||!paper)return false;
+  keepTaxIdSingleLine(root);
   const widthScale=Math.max(.1,(wrap.clientWidth-24)/794);
   const targetHeight=Math.max(440,Math.min(640,window.innerHeight-175));
   const heightScale=targetHeight/1123;
@@ -37,6 +59,7 @@ function fitPreview(root){
 function printPortrait(root){
   const paper=root&&root.querySelector('#billingPaper');
   if(!paper)return;
+  keepTaxIdSingleLine(root);
   const clone=paper.cloneNode(true);
   clone.style.zoom='1';
   clone.style.transform='none';
@@ -50,6 +73,7 @@ function printPortrait(root){
 function patchRoot(){
   const root=document.getElementById('billingInvoiceV1');
   if(!root)return false;
+  keepTaxIdSingleLine(root);
   fitPreview(root);
   const btn=root.querySelector('#biPrint');
   if(btn)btn.onclick=function(e){e.preventDefault();e.stopPropagation();printPortrait(root);};
