@@ -1,9 +1,9 @@
 (function(){
 'use strict';
 /* Preview-fit + print-orientation fix for ใบแจ้งหนี้-ใบวางบิล.
-   Do not alter logo, data, calculations, table content, or other menus. */
+   Scope: preview fit, tax-id line, and print orientation only. */
 const PRINT_CSS=`
-@page{size:210mm 297mm;margin:0;page-orientation:upright}
+@page{size:A4 portrait!important;margin:0!important}
 html,body{margin:0!important;padding:0!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;overflow:hidden!important;background:#fff!important;writing-mode:horizontal-tb!important}
 body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 .bi-paper{position:relative!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;margin:0!important;padding:6.8mm 6.35mm 30mm!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important;font-family:'Cordia New','CordiaUPC',Tahoma,sans-serif!important;font-size:14pt!important;line-height:1.08!important;color:#000!important;transform:none!important;zoom:1!important;page-break-after:avoid!important;break-after:avoid-page!important}
@@ -17,9 +17,31 @@ body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!importa
 .bi-doc-table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:12pt!important}.bi-doc-table th,.bi-doc-table td{border:1px solid #111!important;height:5.6mm!important;padding:.5mm 1mm!important;line-height:1.06!important}.bi-doc-table th{background:#9c3a00!important;color:#fff!important;text-align:center!important}.bi-doc-table tbody tr:first-child td{height:10.5mm!important;vertical-align:top!important;padding-top:.8mm!important}.c{text-align:center!important}.r{text-align:right!important}
 .bi-bottom{display:grid!important;grid-template-columns:1fr 59.5mm!important;gap:2.5mm!important;margin-top:1.8mm!important;align-items:start!important}.bi-notes{font-size:10.3pt!important;line-height:1.2!important;margin-top:0!important}.bi-totals{border:1px solid #111!important}.bi-total-row{display:grid!important;grid-template-columns:1fr 23mm!important;padding:.45mm 1.3mm!important;font-size:10.8pt!important;line-height:1.15!important}
 .bi-signs{position:absolute!important;left:6.35mm!important;right:6.35mm!important;bottom:6mm!important;display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:2mm!important;margin:0!important}.bi-sign{border:1px solid #111!important;height:20.5mm!important;padding:1.5mm!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;font-size:10.5pt!important;line-height:1.2!important}.center{text-align:center!important}
-@media print{html,body,.bi-paper{width:210mm!important;height:297mm!important;transform:none!important;zoom:1!important}}
+@media print{@page{size:A4 portrait!important;margin:0!important}html,body,.bi-paper{width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;transform:none!important;zoom:1!important}}
 `;
-function keepTaxIdSingleLine(root){
+
+function styleTaxBox(box,checked){
+  box.style.setProperty('display','inline-flex','important');
+  box.style.setProperty('align-items','center','important');
+  box.style.setProperty('justify-content','center','important');
+  box.style.setProperty('width','14px','important');
+  box.style.setProperty('height','14px','important');
+  box.style.setProperty('min-width','14px','important');
+  box.style.setProperty('min-height','14px','important');
+  box.style.setProperty('border','1.4px solid #111','important');
+  box.style.setProperty('box-sizing','border-box','important');
+  box.style.setProperty('font-family','Arial,Tahoma,sans-serif','important');
+  box.style.setProperty('font-size','13px','important');
+  box.style.setProperty('font-weight','700','important');
+  box.style.setProperty('line-height','12px','important');
+  box.style.setProperty('vertical-align','middle','important');
+  box.style.setProperty('margin','0 4px 0 0','important');
+  box.style.setProperty('padding','0','important');
+  box.style.setProperty('border-radius','0','important');
+  box.textContent=checked?'×':'';
+}
+
+function normalizeTaxIdLine(root){
   const lines=root&&root.querySelectorAll('#billingPaper .bi-info-line');
   if(!lines)return false;
   let line=null;
@@ -39,18 +61,63 @@ function keepTaxIdSingleLine(root){
     label.style.setProperty('white-space','nowrap','important');
     label.style.setProperty('font-size','14pt','important');
   }
-  if(value){
-    value.style.setProperty('white-space','nowrap','important');
-    value.style.setProperty('min-width','0','important');
-    value.style.setProperty('font-size','14pt','important');
+  if(!value)return true;
+  value.style.setProperty('white-space','nowrap','important');
+  value.style.setProperty('min-width','0','important');
+  value.style.setProperty('font-size','14pt','important');
+  value.style.setProperty('display','flex','important');
+  value.style.setProperty('align-items','center','important');
+
+  if(!value.dataset.taxBoxesNormalized){
+    const text=(value.textContent||'').replace(/\s+/g,' ').trim();
+    const m=text.match(/^(.*?)\s*□\s*สำนักงานใหญ่\s*☒\s*สาขาที่\s*(.*)$/);
+    if(m){
+      value.textContent='';
+      const tax=document.createElement('span');
+      tax.textContent=m[1].trim();
+      tax.style.setProperty('white-space','nowrap','important');
+      value.appendChild(tax);
+
+      const group=document.createElement('span');
+      group.className='bi-tax-options';
+      group.style.setProperty('display','inline-flex','important');
+      group.style.setProperty('align-items','center','important');
+      group.style.setProperty('white-space','nowrap','important');
+      group.style.setProperty('margin-left','22px','important');
+
+      const box1=document.createElement('span');
+      box1.className='bi-tax-box';
+      styleTaxBox(box1,false);
+      group.appendChild(box1);
+      const office=document.createElement('span');
+      office.textContent='สำนักงานใหญ่';
+      office.style.setProperty('margin-right','14px','important');
+      group.appendChild(office);
+
+      const box2=document.createElement('span');
+      box2.className='bi-tax-box';
+      styleTaxBox(box2,true);
+      group.appendChild(box2);
+      const branch=document.createElement('span');
+      branch.textContent='สาขาที่ '+m[2].trim();
+      group.appendChild(branch);
+
+      value.appendChild(group);
+      value.dataset.taxBoxesNormalized='1';
+    }
+  }else{
+    const boxes=value.querySelectorAll('.bi-tax-box');
+    if(boxes[0])styleTaxBox(boxes[0],false);
+    if(boxes[1])styleTaxBox(boxes[1],true);
   }
   return true;
 }
+
 function fitPreview(root){
   const wrap=root&&root.querySelector('.bi-preview-wrap');
   const paper=root&&root.querySelector('#billingPaper');
   if(!wrap||!paper)return false;
-  keepTaxIdSingleLine(root);
+  normalizeTaxIdLine(root);
   const widthScale=Math.max(.1,(wrap.clientWidth-24)/794);
   const targetHeight=Math.max(440,Math.min(640,window.innerHeight-175));
   const heightScale=targetHeight/1123;
@@ -62,24 +129,28 @@ function fitPreview(root){
   wrap.style.height=(Math.ceil(1123*scale)+24)+'px';
   return true;
 }
+
 function printPortrait(root){
   const paper=root&&root.querySelector('#billingPaper');
   if(!paper)return;
-  keepTaxIdSingleLine(root);
+  normalizeTaxIdLine(root);
   const clone=paper.cloneNode(true);
   clone.style.zoom='1';
   clone.style.transform='none';
   clone.style.margin='0';
-  const w=window.open('','_blank','width=850,height=1100');
+  clone.style.width='210mm';
+  clone.style.height='297mm';
+  const w=window.open('','_blank','width=900,height=1200');
   if(!w){alert('กรุณาอนุญาต Pop-up เพื่อพิมพ์เอกสาร');return;}
   w.document.open();
-  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ใบแจ้งหนี้-ใบวางบิล</title><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`);
+  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ใบแจ้งหนี้-ใบวางบิล</title><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script>window.onload=function(){document.documentElement.style.width='210mm';document.documentElement.style.height='297mm';document.body.style.width='210mm';document.body.style.height='297mm';setTimeout(function(){window.print()},350)}<\/script></body></html>`);
   w.document.close();
 }
+
 function patchRoot(){
   const root=document.getElementById('billingInvoiceV1');
   if(!root)return false;
-  keepTaxIdSingleLine(root);
+  normalizeTaxIdLine(root);
   fitPreview(root);
   const btn=root.querySelector('#biPrint');
   if(btn)btn.onclick=function(e){e.preventDefault();e.stopPropagation();printPortrait(root);};
@@ -90,9 +161,10 @@ function patchRoot(){
   }
   return true;
 }
+
 function hookOpen(){
   if(typeof window.openBillingManagement!=='function')return false;
-  if(window.openBillingManagement.__previewPortraitFix)return true;
+  if(window.openBillingManagement.__previewPortraitFixV2)return true;
   const original=window.openBillingManagement;
   const wrapped=function(){
     const r=original.apply(this,arguments);
@@ -101,11 +173,12 @@ function hookOpen(){
     setTimeout(patchRoot,350);
     return r;
   };
-  wrapped.__previewPortraitFix=true;
+  wrapped.__previewPortraitFixV2=true;
   window.openBillingManagement=wrapped;
   window.openBillingInvoiceManagement=wrapped;
   return true;
 }
+
 patchRoot();
 let tries=0;
 const timer=setInterval(function(){
