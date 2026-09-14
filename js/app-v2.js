@@ -3,7 +3,7 @@
   const items=[
     ['home','หน้าหลัก'],['claim','ตั้งเบิก'],['claimPending','งานค้าง'],['payroll','เงินเดือน'],
     ['staffPayroll','เงินเดือนสตาฟ'],['advance','เบิกล่วงหน้า'],['expense','ค่าใช้จ่าย'],['qc','ตรวจงาน'],['search','ค้นหา'],
-    ['location','พิกัด'],['users','ผู้ใช้'],['invoice','ใบตั้งหนี้'],['billing','ใบวางบิล'],['pnl','กำไร/ขาดทุน']
+    ['location','พิกัด'],['users','ผู้ใช้'],['invoice','ใบตั้งหนี้'],['billing','ใบแจ้งหนี้-ใบวางบิล'],['pnl','กำไร/ขาดทุน']
   ];
   const calls={
     home:()=>window.switchWorkspace('home'),claim:()=>window.openClaimManagement(),claimPending:()=>window.openClaimPendingManagement(),
@@ -16,6 +16,22 @@
   function visible(key){const source=document.getElementById(navIds[key]);return source&&getComputedStyle(source).display!=='none'}
   function activeKey(){const active=document.querySelector('.side-nav .nav-item.active');if(!active)return'home';return Object.keys(navIds).find(k=>navIds[k]===active.id)||'home'}
   function sync(){const nav=document.querySelector('.v2-mobile-nav');if(!nav)return;nav.querySelectorAll('button').forEach(button=>{const key=button.dataset.v2Page;button.hidden=!visible(key);button.classList.toggle('active',key===activeKey())})}
+  function syncBillingLabel(){
+    const label='ใบแจ้งหนี้-ใบวางบิล';
+    document.querySelectorAll('#homeMenuGrid5 .home-menu5-card').forEach(card=>{
+      const title=card.querySelector('.home-menu5-copy b');
+      if(title&&['จัดทำใบวางบิล','ใบวางบิล'].includes((title.textContent||'').trim()))title.textContent=label;
+    });
+    const side=document.getElementById('navBilling');
+    if(side){
+      const walker=document.createTreeWalker(side,NodeFilter.SHOW_TEXT);
+      let node;
+      while((node=walker.nextNode())){
+        const text=node.nodeValue||'';
+        if(text.includes('จัดทำใบวางบิล'))node.nodeValue=text.replace(/จัดทำใบวางบิล/g,label);
+      }
+    }
+  }
   function mount(){
     document.documentElement.dataset.ui='v2';
     const brand=document.querySelector('.side-brand');if(brand)brand.setAttribute('aria-label','Divergent Image Rescue V2');
@@ -24,8 +40,9 @@
       for(const [key,label] of items){const button=document.createElement('button');button.type='button';button.dataset.v2Page=key;button.textContent=label;button.addEventListener('click',()=>{if(calls[key])calls[key]();setTimeout(sync,0)});nav.appendChild(button)}
       document.body.appendChild(nav);
     }
-    const side=document.querySelector('.side-nav');if(side)new MutationObserver(sync).observe(side,{attributes:true,childList:true,subtree:true,attributeFilter:['class','style']});
-    sync();
+    const side=document.querySelector('.side-nav');if(side)new MutationObserver(()=>{sync();syncBillingLabel()}).observe(side,{attributes:true,childList:true,subtree:true,attributeFilter:['class','style']});
+    sync();syncBillingLabel();
+    [100,850,1950,3200].forEach(ms=>setTimeout(syncBillingLabel,ms));
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
