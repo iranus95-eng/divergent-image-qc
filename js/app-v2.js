@@ -110,14 +110,13 @@
     if(!wrap){wrap=document.createElement('div');wrap.id=WRAP_ID;wrap.setAttribute('aria-label','การนำทางและสถานะผู้ใช้');header.insertBefore(wrap,header.firstChild)}
     if(nav.parentNode!==wrap)wrap.appendChild(nav);
     if(login.parentNode!==wrap)wrap.appendChild(login);
-    const back=nav.querySelector('.workspace-back-button');if(back)back.textContent='← ย้อนกลับ';
-    const home=nav.querySelector('.workspace-home-button');if(home)home.textContent='⌂ หน้าหลัก';
+    const back=nav.querySelector('.workspace-back-button');if(back&&back.textContent!=='← ย้อนกลับ')back.textContent='← ย้อนกลับ';
+    const home=nav.querySelector('.workspace-home-button');if(home&&home.textContent!=='⌂ หน้าหลัก')home.textContent='⌂ หน้าหลัก';
     return true;
   }
   function bootHeaderActions(){
     installStyle();
     alignHeaderActions();
-    const observer=new MutationObserver(()=>alignHeaderActions());observer.observe(document.body,{childList:true,subtree:true});
     [100,300,800,1500,3000].forEach(ms=>setTimeout(alignHeaderActions,ms));
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootHeaderActions,{once:true});else bootHeaderActions();
