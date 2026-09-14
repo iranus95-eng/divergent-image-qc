@@ -149,3 +149,14 @@
   s.setAttribute('data-invoice-excel-exact','1');
   document.head.appendChild(s);
 })();
+
+/* Billing / invoice-delivery order workspace. */
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-billing-invoice-v1]'))return;
+  const s=document.createElement('script');
+  s.src='./js/billing-invoice.js?v=20260914-1';
+  s.async=false;
+  s.setAttribute('data-billing-invoice-v1','1');
+  document.head.appendChild(s);
+})();
