@@ -127,7 +127,7 @@
   'use strict';
   if(document.querySelector('script[data-invoice-excel-exact]'))return;
   const s=document.createElement('script');
-  s.src='./js/invoice-excel-exact.js?v=20260914-2';
+  s.src='./js/invoice-excel-exact.js?v=20260914-3';
   s.async=false;
   s.setAttribute('data-invoice-excel-exact','1');
   document.head.appendChild(s);
