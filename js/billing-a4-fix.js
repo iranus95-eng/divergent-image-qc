@@ -35,12 +35,7 @@ const PRINT_CSS=`
 function installStyle(){if(document.getElementById(STYLE_ID))return;const s=document.createElement('style');s.id=STYLE_ID;s.textContent=SCREEN_CSS;document.head.appendChild(s)}
 function ensureLogo(root){
   const paper=root?.querySelector?.('#billingPaper');if(!paper)return;
-  let img=paper.querySelector(':scope > .bi-logo-original');
-  if(!img){
-    paper.querySelectorAll(':scope > .bi-logo,:scope > .bi-logo-svg,:scope > .bi-logo-fallback').forEach(el=>el.remove());
-    img=document.createElement('img');img.className='bi-logo-original';img.alt='Divergent Corporation Co., Ltd.';img.width=183;img.height=61;paper.prepend(img);
-  }
-  if(img.src!==LOGO_DATA)img.src=LOGO_DATA;
+  return paper.querySelector(':scope > .bi-logo-original');
 }
 function fitPreview(root){const wrap=root?.querySelector('.bi-preview-wrap'),paper=root?.querySelector('#billingPaper');if(!wrap||!paper)return;paper.style.zoom=String(Math.min(1,Math.max(.5,(wrap.clientWidth-24)/794)))}
 function printOnePage(root){
