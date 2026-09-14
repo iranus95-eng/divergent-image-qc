@@ -41,7 +41,6 @@ function fitPreview(root){const wrap=root?.querySelector('.bi-preview-wrap'),pap
 function printOnePage(root){
   const paper=root?.querySelector('#billingPaper');if(!paper)return;ensureLogo(root);
   const clone=paper.cloneNode(true);clone.style.zoom='1';clone.style.transform='none';clone.style.margin='0';
-  const logo=clone.querySelector(':scope > .bi-logo-original');if(logo)logo.src=LOGO_DATA;
   const w=window.open('','_blank','width=900,height=1100');if(!w){alert('กรุณาอนุญาต Pop-up เพื่อพิมพ์เอกสาร');return}
   w.document.open();w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบแจ้งหนี้-ใบวางบิล</title><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script>window.onload=function(){setTimeout(function(){window.print()},220)}<\/script></body></html>`);w.document.close();
 }
