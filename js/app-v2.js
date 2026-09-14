@@ -121,3 +121,14 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootHeaderActions,{once:true});else bootHeaderActions();
 })();
+
+/* Exact Excel invoice template from user reference workbook. */
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-invoice-excel-exact]'))return;
+  const s=document.createElement('script');
+  s.src='./js/invoice-excel-exact.js?v=20260914-1';
+  s.async=false;
+  s.setAttribute('data-invoice-excel-exact','1');
+  document.head.appendChild(s);
+})();
