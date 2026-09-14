@@ -168,3 +168,74 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootDeleteUi,{once:true});
   else bootDeleteUi();
 })();
+
+/* Header nav alignment: keep Back + Home in the same row as login/status. */
+(function(){
+  'use strict';
+  const STYLE_ID='header-actions-v3-style';
+  const WRAP_ID='headerActionsV3';
+  const NAV_ID='divergentPageNavV2';
+
+  function installStyle(){
+    if(document.getElementById(STYLE_ID))return;
+    const style=document.createElement('style');
+    style.id=STYLE_ID;
+    style.textContent=`
+      #${WRAP_ID}{position:absolute;right:24px;top:20px;z-index:11060;display:flex;align-items:center;justify-content:flex-end;gap:8px;max-width:calc(100% - 48px)}
+      #${WRAP_ID} #${NAV_ID}{position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;display:flex!important;align-items:center!important;gap:8px!important;padding:0!important;margin:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important}
+      #${WRAP_ID} #${NAV_ID} button{flex:0 0 auto!important;margin:0!important;padding:10px 12px!important;white-space:nowrap!important}
+      #${WRAP_ID} .top-login{position:static!important;right:auto!important;top:auto!important;margin:0!important;white-space:nowrap!important}
+      .main-shell .header{padding-right:520px!important}
+      @media(max-width:1050px){
+        #${WRAP_ID}{position:static!important;width:100%;max-width:none;margin:10px 0 0 auto;justify-content:flex-end;flex-wrap:wrap}
+        .main-shell .header{padding-right:12px!important}
+      }
+      @media(max-width:620px){
+        #${WRAP_ID}{gap:6px;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+        #${WRAP_ID} #${NAV_ID}{gap:6px!important;flex:0 0 auto!important}
+        #${WRAP_ID} #${NAV_ID} button{padding:9px 10px!important;font-size:12px!important}
+        #${WRAP_ID} .top-login{padding:9px 10px!important;font-size:12px!important;flex:0 0 auto!important}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function alignHeaderActions(){
+    const header=document.querySelector('.main-shell .header');
+    const login=document.getElementById('topLoginButton');
+    const nav=document.getElementById(NAV_ID);
+    if(!header||!login||!nav)return false;
+
+    let wrap=document.getElementById(WRAP_ID);
+    if(!wrap){
+      wrap=document.createElement('div');
+      wrap.id=WRAP_ID;
+      wrap.setAttribute('aria-label','การนำทางและสถานะผู้ใช้');
+      header.insertBefore(wrap,header.firstChild);
+    }
+
+    if(nav.parentNode!==wrap)wrap.appendChild(nav);
+    if(login.parentNode!==wrap)wrap.appendChild(login);
+
+    const home=nav.querySelector('[data-dv-home]');
+    if(home)home.textContent='⌂ หน้าหลัก';
+    const back=nav.querySelector('[data-dv-back]');
+    if(back)back.textContent='← ย้อนกลับ';
+    return true;
+  }
+
+  function bootHeaderActions(){
+    installStyle();
+    if(alignHeaderActions())return;
+    const observer=new MutationObserver(()=>{
+      if(alignHeaderActions())observer.disconnect();
+    });
+    observer.observe(document.body,{childList:true,subtree:true});
+    setTimeout(alignHeaderActions,300);
+    setTimeout(alignHeaderActions,1200);
+    setTimeout(alignHeaderActions,3000);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootHeaderActions,{once:true});
+  else bootHeaderActions();
+})();
