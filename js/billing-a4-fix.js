@@ -1,9 +1,9 @@
 (function(){
 'use strict';
-/* Print-only fix for ใบแจ้งหนี้-ใบวางบิล.
-   Do not alter preview, logo, data, calculations, table content, or other menus. */
+/* Preview-fit + print-orientation fix for ใบแจ้งหนี้-ใบวางบิล.
+   Do not alter logo, data, calculations, table content, or other menus. */
 const PRINT_CSS=`
-@page{size:A4 portrait;margin:0!important}
+@page{size:210mm 297mm;margin:0;page-orientation:upright}
 html,body{margin:0!important;padding:0!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;overflow:hidden!important;background:#fff!important;writing-mode:horizontal-tb!important}
 body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 .bi-paper{position:relative!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;margin:0!important;padding:6.8mm 6.35mm 30mm!important;overflow:hidden!important;box-sizing:border-box!important;background:#fff!important;font-family:'Cordia New','CordiaUPC',Tahoma,sans-serif!important;font-size:14pt!important;line-height:1.08!important;color:#000!important;transform:none!important;zoom:1!important;page-break-after:avoid!important;break-after:avoid-page!important}
@@ -19,6 +19,21 @@ body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!importa
 .bi-signs{position:absolute!important;left:6.35mm!important;right:6.35mm!important;bottom:6mm!important;display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:2mm!important;margin:0!important}.bi-sign{border:1px solid #111!important;height:20.5mm!important;padding:1.5mm!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;font-size:10.5pt!important;line-height:1.2!important}.center{text-align:center!important}
 @media print{html,body,.bi-paper{width:210mm!important;height:297mm!important;transform:none!important;zoom:1!important}}
 `;
+function fitPreview(root){
+  const wrap=root&&root.querySelector('.bi-preview-wrap');
+  const paper=root&&root.querySelector('#billingPaper');
+  if(!wrap||!paper)return false;
+  const widthScale=Math.max(.1,(wrap.clientWidth-24)/794);
+  const targetHeight=Math.max(440,Math.min(640,window.innerHeight-175));
+  const heightScale=targetHeight/1123;
+  const scale=Math.max(.38,Math.min(1,widthScale,heightScale));
+  paper.style.zoom=String(scale);
+  paper.style.transform='none';
+  paper.style.margin='0 auto';
+  wrap.style.overflow='hidden';
+  wrap.style.height=(Math.ceil(1123*scale)+24)+'px';
+  return true;
+}
 function printPortrait(root){
   const paper=root&&root.querySelector('#billingPaper');
   if(!paper)return;
@@ -32,34 +47,40 @@ function printPortrait(root){
   w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ใบแจ้งหนี้-ใบวางบิล</title><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`);
   w.document.close();
 }
-function patchPrint(){
+function patchRoot(){
   const root=document.getElementById('billingInvoiceV1');
   if(!root)return false;
+  fitPreview(root);
   const btn=root.querySelector('#biPrint');
-  if(!btn)return false;
-  btn.onclick=function(e){e.preventDefault();e.stopPropagation();printPortrait(root);};
+  if(btn)btn.onclick=function(e){e.preventDefault();e.stopPropagation();printPortrait(root);};
+  if(!root.dataset.previewFitBound){
+    root.dataset.previewFitBound='1';
+    root.addEventListener('input',function(){setTimeout(function(){fitPreview(root)},0)});
+    root.addEventListener('change',function(){setTimeout(function(){fitPreview(root)},0)});
+  }
   return true;
 }
 function hookOpen(){
   if(typeof window.openBillingManagement!=='function')return false;
-  if(window.openBillingManagement.__printPortraitOnly)return true;
+  if(window.openBillingManagement.__previewPortraitFix)return true;
   const original=window.openBillingManagement;
   const wrapped=function(){
     const r=original.apply(this,arguments);
-    setTimeout(patchPrint,0);
-    setTimeout(patchPrint,120);
-    setTimeout(patchPrint,350);
+    setTimeout(patchRoot,0);
+    setTimeout(patchRoot,120);
+    setTimeout(patchRoot,350);
     return r;
   };
-  wrapped.__printPortraitOnly=true;
+  wrapped.__previewPortraitFix=true;
   window.openBillingManagement=wrapped;
   window.openBillingInvoiceManagement=wrapped;
   return true;
 }
-patchPrint();
+patchRoot();
 let tries=0;
 const timer=setInterval(function(){
   tries++;
-  if(hookOpen()||tries>100){clearInterval(timer);setTimeout(patchPrint,0);}
+  if(hookOpen()||tries>100){clearInterval(timer);setTimeout(patchRoot,0);}
 },50);
+window.addEventListener('resize',function(){const root=document.getElementById('billingInvoiceV1');if(root)fitPreview(root)});
 })();
