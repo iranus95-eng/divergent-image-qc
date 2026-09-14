@@ -99,3 +99,72 @@
 
   window.staffExpenseApi=fixedStaffExpenseApi;
 })();
+
+/* Staff expense delete UI: the legacy expense table only renders an Edit button.
+ * Add a safe soft-delete button next to Edit whenever the current user can manage
+ * expenses. The API keeps the row for audit/history by setting is_active=false.
+ */
+(function(){
+  'use strict';
+
+  function installDeleteStyle(){
+    if(document.getElementById('expense-delete-v2-style'))return;
+    const style=document.createElement('style');
+    style.id='expense-delete-v2-style';
+    style.textContent=`
+      .expense-delete-v2{margin-left:6px!important;background:#fff1f2!important;color:#b4233c!important;border:1px solid #fecdd3!important}
+      .expense-delete-v2:hover{background:#ffe4e6!important}
+      .expense-row-actions-v2{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+    `;
+    document.head.appendChild(style);
+  }
+
+  async function deleteStaffExpenseItem(id){
+    id=Number(id||0);
+    if(!id)return;
+    if(!confirm('ยืนยันลบรายการนี้?\n\nรายการจะหายจากรอบปัจจุบัน แต่ยังเก็บประวัติไว้ในระบบ'))return;
+    try{
+      await window.staffExpenseApi('delete_item',{id});
+      if(typeof window.loadStaffExpenseItems==='function')await window.loadStaffExpenseItems(true);
+      else if(typeof window.loadStaffExpenseBootstrap==='function')await window.loadStaffExpenseBootstrap(true);
+    }catch(e){
+      alert('ลบรายการไม่สำเร็จ: '+(e?.message||e));
+    }
+  }
+
+  function addDeleteButtons(){
+    const body=document.getElementById('expenseBody');
+    if(!body)return;
+    const edits=body.querySelectorAll('button[onclick^="openExpenseItemModal("]');
+    edits.forEach(edit=>{
+      const cell=edit.closest('td');
+      if(!cell||cell.querySelector('.expense-delete-v2'))return;
+      const raw=edit.getAttribute('onclick')||'';
+      const match=raw.match(/openExpenseItemModal\((\d+)\)/);
+      if(!match)return;
+      const id=Number(match[1]);
+      const wrap=document.createElement('div');
+      wrap.className='expense-row-actions-v2';
+      edit.parentNode.insertBefore(wrap,edit);
+      wrap.appendChild(edit);
+      const del=document.createElement('button');
+      del.type='button';
+      del.className='expense-soft expense-delete-v2';
+      del.textContent='🗑 ลบ';
+      del.addEventListener('click',()=>deleteStaffExpenseItem(id));
+      wrap.appendChild(del);
+    });
+  }
+
+  window.deleteStaffExpenseItem=deleteStaffExpenseItem;
+
+  function bootDeleteUi(){
+    installDeleteStyle();
+    addDeleteButtons();
+    const body=document.getElementById('expenseBody');
+    if(body)new MutationObserver(()=>addDeleteButtons()).observe(body,{childList:true,subtree:true});
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootDeleteUi,{once:true});
+  else bootDeleteUi();
+})();
