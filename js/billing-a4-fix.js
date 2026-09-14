@@ -31,12 +31,18 @@ function keepTaxIdSingleLine(root){
   line.style.setProperty('grid-template-columns','max-content minmax(0,1fr)','important');
   line.style.setProperty('column-gap','7px','important');
   line.style.setProperty('white-space','nowrap','important');
+  line.style.setProperty('font-size','14pt','important');
+  line.style.setProperty('line-height','1.15','important');
   const label=line.querySelector('b');
   const value=line.querySelector('span');
-  if(label)label.style.setProperty('white-space','nowrap','important');
+  if(label){
+    label.style.setProperty('white-space','nowrap','important');
+    label.style.setProperty('font-size','14pt','important');
+  }
   if(value){
     value.style.setProperty('white-space','nowrap','important');
     value.style.setProperty('min-width','0','important');
+    value.style.setProperty('font-size','14pt','important');
   }
   return true;
 }
