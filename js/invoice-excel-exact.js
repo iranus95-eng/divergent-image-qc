@@ -1,6 +1,6 @@
 (function(window){
 'use strict';
-const STYLE_ID='invoice-excel-exact-style-v1';
+const STYLE_ID='invoice-excel-exact-style-v2';
 const PAPER_ID='invoicePaper';
 let headerSrc='';
 let footerSrc='';
@@ -80,7 +80,7 @@ const EXACT_CSS=`
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table .xl-center{text-align:center!important}
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table .xl-left{text-align:left!important}
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table .xl-words{text-align:center!important;line-height:1.02!important;white-space:nowrap!important;overflow:hidden!important}
-#invoicePaper.invoice-excel-exact #pInvCompletionNote{position:absolute!important;left:22.68px!important;top:651.8px!important;width:748.35px!important;height:85.6px!important;margin:0!important;padding:0!important;white-space:pre-line!important;overflow:hidden!important;text-align:left!important;font-size:14pt!important;font-weight:700!important;line-height:1.35!important}
+#invoicePaper.invoice-excel-exact #pInvCompletionNote{position:absolute!important;left:22.68px!important;top:670px!important;width:748.35px!important;height:74px!important;margin:0!important;padding:0!important;white-space:pre-line!important;overflow:hidden!important;text-align:left!important;font-size:14pt!important;font-weight:700!important;line-height:1.35!important}
 #invoicePaper.invoice-excel-exact .xl-close-1,#invoicePaper.invoice-excel-exact .xl-close-2,#invoicePaper.invoice-excel-exact .xl-sign-name,#invoicePaper.invoice-excel-exact .xl-sign-role{position:absolute!important;left:22.68px!important;width:748.35px!important;height:28px!important;text-align:center!important;font-size:14pt!important;font-weight:700!important;line-height:28px!important;margin:0!important;padding:0!important}
 #invoicePaper.invoice-excel-exact .xl-close-1{top:767.4px!important}
 #invoicePaper.invoice-excel-exact .xl-close-2{top:795.4px!important}
