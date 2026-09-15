@@ -199,7 +199,7 @@
   'use strict';
   if(document.querySelector('script[data-receipt-smart-dropdowns]'))return;
   const s=document.createElement('script');
-  s.src='./js/receipt-smart-dropdowns.js?v=20260915-1000';
+  s.src='./js/receipt-smart-dropdowns.js?v=20260915-1005';
   s.async=false;
   s.setAttribute('data-receipt-smart-dropdowns','1');
   document.head.appendChild(s);
