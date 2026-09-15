@@ -159,6 +159,7 @@ function generatePortraitPdf(root){
 
   const token='billingPdf_'+Date.now()+'_'+Math.random().toString(36).slice(2);
   let finished=false;
+  let pdfUrl='';
   const cleanup=function(){
     if(finished)return;
     finished=true;
@@ -167,8 +168,10 @@ function generatePortraitPdf(root){
   };
   const onMessage=function(event){
     if(event.source!==frame.contentWindow||!event.data||event.data.token!==token)return;
-    if(event.data.type==='billing-pdf-ready'&&event.data.url){
-      try{viewer.location.replace(event.data.url);}catch(_){viewer.location.href=event.data.url;}
+    if(event.data.type==='billing-pdf-ready'&&event.data.blob){
+      pdfUrl=URL.createObjectURL(event.data.blob);
+      try{viewer.location.replace(pdfUrl);}catch(_){viewer.location.href=pdfUrl;}
+      setTimeout(function(){if(pdfUrl)URL.revokeObjectURL(pdfUrl)},120000);
       cleanup();
       return;
     }
@@ -200,8 +203,7 @@ function generatePortraitPdf(root){
         };
         html2pdf().set(opt).from(el).toPdf().get('pdf').then(function(pdf){
           var blob=pdf.output('blob');
-          var url=URL.createObjectURL(blob);
-          parent.postMessage({type:'billing-pdf-ready',token:token,url:url},'*');
+          parent.postMessage({type:'billing-pdf-ready',token:token,blob:blob},'*');
         }).catch(fail);
       }catch(err){fail(err)}
     },250);
