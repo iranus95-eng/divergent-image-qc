@@ -14,8 +14,9 @@ async function loadMaster(){
 function norm(v){return String(v||'').replace(/\s+/g,' ').replace(/[()]/g,'').trim().toLowerCase()}
 function unique(a){return [...new Set(a.map(v=>String(v||'').trim()).filter(Boolean))]}
 function fire(el){if(!el)return;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}
+function inputOnly(el){if(el)el.dispatchEvent(new Event('input',{bubbles:true}))}
 function ensureList(root,id,values,labeler){let dl=root.querySelector('#'+id);if(!dl){dl=document.createElement('datalist');dl.id=id;root.appendChild(dl)}dl.innerHTML='';for(const v of values){const o=document.createElement('option');if(typeof v==='object'){o.value=String(v.value||'');if(v.label)o.label=String(v.label)}else{o.value=String(v);if(labeler)o.label=labeler(v)}dl.appendChild(o)}return dl}
-function customerMatch(customers,value,branch){const n=norm(value),b=String(branch||'').trim();return customers.find(c=>b&&String(c.branch_code||'').trim()===b)||customers.find(c=>norm(c.customer_name)===n)||null}
+function customerMatch(customers,value,branch){const n=norm(value),b=String(branch||'').trim();return customers.find(c=>n&&norm(c.customer_name)===n)||customers.find(c=>!n&&b&&String(c.branch_code||'').trim()===b)||null}
 function makeCustomerCombo(root,data){
   let el=root.querySelector('[name="customer"]');if(!el)return null;
   if(el.tagName==='SELECT'){
@@ -27,8 +28,8 @@ function makeCustomerCombo(root,data){
   [address,tax,branch].forEach(x=>{if(x){x.readOnly=false;x.removeAttribute('aria-readonly')}});
   if(branch){branch.setAttribute('list','rtBranchSmartList');ensureList(root,'rtBranchSmartList',unique(data.customers.map(c=>c.branch_code)))}
   if(tax){tax.setAttribute('list','rtTaxSmartList');ensureList(root,'rtTaxSmartList',unique(data.customers.map(c=>c.tax_id)))}
-  const apply=c=>{if(!c)return;root.dataset.rtCustomerId=String(c.id||'');el.value=String(c.customer_name||'');if(address)address.value=String(c.address||'');if(tax)tax.value=String(c.tax_id||'');if(branch)branch.value=String(c.branch_code||'');[el,address,tax,branch].forEach(fire);refreshLists(root,data)};
-  const choose=()=>{const c=customerMatch(data.customers,el.value,branch?.value);if(c)apply(c);else root.dataset.rtCustomerId='';refreshLists(root,data)};
+  const apply=c=>{if(!c)return;root.dataset.rtCustomerId=String(c.id||'');el.value=String(c.customer_name||'');if(address)address.value=String(c.address||'');if(tax)tax.value=String(c.tax_id||'');if(branch)branch.value=String(c.branch_code||'');inputOnly(el);[address,tax,branch].forEach(fire);refreshLists(root,data)};
+  const choose=()=>{const c=customerMatch(data.customers,el.value,branch?.value);if(c)apply(c);else{root.dataset.rtCustomerId='';refreshLists(root,data)}};
   if(!el.dataset.rtSmartBound){el.addEventListener('change',choose);el.addEventListener('blur',choose);el.dataset.rtSmartBound='1'}
   const c=customerMatch(data.customers,el.value,branch?.value);if(c){root.dataset.rtCustomerId=String(c.id||'');if(!address?.value||!tax?.value||!branch?.value)apply(c)}
   const field=el.closest('.rt-field');if(field&&!field.querySelector('.rt-smart-help')){const h=document.createElement('div');h.className='rt-smart-help';h.textContent='เลือกจากรายการได้ หรือพิมพ์ข้อความใหม่ได้ หากไม่มีในรายการ';field.appendChild(h)}
@@ -46,13 +47,13 @@ function refreshLists(root,data){
   currentCards.forEach(card=>{
     const item=card.querySelector('[name="item"]'),detail=card.querySelector('[name="detail"]'),period=card.querySelector('[name="period"]'),site=card.querySelector('[name="site"]');
     if(item)item.setAttribute('list','rtItemSmartList');if(detail)detail.setAttribute('list','rtDetailSmartList');if(period)period.setAttribute('list','rtPeriodSmartList');if(site)site.setAttribute('list','rtSiteSmartList');
-    if(site&&!site.dataset.rtSmartBound){site.addEventListener('change',()=>{const match=rows.find(x=>norm(x.area_name)===norm(site.value));if(match&&period){const knownPeriods=new Set(data.items.map(x=>String(x.billing_text||'')));if(!period.value||knownPeriods.has(period.value)){period.value=String(match.billing_text||'');fire(period)}}});site.dataset.rtSmartBound='1'}
+    if(site&&!site.dataset.rtSmartBound){site.addEventListener('change',()=>{const liveRows=currentCustomerItems(root,data),match=liveRows.find(x=>norm(x.area_name)===norm(site.value));if(match&&period){const knownPeriods=new Set(data.items.map(x=>String(x.billing_text||'')));if(!period.value||knownPeriods.has(period.value)){period.value=String(match.billing_text||'');fire(period)}}});site.dataset.rtSmartBound='1'}
   });
   const bank=root.querySelector('[name="chequeBank"]');if(bank){bank.setAttribute('list','rtBankSmartList');ensureList(root,'rtBankSmartList',['ธนาคารกรุงไทย','ธนาคารกสิกรไทย','ธนาคารกรุงเทพ','ธนาคารไทยพาณิชย์','ธนาคารกรุงศรีอยุธยา','ธนาคารทหารไทยธนชาต','ธนาคารออมสิน','ธ.ก.ส.'])}
 }
 function addStyle(){if(document.getElementById('rt-smart-dropdown-style'))return;const s=document.createElement('style');s.id='rt-smart-dropdown-style';s.textContent=`#receiptTaxV1 .rt-smart-help{margin-top:5px;font-size:11px;color:#786c89}#receiptTaxV1 .rt-smart-combo{width:100%;border:1px solid #d9d2e7;border-radius:8px;padding:9px 10px;font:inherit;background:#fff;color:#25183d}`;document.head.appendChild(s)}
-async function enhance(root){if(!root||root.dataset.rtSmartEnhancing==='1')return;root.dataset.rtSmartEnhancing='1';addStyle();try{const data=await loadMaster();if(!document.body.contains(root))return;makeCustomerCombo(root,data);refreshLists(root,data);root.dataset.rtSmartReady='1'}catch(e){console.error('receipt smart dropdowns',e)}finally{root.dataset.rtSmartEnhancing='0'}}
-function scan(){const root=document.getElementById('receiptTaxV1');if(!root)return;enhance(root)}
+async function enhance(root){if(!root||root.dataset.rtSmartEnhancing==='1'||root.dataset.rtSmartReady==='1')return;root.dataset.rtSmartEnhancing='1';addStyle();try{const data=await loadMaster();if(!document.body.contains(root))return;makeCustomerCombo(root,data);refreshLists(root,data);root.dataset.rtSmartReady='1'}catch(e){console.error('receipt smart dropdowns',e)}finally{root.dataset.rtSmartEnhancing='0'}}
+function scan(){const root=document.getElementById('receiptTaxV1');if(!root||root.dataset.rtSmartReady==='1'||root.dataset.rtSmartEnhancing==='1')return;enhance(root)}
 function boot(){scan();new MutationObserver(()=>scan()).observe(document.body,{childList:true,subtree:true});[200,700,1600,3000].forEach(ms=>setTimeout(scan,ms))}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
