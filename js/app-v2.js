@@ -182,3 +182,14 @@
   s.setAttribute('data-receipt-tax-v1','1');
   document.head.appendChild(s);
 })();
+
+/* Persist legacy claim detail edits in Supabase. */
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-claim-legacy-persist]'))return;
+  const s=document.createElement('script');
+  s.src='./js/claim-legacy-persist.js?v=20260915-0920';
+  s.async=false;
+  s.setAttribute('data-claim-legacy-persist','1');
+  document.head.appendChild(s);
+})();
