@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 /* Preview-fit + true portrait-PDF output for ใบแจ้งหนี้-ใบวางบิล.
-   Scope: preview fit, tax-id line, and print/PDF orientation only. */
+   Scope: preview fit, tax-id line, totals font, and print/PDF orientation only. */
 const PRINT_CSS=`
 @page{size:A4 portrait!important;margin:0!important}
 html,body{margin:0!important;padding:0!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;overflow:hidden!important;background:#fff!important;writing-mode:horizontal-tb!important}
@@ -15,7 +15,7 @@ body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!importa
 .bi-title{margin:3mm auto 2.5mm!important;width:75.5mm!important;padding:1.3mm!important;border:1.5px solid #97362e!important;border-radius:2mm!important;text-align:center!important}.bi-title b{font-size:18pt!important;line-height:1!important}.bi-title span{display:block!important;font-size:12pt!important;font-weight:800!important;line-height:1.05!important}
 .bi-info{display:grid!important;grid-template-columns:1fr 54mm!important;gap:3mm!important;margin-bottom:2mm!important;font-size:12.5pt!important}.bi-info-line{display:grid!important;grid-template-columns:26mm 1fr!important;gap:1.3mm!important;line-height:1.18!important}
 .bi-doc-table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:12pt!important}.bi-doc-table th,.bi-doc-table td{border:1px solid #111!important;height:5.6mm!important;padding:.5mm 1mm!important;line-height:1.06!important}.bi-doc-table th{background:#9c3a00!important;color:#fff!important;text-align:center!important}.bi-doc-table tbody tr:first-child td{height:10.5mm!important;vertical-align:top!important;padding-top:.8mm!important}.c{text-align:center!important}.r{text-align:right!important}
-.bi-bottom{display:grid!important;grid-template-columns:1fr 59.5mm!important;gap:2.5mm!important;margin-top:1.8mm!important;align-items:start!important}.bi-notes{font-size:10.3pt!important;line-height:1.2!important;margin-top:0!important}.bi-totals{border:1px solid #111!important}.bi-total-row{display:grid!important;grid-template-columns:1fr 23mm!important;padding:.45mm 1.3mm!important;font-size:10.8pt!important;line-height:1.15!important}
+.bi-bottom{display:grid!important;grid-template-columns:1fr 59.5mm!important;gap:2.5mm!important;margin-top:1.8mm!important;align-items:start!important}.bi-notes{font-size:10.3pt!important;line-height:1.2!important;margin-top:0!important}.bi-totals{border:1px solid #111!important}.bi-total-row{display:grid!important;grid-template-columns:1fr 23mm!important;padding:.45mm 1.3mm!important;font-size:11.8pt!important;line-height:1.15!important}
 .bi-signs{position:absolute!important;left:6.35mm!important;right:6.35mm!important;bottom:6mm!important;display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:2mm!important;margin:0!important}.bi-sign{border:1px solid #111!important;height:20.5mm!important;padding:1.5mm!important;display:flex!important;flex-direction:column!important;justify-content:flex-end!important;font-size:10.5pt!important;line-height:1.2!important}.center{text-align:center!important}
 @media print{@page{size:A4 portrait!important;margin:0!important}html,body,.bi-paper{width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;transform:none!important;zoom:1!important}}
 `;
@@ -137,7 +137,7 @@ function generatePortraitPdf(root){
 
   const viewer=window.open('','_blank','width=900,height=1200');
   if(!viewer){alert('กรุณาอนุญาต Pop-up เพื่อสร้าง PDF');return;}
-  viewer.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>กำลังสร้าง PDF...</title></head><body style="font-family:Tahoma,sans-serif;text-align:center;padding:48px">กำลังสร้าง PDF A4 แนวตั้ง...</body></html>');
+  viewer.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>กำลังสร้าง PDF...</title></head><body style="font-family:Tahoma,sans-serif;text-align:center;padding:48px">กำลังสร้าง PDF A4 แนวตั้ง 1 หน้า...</body></html>');
   viewer.document.close();
 
   const frame=document.createElement('iframe');
@@ -156,6 +156,11 @@ function generatePortraitPdf(root){
   clone.style.margin='0';
   clone.style.width='210mm';
   clone.style.height='297mm';
+  clone.style.minWidth='210mm';
+  clone.style.maxWidth='210mm';
+  clone.style.minHeight='297mm';
+  clone.style.maxHeight='297mm';
+  clone.style.overflow='hidden';
 
   const token='billingPdf_'+Date.now()+'_'+Math.random().toString(36).slice(2);
   let finished=false;
@@ -185,28 +190,50 @@ function generatePortraitPdf(root){
 
   const fd=frame.contentDocument;
   fd.open();
-  fd.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script><script>
+  fd.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script><script>
 (function(){
   var token=${JSON.stringify(token)};
   function fail(err){parent.postMessage({type:'billing-pdf-error',token:token,message:String(err&&err.message||err)},'*')}
   window.addEventListener('load',function(){
-    setTimeout(function(){
+    setTimeout(async function(){
       try{
         var el=document.getElementById('billingPaper');
-        if(!el||typeof html2pdf!=='function')throw new Error('html2pdf unavailable');
-        var opt={
-          margin:0,
-          image:{type:'jpeg',quality:0.98},
-          html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,windowWidth:794,windowHeight:1123},
-          jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},
-          pagebreak:{mode:['avoid-all']}
-        };
-        html2pdf().set(opt).from(el).toPdf().get('pdf').then(function(pdf){
-          var blob=pdf.output('blob');
-          parent.postMessage({type:'billing-pdf-ready',token:token,blob:blob},'*');
-        }).catch(fail);
+        if(!el)throw new Error('billingPaper not found');
+        if(typeof html2canvas!=='function')throw new Error('html2canvas unavailable');
+        if(!window.jspdf||!window.jspdf.jsPDF)throw new Error('jsPDF unavailable');
+
+        el.style.width='210mm';
+        el.style.height='297mm';
+        el.style.minWidth='210mm';
+        el.style.maxWidth='210mm';
+        el.style.minHeight='297mm';
+        el.style.maxHeight='297mm';
+        el.style.overflow='hidden';
+        el.style.zoom='1';
+        el.style.transform='none';
+
+        var canvas=await html2canvas(el,{
+          scale:2,
+          useCORS:true,
+          allowTaint:false,
+          backgroundColor:'#ffffff',
+          logging:false,
+          width:794,
+          height:1123,
+          windowWidth:794,
+          windowHeight:1123,
+          scrollX:0,
+          scrollY:0
+        });
+
+        var image=canvas.toDataURL('image/jpeg',0.98);
+        var jsPDF=window.jspdf.jsPDF;
+        var pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
+        pdf.addImage(image,'JPEG',0,0,210,297,undefined,'FAST');
+        var blob=pdf.output('blob');
+        parent.postMessage({type:'billing-pdf-ready',token:token,blob:blob},'*');
       }catch(err){fail(err)}
-    },250);
+    },300);
   });
 })();
 <\/script></body></html>`);
