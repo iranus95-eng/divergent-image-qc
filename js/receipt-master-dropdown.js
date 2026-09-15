@@ -7,6 +7,7 @@ function loadOnce(attr,src){
 function boot(){
   loadOnce('data-claim-legacy-persist','./js/claim-legacy-persist.js?v=20260915-0954');
   loadOnce('data-billing-smart-dropdowns','./js/billing-smart-dropdowns.js?v=20260915-1032');
+  loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20260915-1032');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
