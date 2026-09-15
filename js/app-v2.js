@@ -193,3 +193,14 @@
   s.setAttribute('data-receipt-master-dropdown','1');
   document.head.appendChild(s);
 })();
+
+/* Receipt smart dropdowns: selectable suggestions with manual fallback for text not in master lists. */
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-receipt-smart-dropdowns]'))return;
+  const s=document.createElement('script');
+  s.src='./js/receipt-smart-dropdowns.js?v=20260915-1000';
+  s.async=false;
+  s.setAttribute('data-receipt-smart-dropdowns','1');
+  document.head.appendChild(s);
+})();
