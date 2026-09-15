@@ -1,7 +1,7 @@
 (function(){
 'use strict';
-/* Preview-fit + print-orientation fix for ใบแจ้งหนี้-ใบวางบิล.
-   Scope: preview fit, tax-id line, and print orientation only. */
+/* Preview-fit + true portrait-PDF output for ใบแจ้งหนี้-ใบวางบิล.
+   Scope: preview fit, tax-id line, and print/PDF orientation only. */
 const PRINT_CSS=`
 @page{size:A4 portrait!important;margin:0!important}
 html,body{margin:0!important;padding:0!important;width:210mm!important;height:297mm!important;min-width:210mm!important;max-width:210mm!important;min-height:297mm!important;max-height:297mm!important;overflow:hidden!important;background:#fff!important;writing-mode:horizontal-tb!important}
@@ -130,21 +130,92 @@ function fitPreview(root){
   return true;
 }
 
-function printPortrait(root){
+function generatePortraitPdf(root){
   const paper=root&&root.querySelector('#billingPaper');
   if(!paper)return;
   normalizeTaxIdLine(root);
+
+  const viewer=window.open('','_blank','width=900,height=1200');
+  if(!viewer){alert('กรุณาอนุญาต Pop-up เพื่อสร้าง PDF');return;}
+  viewer.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>กำลังสร้าง PDF...</title></head><body style="font-family:Tahoma,sans-serif;text-align:center;padding:48px">กำลังสร้าง PDF A4 แนวตั้ง...</body></html>');
+  viewer.document.close();
+
+  const frame=document.createElement('iframe');
+  frame.style.position='fixed';
+  frame.style.left='-10000px';
+  frame.style.top='0';
+  frame.style.width='210mm';
+  frame.style.height='297mm';
+  frame.style.border='0';
+  frame.setAttribute('aria-hidden','true');
+  document.body.appendChild(frame);
+
   const clone=paper.cloneNode(true);
   clone.style.zoom='1';
   clone.style.transform='none';
   clone.style.margin='0';
   clone.style.width='210mm';
   clone.style.height='297mm';
-  const w=window.open('','_blank','width=900,height=1200');
-  if(!w){alert('กรุณาอนุญาต Pop-up เพื่อพิมพ์เอกสาร');return;}
-  w.document.open();
-  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ใบแจ้งหนี้-ใบวางบิล</title><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script>window.onload=function(){document.documentElement.style.width='210mm';document.documentElement.style.height='297mm';document.body.style.width='210mm';document.body.style.height='297mm';setTimeout(function(){window.print()},350)}<\/script></body></html>`);
-  w.document.close();
+
+  const token='billingPdf_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  let finished=false;
+  const cleanup=function(){
+    if(finished)return;
+    finished=true;
+    window.removeEventListener('message',onMessage);
+    setTimeout(function(){frame.remove()},100);
+  };
+  const onMessage=function(event){
+    if(event.source!==frame.contentWindow||!event.data||event.data.token!==token)return;
+    if(event.data.type==='billing-pdf-ready'&&event.data.url){
+      try{viewer.location.replace(event.data.url);}catch(_){viewer.location.href=event.data.url;}
+      cleanup();
+      return;
+    }
+    if(event.data.type==='billing-pdf-error'){
+      try{viewer.document.body.innerHTML='<div style="font-family:Tahoma,sans-serif;padding:32px;color:#a00">สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</div>';}catch(_){ }
+      console.error('Billing portrait PDF error:',event.data.message||'unknown error');
+      cleanup();
+    }
+  };
+  window.addEventListener('message',onMessage);
+
+  const fd=frame.contentDocument;
+  fd.open();
+  fd.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script><script>
+(function(){
+  var token=${JSON.stringify(token)};
+  function fail(err){parent.postMessage({type:'billing-pdf-error',token:token,message:String(err&&err.message||err)},'*')}
+  window.addEventListener('load',function(){
+    setTimeout(function(){
+      try{
+        var el=document.getElementById('billingPaper');
+        if(!el||typeof html2pdf!=='function')throw new Error('html2pdf unavailable');
+        var opt={
+          margin:0,
+          image:{type:'jpeg',quality:0.98},
+          html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,windowWidth:794,windowHeight:1123},
+          jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},
+          pagebreak:{mode:['avoid-all']}
+        };
+        html2pdf().set(opt).from(el).toPdf().get('pdf').then(function(pdf){
+          var blob=pdf.output('blob');
+          var url=URL.createObjectURL(blob);
+          parent.postMessage({type:'billing-pdf-ready',token:token,url:url},'*');
+        }).catch(fail);
+      }catch(err){fail(err)}
+    },250);
+  });
+})();
+<\/script></body></html>`);
+  fd.close();
+
+  setTimeout(function(){
+    if(!finished){
+      try{viewer.document.body.innerHTML='<div style="font-family:Tahoma,sans-serif;padding:32px;color:#a00">สร้าง PDF ช้ากว่าปกติ กรุณาลองใหม่อีกครั้ง</div>';}catch(_){ }
+      cleanup();
+    }
+  },20000);
 }
 
 function patchRoot(){
@@ -153,18 +224,18 @@ function patchRoot(){
   normalizeTaxIdLine(root);
   fitPreview(root);
   const btn=root.querySelector('#biPrint');
-  if(btn)btn.onclick=function(e){e.preventDefault();e.stopPropagation();printPortrait(root);};
+  if(btn)btn.onclick=function(e){e.preventDefault();e.stopPropagation();generatePortraitPdf(root);};
   if(!root.dataset.previewFitBound){
     root.dataset.previewFitBound='1';
-    root.addEventListener('input',function(){setTimeout(function(){fitPreview(root)},0)});
-    root.addEventListener('change',function(){setTimeout(function(){fitPreview(root)},0)});
+    root.addEventListener('input',function(){setTimeout(function(){fitPreview(root)},0);});
+    root.addEventListener('change',function(){setTimeout(function(){fitPreview(root)},0);});
   }
   return true;
 }
 
 function hookOpen(){
   if(typeof window.openBillingManagement!=='function')return false;
-  if(window.openBillingManagement.__previewPortraitFixV2)return true;
+  if(window.openBillingManagement.__previewPortraitPdfFix)return true;
   const original=window.openBillingManagement;
   const wrapped=function(){
     const r=original.apply(this,arguments);
@@ -173,7 +244,7 @@ function hookOpen(){
     setTimeout(patchRoot,350);
     return r;
   };
-  wrapped.__previewPortraitFixV2=true;
+  wrapped.__previewPortraitPdfFix=true;
   window.openBillingManagement=wrapped;
   window.openBillingInvoiceManagement=wrapped;
   return true;
@@ -185,5 +256,5 @@ const timer=setInterval(function(){
   tries++;
   if(hookOpen()||tries>100){clearInterval(timer);setTimeout(patchRoot,0);}
 },50);
-window.addEventListener('resize',function(){const root=document.getElementById('billingInvoiceV1');if(root)fitPreview(root)});
+window.addEventListener('resize',function(){const root=document.getElementById('billingInvoiceV1');if(root)fitPreview(root);});
 })();
