@@ -88,7 +88,15 @@ async function mount(root){
     if(field&&!field.querySelector('.rt-master-note')){const note=document.createElement('div');note.className='rt-master-note';note.style.color='#a42323';note.textContent='โหลดรายชื่อการไฟฟ้าไม่สำเร็จ กรุณาลองเปิดเมนูใหม่';field.appendChild(note)}
   }
 }
+function ensureClaimPersist(){
+  if(document.querySelector('script[data-claim-legacy-persist]'))return;
+  const s=document.createElement('script');
+  s.src='./js/claim-legacy-persist.js?v=20260915-0954';
+  s.async=false;
+  s.setAttribute('data-claim-legacy-persist','1');
+  document.head.appendChild(s);
+}
 function scan(){const root=document.getElementById('receiptTaxV1');if(root&&root.dataset.masterCustomerReady!=='1'&&root.dataset.masterCustomerReady!=='loading')mount(root)}
-function boot(){scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});[200,700,1500,3000].forEach(ms=>setTimeout(scan,ms))}
+function boot(){ensureClaimPersist();scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});[200,700,1500,3000].forEach(ms=>setTimeout(scan,ms))}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
