@@ -10,6 +10,7 @@ function boot(){
   loadOnce('data-billing-multi-item','./js/billing-multi-item.js?v=20260915-1540');
   loadOnce('data-billing-final-layout','./js/billing-final-layout.js?v=20260915-1605');
   loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20260915-1532');
+  loadOnce('data-home-menu-dedupe','./js/home-menu-dedupe.js?v=20260915-1635');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
