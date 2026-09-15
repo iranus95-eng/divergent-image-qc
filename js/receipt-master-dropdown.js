@@ -11,6 +11,7 @@ function boot(){
   loadOnce('data-billing-final-layout','./js/billing-final-layout.js?v=20260915-1605');
   loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20260915-1532');
   loadOnce('data-home-menu-dedupe','./js/home-menu-dedupe.js?v=20260915-1635');
+  loadOnce('data-receipt-signature-fix','./js/receipt-signature-fix.js?v=20260915-1647');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
