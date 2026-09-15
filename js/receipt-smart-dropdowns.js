@@ -14,46 +14,87 @@ async function loadMaster(){
 function norm(v){return String(v||'').replace(/\s+/g,' ').replace(/[()]/g,'').trim().toLowerCase()}
 function unique(a){return [...new Set(a.map(v=>String(v||'').trim()).filter(Boolean))]}
 function fire(el){if(!el)return;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}
-function inputOnly(el){if(el)el.dispatchEvent(new Event('input',{bubbles:true}))}
-function ensureList(root,id,values,labeler){let dl=root.querySelector('#'+id);if(!dl){dl=document.createElement('datalist');dl.id=id;root.appendChild(dl)}dl.innerHTML='';for(const v of values){const o=document.createElement('option');if(typeof v==='object'){o.value=String(v.value||'');if(v.label)o.label=String(v.label)}else{o.value=String(v);if(labeler)o.label=labeler(v)}dl.appendChild(o)}return dl}
+function currentCustomer(root,data){const id=Number(root.dataset.rtCustomerId||0);return data.customers.find(c=>Number(c.id)===id)||null}
 function customerMatch(customers,value,branch){const n=norm(value),b=String(branch||'').trim();return customers.find(c=>n&&norm(c.customer_name)===n)||customers.find(c=>!n&&b&&String(c.branch_code||'').trim()===b)||null}
-function makeCustomerCombo(root,data){
-  let el=root.querySelector('[name="customer"]');if(!el)return null;
+function optionEsc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function ensureEditable(root,name){
+  let el=root.querySelector(`[name="${name}"]`);if(!el)return null;
   if(el.tagName==='SELECT'){
-    const input=document.createElement('input');input.name='customer';input.value=el.value||'';input.className='rt-master-select rt-smart-combo';input.autocomplete='off';el.replaceWith(input);el=input;
+    const input=document.createElement(name==='address'?'textarea':'input');
+    input.name=name;input.value=el.value||'';input.className=el.className||'';
+    if(name==='address')input.rows=2;
+    el.replaceWith(input);el=input;
   }
-  el.setAttribute('list','rtCustomerSmartList');el.setAttribute('autocomplete','off');
-  ensureList(root,'rtCustomerSmartList',data.customers.map(c=>({value:c.customer_name||'',label:(c.branch_code||'')+(c.contract_number?' · '+c.contract_number:'')})));
-  const address=root.querySelector('[name="address"]'),tax=root.querySelector('[name="tax"]'),branch=root.querySelector('[name="branch"]');
-  [address,tax,branch].forEach(x=>{if(x){x.readOnly=false;x.removeAttribute('aria-readonly')}});
-  if(branch){branch.setAttribute('list','rtBranchSmartList');ensureList(root,'rtBranchSmartList',unique(data.customers.map(c=>c.branch_code)))}
-  if(tax){tax.setAttribute('list','rtTaxSmartList');ensureList(root,'rtTaxSmartList',unique(data.customers.map(c=>c.tax_id)))}
-  const apply=c=>{if(!c)return;root.dataset.rtCustomerId=String(c.id||'');el.value=String(c.customer_name||'');if(address)address.value=String(c.address||'');if(tax)tax.value=String(c.tax_id||'');if(branch)branch.value=String(c.branch_code||'');inputOnly(el);[address,tax,branch].forEach(fire);refreshLists(root,data)};
-  const choose=()=>{const c=customerMatch(data.customers,el.value,branch?.value);if(c)apply(c);else{root.dataset.rtCustomerId='';refreshLists(root,data)}};
-  if(!el.dataset.rtSmartBound){el.addEventListener('change',choose);el.addEventListener('blur',choose);el.dataset.rtSmartBound='1'}
-  const c=customerMatch(data.customers,el.value,branch?.value);if(c){root.dataset.rtCustomerId=String(c.id||'');if(!address?.value||!tax?.value||!branch?.value)apply(c)}
-  const field=el.closest('.rt-field');if(field&&!field.querySelector('.rt-smart-help')){const h=document.createElement('div');h.className='rt-smart-help';h.textContent='เลือกจากรายการได้ หรือพิมพ์ข้อความใหม่ได้ หากไม่มีในรายการ';field.appendChild(h)}
-  return el;
+  el.readOnly=false;el.removeAttribute('aria-readonly');el.removeAttribute('list');return el;
 }
-function currentCustomerItems(root,data){const id=Number(root.dataset.rtCustomerId||0);const rows=id?data.items.filter(x=>Number(x.customer_id)===id):data.items;return rows.length?rows:data.items}
-function refreshLists(root,data){
-  const rows=currentCustomerItems(root,data);
-  const currentCards=[...root.querySelectorAll('.rt-item-editor')];
-  const itemValues=unique(['ค่าจ้างจัดพิมพ์ (P00001)',...currentCards.map(c=>c.querySelector('[name="item"]')?.value)]);
-  const detailValues=unique(['ค่าจ้างจัดพิมพ์ใบแจ้งเตือนและส่งใบแจ้งเตือนค่าไฟฟ้า',...currentCards.map(c=>c.querySelector('[name="detail"]')?.value)]);
-  const periodValues=unique([...rows.map(x=>x.billing_text),...currentCards.map(c=>c.querySelector('[name="period"]')?.value)]);
-  const siteValues=unique(['เขตชุมชน','นอกเขตชุมชน',...rows.map(x=>x.area_name),...currentCards.map(c=>c.querySelector('[name="site"]')?.value)]);
-  ensureList(root,'rtItemSmartList',itemValues);ensureList(root,'rtDetailSmartList',detailValues);ensureList(root,'rtPeriodSmartList',periodValues);ensureList(root,'rtSiteSmartList',siteValues);
-  currentCards.forEach(card=>{
-    const item=card.querySelector('[name="item"]'),detail=card.querySelector('[name="detail"]'),period=card.querySelector('[name="period"]'),site=card.querySelector('[name="site"]');
-    if(item)item.setAttribute('list','rtItemSmartList');if(detail)detail.setAttribute('list','rtDetailSmartList');if(period)period.setAttribute('list','rtPeriodSmartList');if(site)site.setAttribute('list','rtSiteSmartList');
-    if(site&&!site.dataset.rtSmartBound){site.addEventListener('change',()=>{const liveRows=currentCustomerItems(root,data),match=liveRows.find(x=>norm(x.area_name)===norm(site.value));if(match&&period){const knownPeriods=new Set(data.items.map(x=>String(x.billing_text||'')));if(!period.value||knownPeriods.has(period.value)){period.value=String(match.billing_text||'');fire(period)}}});site.dataset.rtSmartBound='1'}
+function setPickerOptions(select,values,current,placeholder){
+  const vals=unique(values),cur=String(current||'').trim();
+  select.innerHTML=`<option value="">${optionEsc(placeholder||'-- เลือกจากรายการ --')}</option>`+vals.map(v=>`<option value="${optionEsc(v)}">${optionEsc(v)}</option>`).join('')+'<option value="__custom__">✎ พิมพ์ข้อความอื่นเอง</option>';
+  if(cur&&vals.includes(cur))select.value=cur;else if(cur)select.value='__custom__';else select.value='';
+}
+function makePicker(root,el,values,placeholder,onPick){
+  if(!el)return null;
+  const field=el.closest('.rt-field');if(!field)return null;
+  let picker=field.querySelector(`.rt-smart-picker[data-for="${el.name}"]`);
+  if(!picker){
+    picker=document.createElement('select');picker.type='button';picker.className='rt-smart-picker';picker.dataset.for=el.name;
+    field.insertBefore(picker,el);
+    const help=document.createElement('div');help.className='rt-smart-help';help.textContent='เลือกจากรายการด้านบน หรือพิมพ์เองในช่องด้านล่างเมื่อไม่มีรายการที่ต้องการ';field.appendChild(help);
+    picker.addEventListener('change',()=>{
+      if(picker.value==='__custom__'){el.focus();return}
+      if(picker.value!==''){el.value=picker.value;fire(el);if(onPick)onPick(picker.value)}
+    });
+  }
+  setPickerOptions(picker,values,el.value,placeholder);return picker;
+}
+function applyCustomer(root,data,c){
+  if(!c)return;root.dataset.rtCustomerId=String(c.id||'');
+  const customer=ensureEditable(root,'customer'),address=ensureEditable(root,'address'),tax=ensureEditable(root,'tax'),branch=ensureEditable(root,'branch');
+  if(customer)customer.value=String(c.customer_name||'');if(address)address.value=String(c.address||'');if(tax)tax.value=String(c.tax_id||'');if(branch)branch.value=String(c.branch_code||'');
+  [customer,address,tax,branch].forEach(fire);refresh(root,data);
+}
+function setupCustomer(root,data){
+  const customer=ensureEditable(root,'customer');if(!customer)return;
+  const branch=ensureEditable(root,'branch');
+  const picker=makePicker(root,customer,data.customers.map(c=>c.customer_name),'-- เลือกการไฟฟ้า / หน่วยงาน --',value=>{
+    const c=data.customers.find(x=>String(x.customer_name||'')===value);if(c)applyCustomer(root,data,c);
   });
-  const bank=root.querySelector('[name="chequeBank"]');if(bank){bank.setAttribute('list','rtBankSmartList');ensureList(root,'rtBankSmartList',['ธนาคารกรุงไทย','ธนาคารกสิกรไทย','ธนาคารกรุงเทพ','ธนาคารไทยพาณิชย์','ธนาคารกรุงศรีอยุธยา','ธนาคารทหารไทยธนชาต','ธนาคารออมสิน','ธ.ก.ส.'])}
+  if(picker){
+    picker.innerHTML='<option value="">-- เลือกการไฟฟ้า / หน่วยงาน --</option>'+data.customers.map(c=>`<option value="${optionEsc(c.customer_name||'')}">${optionEsc((c.branch_code||'')+' · '+(c.customer_name||''))}</option>`).join('')+'<option value="__custom__">✎ พิมพ์หน่วยงานอื่นเอง</option>';
+    const c=customerMatch(data.customers,customer.value,branch?.value);if(c){root.dataset.rtCustomerId=String(c.id||'');picker.value=String(c.customer_name||'')}else if(customer.value)picker.value='__custom__';
+  }
+  if(!customer.dataset.rtCustomerBound){customer.addEventListener('blur',()=>{const c=customerMatch(data.customers,customer.value,branch?.value);if(c)applyCustomer(root,data,c);else root.dataset.rtCustomerId=''});customer.dataset.rtCustomerBound='1'}
 }
-function addStyle(){if(document.getElementById('rt-smart-dropdown-style'))return;const s=document.createElement('style');s.id='rt-smart-dropdown-style';s.textContent=`#receiptTaxV1 .rt-smart-help{margin-top:5px;font-size:11px;color:#786c89}#receiptTaxV1 .rt-smart-combo{width:100%;border:1px solid #d9d2e7;border-radius:8px;padding:9px 10px;font:inherit;background:#fff;color:#25183d}`;document.head.appendChild(s)}
-async function enhance(root){if(!root||root.dataset.rtSmartEnhancing==='1'||root.dataset.rtSmartReady==='1')return;root.dataset.rtSmartEnhancing='1';addStyle();try{const data=await loadMaster();if(!document.body.contains(root))return;makeCustomerCombo(root,data);refreshLists(root,data);root.dataset.rtSmartReady='1'}catch(e){console.error('receipt smart dropdowns',e)}finally{root.dataset.rtSmartEnhancing='0'}}
-function scan(){const root=document.getElementById('receiptTaxV1');if(!root||root.dataset.rtSmartReady==='1'||root.dataset.rtSmartEnhancing==='1')return;enhance(root)}
-function boot(){scan();new MutationObserver(()=>scan()).observe(document.body,{childList:true,subtree:true});[200,700,1600,3000].forEach(ms=>setTimeout(scan,ms))}
+function customerItems(root,data){const c=currentCustomer(root,data),rows=c?data.items.filter(x=>Number(x.customer_id)===Number(c.id)):data.items;return rows.length?rows:data.items}
+function refresh(root,data){
+  setupCustomer(root,data);
+  const c=currentCustomer(root,data),rows=customerItems(root,data);
+  const address=ensureEditable(root,'address'),tax=ensureEditable(root,'tax'),branch=ensureEditable(root,'branch');
+  makePicker(root,address,unique(data.customers.map(x=>x.address)),'-- เลือกที่อยู่ --');
+  makePicker(root,tax,unique(data.customers.map(x=>x.tax_id)),'-- เลือกเลขประจำตัวผู้เสียภาษี --');
+  makePicker(root,branch,unique(data.customers.map(x=>x.branch_code)),'-- เลือกสาขา --');
+  const cards=[...root.querySelectorAll('.rt-item-editor')];
+  cards.forEach(card=>{
+    const item=card.querySelector('[name="item"]'),detail=card.querySelector('[name="detail"]'),period=card.querySelector('[name="period"]'),site=card.querySelector('[name="site"]');
+    const itemVals=unique(['ค่าจ้างจัดพิมพ์ (P00001)',...cards.map(x=>x.querySelector('[name="item"]')?.value)]);
+    const detailVals=unique(['ค่าจ้างจัดพิมพ์ใบแจ้งเตือนและส่งใบแจ้งเตือนค่าไฟฟ้า',...cards.map(x=>x.querySelector('[name="detail"]')?.value)]);
+    const periodVals=unique([...rows.map(x=>x.billing_text),...cards.map(x=>x.querySelector('[name="period"]')?.value)]);
+    const siteVals=unique(['เขตชุมชน','นอกเขตชุมชน',...rows.map(x=>x.area_name),...cards.map(x=>x.querySelector('[name="site"]')?.value)]);
+    makePicker(root,item,itemVals,'-- เลือกรายการ --');
+    makePicker(root,detail,detailVals,'-- เลือกรายละเอียด --');
+    makePicker(root,period,periodVals,'-- เลือกรอบบิล --');
+    makePicker(root,site,siteVals,'-- เลือกพื้นที่ / เขตงาน --',value=>{const match=rows.find(x=>norm(x.area_name)===norm(value));if(match&&period){period.value=String(match.billing_text||period.value||'');fire(period);const pp=period.closest('.rt-field')?.querySelector('.rt-smart-picker');if(pp)setPickerOptions(pp,periodVals,period.value,'-- เลือกรอบบิล --')}});
+  });
+  const bank=ensureEditable(root,'chequeBank');makePicker(root,bank,['ธนาคารกรุงไทย','ธนาคารกสิกรไทย','ธนาคารกรุงเทพ','ธนาคารไทยพาณิชย์','ธนาคารกรุงศรีอยุธยา','ธนาคารทหารไทยธนชาต','ธนาคารออมสิน','ธ.ก.ส.'],'-- เลือกธนาคาร --');
+  if(c){const customer=root.querySelector('[name="customer"]');const cp=customer?.closest('.rt-field')?.querySelector('.rt-smart-picker');if(cp)cp.value=String(c.customer_name||'')}
+}
+function addStyle(){if(document.getElementById('rt-smart-dropdown-style-v2'))return;const s=document.createElement('style');s.id='rt-smart-dropdown-style-v2';s.textContent=`
+#receiptTaxV1 .rt-smart-picker{display:block!important;width:100%!important;margin:0 0 6px!important;border:1px solid #bdaee0!important;border-radius:8px!important;padding:9px 34px 9px 10px!important;font:inherit!important;background:#fff!important;color:#25183d!important;cursor:pointer!important;appearance:auto!important}
+#receiptTaxV1 .rt-smart-help{margin:5px 0 0;font-size:11px;color:#786c89;line-height:1.3}
+#receiptTaxV1 .rt-field input,#receiptTaxV1 .rt-field textarea{display:block!important}
+`;document.head.appendChild(s)}
+async function enhance(root){if(!root||root.dataset.rtDropdownV2==='1'||root.dataset.rtDropdownV2==='loading')return;root.dataset.rtDropdownV2='loading';addStyle();try{const data=await loadMaster();if(!document.body.contains(root))return;refresh(root,data);root.dataset.rtDropdownV2='1'}catch(e){root.dataset.rtDropdownV2='error';console.error('receipt visible dropdowns',e)} }
+function scan(){const root=document.getElementById('receiptTaxV1');if(root&&root.dataset.rtDropdownV2!=='1'&&root.dataset.rtDropdownV2!=='loading')enhance(root)}
+function boot(){scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});[100,300,700,1500,3000].forEach(ms=>setTimeout(scan,ms))}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
