@@ -177,7 +177,7 @@
   'use strict';
   if(document.querySelector('script[data-receipt-tax-v1]'))return;
   const s=document.createElement('script');
-  s.src='./js/receipt-tax-invoice.js?v=20260915-0719';
+  s.src='./js/receipt-tax-invoice.js?v=20260915-0900';
   s.async=false;
   s.setAttribute('data-receipt-tax-v1','1');
   document.head.appendChild(s);
