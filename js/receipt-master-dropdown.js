@@ -96,7 +96,15 @@ function ensureClaimPersist(){
   s.setAttribute('data-claim-legacy-persist','1');
   document.head.appendChild(s);
 }
+function ensureBillingSmart(){
+  if(document.querySelector('script[data-billing-smart-dropdowns]'))return;
+  const s=document.createElement('script');
+  s.src='./js/billing-smart-dropdowns.js?v=20260915-1028';
+  s.async=false;
+  s.setAttribute('data-billing-smart-dropdowns','1');
+  document.head.appendChild(s);
+}
 function scan(){const root=document.getElementById('receiptTaxV1');if(root&&root.dataset.masterCustomerReady!=='1'&&root.dataset.masterCustomerReady!=='loading')mount(root)}
-function boot(){ensureClaimPersist();scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});[200,700,1500,3000].forEach(ms=>setTimeout(scan,ms))}
+function boot(){ensureClaimPersist();ensureBillingSmart();scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});[200,700,1500,3000].forEach(ms=>setTimeout(scan,ms))}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
