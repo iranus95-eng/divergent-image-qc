@@ -183,13 +183,13 @@
   document.head.appendChild(s);
 })();
 
-/* Persist legacy claim detail edits in Supabase. */
+/* Receipt customer master dropdown: same customer/address source as invoice. */
 (function(){
   'use strict';
-  if(document.querySelector('script[data-claim-legacy-persist]'))return;
+  if(document.querySelector('script[data-receipt-master-dropdown]'))return;
   const s=document.createElement('script');
-  s.src='./js/claim-legacy-persist.js?v=20260915-0920';
+  s.src='./js/receipt-master-dropdown.js?v=20260915-0952';
   s.async=false;
-  s.setAttribute('data-claim-legacy-persist','1');
+  s.setAttribute('data-receipt-master-dropdown','1');
   document.head.appendChild(s);
 })();
