@@ -13,6 +13,7 @@ function boot(){
   loadOnce('data-home-menu-dedupe','./js/home-menu-dedupe.js?v=20260915-1635');
   loadOnce('data-receipt-signature-fix','./js/receipt-signature-fix.js?v=20260915-1647');
   loadOnce('data-receipt-final-layout','./js/receipt-final-layout.js?v=20260916-0950');
+  loadOnce('data-receipt-header-align','./js/receipt-header-align.js?v=20260916-1238');
   loadOnce('data-receipt-company-tax-label','./js/receipt-company-tax-label.js?v=20260916-1137');
   loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260916-0902');
 }
