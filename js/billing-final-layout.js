@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const MARK='bi-final-layout-v1';
+const MARK='bi-final-layout-v2';
 const COMPANY='บริษัท ไดเวอร์เจนท์ คอร์ปอเรชั่น จำกัด';
 const EXTRA_BLANK_ROWS=5;
 
@@ -25,6 +25,23 @@ function ensureFontStyle(paper){
 .bi-paper.${MARK} .bi-sign{font-size:11.5pt!important}
 .bi-paper.${MARK} .bi-tax-options,.bi-paper.${MARK} .bi-tax-options *{font-size:15pt!important}
 .bi-paper.${MARK} .bi-info-line span>span{font-size:15pt!important}
+/* Right signature box only: give the company name more breathing room. */
+.bi-paper.${MARK} .bi-signs .bi-sign:last-child{
+  height:22.8mm!important;
+  padding:2.8mm 1.5mm 1.5mm!important;
+  justify-content:space-between!important;
+  align-self:end!important;
+}
+.bi-paper.${MARK} .bi-signs .bi-sign:last-child>*:first-child{
+  display:block!important;
+  line-height:1.2!important;
+  margin:0!important;
+  padding:0!important;
+}
+.bi-paper.${MARK} .bi-signs .bi-sign:last-child>*:last-child{
+  line-height:1.15!important;
+  margin:0!important;
+}
 `;
   paper.appendChild(s);
 }
