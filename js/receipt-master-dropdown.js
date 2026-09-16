@@ -12,7 +12,7 @@ function boot(){
   loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20260915-1532');
   loadOnce('data-home-menu-dedupe','./js/home-menu-dedupe.js?v=20260915-1635');
   loadOnce('data-receipt-signature-fix','./js/receipt-signature-fix.js?v=20260915-1647');
-  loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260916-0849');
+  loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260916-0902');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
