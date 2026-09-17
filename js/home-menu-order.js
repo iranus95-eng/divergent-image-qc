@@ -15,7 +15,8 @@ const CONFIG=[
   {key:'จัดทำใบตั้งหนี้',nav:'navInvoice',desc:'สร้างใบตั้งหนี้',icon:'▤'},
   {key:'ใบแจ้งหนี้-ใบวางบิล',nav:'navBilling',desc:'สร้างใบแจ้งหนี้/ใบวางบิล',icon:'▤'},
   {key:'ใบเสร็จรับเงิน-ใบกำกับภาษี',nav:'navReceiptTax',desc:'สร้างใบเสร็จรับเงินและใบกำกับภาษี',icon:'▤'},
-  {key:'กำไร-ขาดทุนรายเดือน',nav:'navPnL',desc:'รายงานผล',icon:'▥'}
+  {key:'กำไร-ขาดทุนรายเดือน',nav:'navPnL',desc:'รายงานผล',icon:'▥'},
+  {key:'นำเข้าข้อมูลลูกค้า',nav:'navCustomerImport',desc:'นำเข้า Excel เข้าฐานลูกค้าเดิม',icon:'⇧'}
 ];
 const ORDER=CONFIG.map(x=>x.key);
 
