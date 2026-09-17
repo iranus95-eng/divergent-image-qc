@@ -16,7 +16,8 @@ function boot(){
   loadOnce('data-receipt-header-align','./js/receipt-header-align.js?v=20260916-1238');
   loadOnce('data-receipt-company-tax-label','./js/receipt-company-tax-label.js?v=20260916-1137');
   loadOnce('data-customer-import','./js/customer-import.js?v=20260917-1040');
-  loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260917-1026');
+  loadOnce('data-paper-order','./js/paper-order.js?v=20260917-1745');
+  loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260917-1745');
   loadOnce('data-expense-report-v2','./js/expense-report-v2.js?v=20260917-1415');
   loadOnce('data-expense-cycle-status-fix','./js/expense-cycle-status-fix.js?v=20260917-1405');
 }
