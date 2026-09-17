@@ -15,7 +15,7 @@ function boot(){
   loadOnce('data-receipt-final-layout','./js/receipt-final-layout.js?v=20260916-0950');
   loadOnce('data-receipt-header-align','./js/receipt-header-align.js?v=20260916-1238');
   loadOnce('data-receipt-company-tax-label','./js/receipt-company-tax-label.js?v=20260916-1137');
-  loadOnce('data-customer-import','./js/customer-import.js?v=20260917-1026');
+  loadOnce('data-customer-import','./js/customer-import.js?v=20260917-1040');
   loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260917-1026');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
