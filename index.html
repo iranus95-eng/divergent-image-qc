@@ -1813,7 +1813,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       <div class="payroll-head">
         <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • รูปแบบตามข้อมูลต้นฉบับ • เพิ่มใหม่ต่อท้ายอัตโนมัติ</p></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-          <button class="money-report-btn" onclick="openMoneyReport('payroll')">📄 สรุปรายงาน</button>
+          <button class="money-report-btn" onclick="openMoneyReport('payroll')">🖨️ พิมพ์รายงาน</button>
           <button class="payroll-btn payroll-btn-secondary" onclick="openKBankPayroll()">🏦 เตรียมไฟล์ KBank</button>
           <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
         </div>
@@ -3090,11 +3090,114 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       return payrollEmployees.filter(x=>!q||[x.employee_name,x.site_name,x.national_id,x.bank_name,x.bank_account].some(v=>String(v||"").toLowerCase().includes(q)));
     }
     function moneyReportRows(){const scope=document.getElementById("moneyReportScope")?.value||"CURRENT";if(moneyReportType==="expense")return scope==="CURRENT"?currentExpenseRowsForReport():staffExpenseItems.slice();return scope==="CURRENT"?currentPayrollRowsForReport():payrollEmployees.slice()}
-    function openMoneyReport(type){moneyReportType=type;moneyReportLastFile=null;const isEx=type==="expense";document.getElementById("moneyReportTitle").textContent=isEx?"สรุปรายงานเบิกค่าใช้จ่าย":"สรุปรายงานจัดการเงินเดือน";document.getElementById("moneyReportSubtitle").textContent=isEx?"สรุปรายการตามรอบเบิกที่กำลังเลือก":"สรุปรายชื่อพนักงานและข้อมูลการจ่ายที่โหลดอยู่";document.getElementById("moneyReportModal").classList.add("show");refreshMoneyReportPreview()}
+    function openMoneyReport(type){moneyReportType=type;moneyReportLastFile=null;const isEx=type==="expense";document.getElementById("moneyReportTitle").textContent=isEx?"สรุปรายงานเบิกค่าใช้จ่าย":"พิมพ์รายงานเงินเดือน";document.getElementById("moneyReportSubtitle").textContent=isEx?"สรุปรายการตามรอบเบิกที่กำลังเลือก":"รูปแบบตารางเงินเดือนแนวนอนตามแบบ Excel ต้นฉบับ";document.getElementById("moneyReportModal").classList.add("show");refreshMoneyReportPreview()}
     function closeMoneyReport(){document.getElementById("moneyReportModal").classList.remove("show")}
-    function refreshMoneyReportPreview(){const rows=moneyReportRows();let total=0;if(moneyReportType==="expense")total=rows.reduce((s,x)=>s+Number(x.amount||0),0);const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0));document.getElementById("moneyReportPreview").innerHTML=moneyReportType==="expense"?`<b>รายงานเบิกค่าใช้จ่าย</b><br>รอบ: ${escapeHtml(c?expenseCycleLabel(c):"-")}<br>จำนวน ${rows.length.toLocaleString("th-TH")} รายการ<br><b>ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</b>`:`<b>รายงานจัดการเงินเดือน</b><br>จำนวนพนักงาน ${rows.length.toLocaleString("th-TH")} รายการ<br>ผูกบัญชีผู้ใช้แล้ว ${rows.filter(x=>x.app_user_id).length.toLocaleString("th-TH")} รายการ`}
+    function refreshMoneyReportPreview(){
+      const rows=moneyReportRows();
+      let total=0;
+      if(moneyReportType==="expense"){
+        total=rows.reduce((s,x)=>s+Number(x.amount||0),0);
+        const cycle=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0));
+        document.getElementById("moneyReportPreview").innerHTML="<b>รายงานเบิกค่าใช้จ่าย</b><br>รอบ: "+escapeHtml(cycle?expenseCycleLabel(cycle):"-")+"<br>จำนวน "+rows.length.toLocaleString("th-TH")+" รายการ<br><b>ยอดรวม "+total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+" บาท</b>";
+        return;
+      }
+      const people=new Set(rows.map(x=>x.profile_id?("p:"+x.profile_id):("r:"+x.id))).size;
+      total=rows.reduce((s,x)=>s+Number(x.transfer_amount??x.total_amount??0),0);
+      document.getElementById("moneyReportPreview").innerHTML="<b>รายงานเงินเดือนแบบตาราง Excel</b><br>พนักงาน "+people.toLocaleString("th-TH")+" คน • "+rows.length.toLocaleString("th-TH")+" แถวพื้นที่<br><b>ยอดโอนรวม "+total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})+" บาท</b><br><span style=\"color:#806e94\">พิมพ์แนวนอน • แยกสีตามไซด์งาน • แสดงข้อมูล 16 คอลัมน์</span>";
+    }
     function moneyReportFilename(ext){const d=new Date().toISOString().slice(0,10).replaceAll("-","");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0));return `Staff_Expense_${c?.scheduled_date?.replaceAll("-","")||d}.${ext}`}return `Payroll_Report_${d}.${ext}`}
-    function buildMoneyCsv(){const rows=moneyReportRows();let lines=[];if(moneyReportType==="expense"){lines.push(["วันที่","ชื่อสตาฟ","หมวด","รายละเอียด","ธนาคาร","เลขบัญชี","วิธีจ่าย","จำนวนเงิน","สถานะ"].map(moneyReportCsvCell).join(","));for(const x of rows)lines.push([x.expense_date,x.staff_name,x.category_name_snapshot,x.other_detail||x.note||"",x.bank_name||"",x.bank_account||"",x.payment_method||"",Number(x.amount||0).toFixed(2),x.approval_status||""].map(moneyReportCsvCell).join(","));lines.push(["","","","","","","รวม",rows.reduce((s,x)=>s+Number(x.amount||0),0).toFixed(2),""].map(moneyReportCsvCell).join(","))}else{lines.push(["ลำดับ","ชื่อพนักงาน","เลขบัตรประชาชน","พื้นที่","เรต","ธนาคาร","เลขบัญชี","สถานะ"].map(moneyReportCsvCell).join(","));for(const x of rows)lines.push([x.source_row??"",x.employee_name||"",x.national_id||"",x.site_name||"",x.rate_per_unit??"",x.bank_name||"",x.bank_account||"",x.is_active?"ใช้งาน":"ปิด"].map(moneyReportCsvCell).join(","))}return "\ufeff"+lines.join("\r\n")}
+    function moneyReportMoney(v){
+      return Number(v||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function moneyReportPayrollMonthLabel(rows){
+      const code=String((rows||[]).find(x=>x?.source_month)?.source_month||"").trim();
+      const m=code.match(/^(มค|กพ|มีค|เมย|พค|มิย|กค|สค|กย|ตค|พย|ธค)(\d{2})$/);
+      if(!m)return code||"เดือนล่าสุด";
+      const names={มค:"มกราคม",กพ:"กุมภาพันธ์",มีค:"มีนาคม",เมย:"เมษายน",พค:"พฤษภาคม",มิย:"มิถุนายน",กค:"กรกฎาคม",สค:"สิงหาคม",กย:"กันยายน",ตค:"ตุลาคม",พย:"พฤศจิกายน",ธค:"ธันวาคม"};
+      return names[m[1]]+" พ.ศ."+(2500+Number(m[2]));
+    }
+    function buildPayrollPrintHtml(rows,now){
+      const sorted=(rows||[]).slice().sort((a,b)=>Number(a.source_row||999999)-Number(b.source_row||999999));
+      const palette=["#e8b7af","#f2cdb0","#f7e8b8","#cfe4c5","#c9e3ea","#d8cce6","#efd2dc","#d7e0b7","#cdd6ef","#ead8bf"];
+      const siteColors=new Map();let colorIndex=0;
+      for(const x of sorted){
+        const site=String(x.site_name||"-").trim()||"-";
+        if(!siteColors.has(site)){siteColors.set(site,palette[colorIndex%palette.length]);colorIndex++;}
+      }
+      const seenNotes=new Set();
+      const body=sorted.map((x,i)=>{
+        const site=String(x.site_name||"-").trim()||"-";
+        const bg=siteColors.get(site)||"#ffffff";
+        const profileKey=x.profile_id?("p:"+x.profile_id):("r:"+x.id);
+        const note=seenNotes.has(profileKey)?"":String(x.notes||"");
+        seenNotes.add(profileKey);
+        const transfer=Number(x.transfer_amount??x.total_amount??0);
+        const total=Number(x.total_amount??x.transfer_amount??0);
+        return '<tr style="background:'+bg+'">'+
+          '<td class="c">'+(i+1)+'</td>'+
+          '<td class="id">'+escapeHtml(formatNationalIdOriginal(x.national_id||x.national_id_last4))+'</td>'+
+          '<td class="name">'+escapeHtml(x.employee_name||"")+'</td>'+
+          '<td class="c">'+escapeHtml(x.bank_name||"")+'</td>'+
+          '<td class="c account">'+escapeHtml(x.bank_account||"")+'</td>'+
+          '<td class="num transfer">'+moneyReportMoney(transfer)+'</td>'+
+          '<td class="c site">'+escapeHtml(site)+'</td>'+
+          '<td class="num work">'+Number(x.work_count||0).toLocaleString("th-TH")+'</td>'+
+          '<td class="num">'+moneyReportMoney(x.rate_per_unit)+'</td>'+
+          '<td class="num">'+moneyReportMoney(x.gross_amount)+'</td>'+
+          '<td class="num">'+(Number(x.special_amount||0)?moneyReportMoney(x.special_amount):"")+'</td>'+
+          '<td class="num">'+moneyReportMoney(x.withholding_amount)+'</td>'+
+          '<td class="num">'+(Number(x.advance_deduction||0)?moneyReportMoney(x.advance_deduction):"")+'</td>'+
+          '<td class="num">'+(Number(x.shirt_cost||0)?moneyReportMoney(x.shirt_cost):"")+'</td>'+
+          '<td class="num total">'+moneyReportMoney(total)+'</td>'+
+          '<td class="note">'+escapeHtml(note)+'</td>'+
+        '</tr>';
+      }).join("");
+      const totalTransfer=sorted.reduce((s,x)=>s+Number(x.transfer_amount??x.total_amount??0),0);
+      const totalWork=sorted.reduce((s,x)=>s+Number(x.work_count||0),0);
+      const totalGross=sorted.reduce((s,x)=>s+Number(x.gross_amount||0),0);
+      const totalSpecial=sorted.reduce((s,x)=>s+Number(x.special_amount||0),0);
+      const totalTax=sorted.reduce((s,x)=>s+Number(x.withholding_amount||0),0);
+      const totalAdvance=sorted.reduce((s,x)=>s+Number(x.advance_deduction||0),0);
+      const totalShirt=sorted.reduce((s,x)=>s+Number(x.shirt_cost||0),0);
+      const totalNet=sorted.reduce((s,x)=>s+Number(x.total_amount??x.transfer_amount??0),0);
+      const people=new Set(sorted.map(x=>x.profile_id?("p:"+x.profile_id):("r:"+x.id))).size;
+      const month=moneyReportPayrollMonthLabel(sorted);
+      return '<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเงินเดือน '+escapeHtml(month)+'</title>'+
+      '<style>'+
+      '@page{size:A4 landscape;margin:4mm}'+
+      '*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}'+
+      'html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Tahoma,"Leelawadee UI","Noto Sans Thai",Arial,sans-serif}'+
+      '.sheet{width:100%;margin:0 auto}.head{text-align:center;margin:0 0 2.2mm}.head h1{font-size:11pt;line-height:1.15;margin:0;font-weight:800}.head h2{font-size:8.4pt;line-height:1.2;margin:1mm 0 0;font-weight:700}.meta{font-size:6.5pt;color:#444;margin-top:.8mm}'+
+      'table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.55pt;line-height:1.12}thead{display:table-header-group}tfoot{display:table-row-group}tr{break-inside:avoid;page-break-inside:avoid}'+
+      'th,td{border:.22mm solid #333;padding:.75mm .55mm;vertical-align:middle;overflow-wrap:anywhere}th{background:#aeb4b7!important;text-align:center;font-weight:800;font-size:6.3pt}td{height:5.3mm}.c{text-align:center}.num{text-align:right;white-space:nowrap}.id,.account{white-space:nowrap;text-align:center}.name{font-weight:500}.site{font-weight:700}.work{color:#e50000;font-weight:800}.transfer{font-weight:900;color:#234f69}.total{font-weight:800}.note{color:#d62828;font-size:6.2pt}'+
+      'tfoot td{background:#d9dde0!important;font-weight:900}.footer-note{font-size:6.2pt;margin-top:1.5mm;text-align:right;color:#555}'+
+      '</style></head><body><main class="sheet">'+
+      '<div class="head"><h1>รายการเงินเดือน พนักงาน บริษัท ไดเวอร์เจ้นท์ จำกัด ประจำเดือน '+escapeHtml(month)+'</h1>'+
+      '<h2>รายงานค่าจ้างพนักงาน • จำนวน '+people.toLocaleString("th-TH")+' คน • '+sorted.length.toLocaleString("th-TH")+' แถวพื้นที่</h2>'+
+      '<div class="meta">สร้างรายงานเมื่อ '+escapeHtml(now)+'</div></div>'+
+      '<table><colgroup>'+
+      '<col style="width:2%"><col style="width:7%"><col style="width:11%"><col style="width:5.5%"><col style="width:7.5%"><col style="width:7%"><col style="width:6.5%"><col style="width:5%"><col style="width:5%"><col style="width:7%"><col style="width:5%"><col style="width:5.5%"><col style="width:6%"><col style="width:4.5%"><col style="width:6.5%"><col style="width:9.5%">'+
+      '</colgroup><thead><tr>'+
+      '<th>ลำดับ</th><th>เลขบัตรประชาชน</th><th>ชื่อ-นามสกุล-ชื่อเล่น</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>ยอดเงินโอนเข้าบัญชี</th><th>ไซด์งาน</th><th>จำนวนราย</th><th>ค่าจ้างต่อราย</th><th>ยอดก่อนหัก ณ ที่จ่าย</th><th>บวก เงินพิเศษ</th><th>หัก ณ ที่จ่าย 3%</th><th>หัก เบิกล่วงหน้า</th><th>ค่าเสื้อ</th><th>ยอดรวม</th><th>หมายเหตุ</th>'+
+      '</tr></thead><tbody>'+body+'</tbody><tfoot><tr>'+
+      '<td colspan="5" class="num">รวม</td><td class="num">'+moneyReportMoney(totalTransfer)+'</td><td></td><td class="num">'+totalWork.toLocaleString("th-TH")+'</td><td></td><td class="num">'+moneyReportMoney(totalGross)+'</td><td class="num">'+moneyReportMoney(totalSpecial)+'</td><td class="num">'+moneyReportMoney(totalTax)+'</td><td class="num">'+moneyReportMoney(totalAdvance)+'</td><td class="num">'+moneyReportMoney(totalShirt)+'</td><td class="num">'+moneyReportMoney(totalNet)+'</td><td></td>'+
+      '</tr></tfoot></table>'+
+      '<div class="footer-note">สีพื้นแยกตามไซด์งาน • ยอดเงินคำนวณจากข้อมูลที่บันทึกในระบบ</div>'+
+      '</main></body></html>';
+    }
+    function buildMoneyCsv(){
+      const rows=moneyReportRows();let lines=[];
+      if(moneyReportType==="expense"){
+        lines.push(["วันที่","ชื่อสตาฟ","หมวด","รายละเอียด","ธนาคาร","เลขบัญชี","วิธีจ่าย","จำนวนเงิน","สถานะ"].map(moneyReportCsvCell).join(","));
+        for(const x of rows)lines.push([x.expense_date,x.staff_name,x.category_name_snapshot,x.other_detail||x.note||"",x.bank_name||"",x.bank_account||"",x.payment_method||"",Number(x.amount||0).toFixed(2),x.approval_status||""].map(moneyReportCsvCell).join(","));
+        lines.push(["","","","","","","รวม",rows.reduce((s,x)=>s+Number(x.amount||0),0).toFixed(2),""].map(moneyReportCsvCell).join(","));
+      }else{
+        const sorted=rows.slice().sort((a,b)=>Number(a.source_row||999999)-Number(b.source_row||999999));
+        lines.push(["ลำดับ","เลขบัตรประชาชน","ชื่อ-นามสกุล-ชื่อเล่น","ธนาคาร","เลขบัญชี","ยอดเงินโอนเข้าบัญชี","ไซด์งาน","จำนวนราย","ค่าจ้างต่อราย","ยอดก่อนหัก ณ ที่จ่าย","บวก เงินพิเศษ","หัก ณ ที่จ่าย 3%","หัก เบิกล่วงหน้า","ค่าเสื้อ","ยอดรวม","หมายเหตุ"].map(moneyReportCsvCell).join(","));
+        sorted.forEach((x,i)=>lines.push([i+1,x.national_id||"",x.employee_name||"",x.bank_name||"",x.bank_account||"",Number(x.transfer_amount??x.total_amount??0).toFixed(2),x.site_name||"",x.work_count??"",Number(x.rate_per_unit||0).toFixed(2),Number(x.gross_amount||0).toFixed(2),Number(x.special_amount||0).toFixed(2),Number(x.withholding_amount||0).toFixed(2),Number(x.advance_deduction||0).toFixed(2),Number(x.shirt_cost||0).toFixed(2),Number(x.total_amount??x.transfer_amount??0).toFixed(2),x.notes||""].map(moneyReportCsvCell).join(",")));
+      }
+      return "\ufeff"+lines.join("\r\n");
+    }
     function buildMoneyPrintHtml(){const rows=moneyReportRows(),now=new Date().toLocaleString("th-TH");if(moneyReportType==="expense"){const c=staffExpenseCycles.find(x=>Number(x.id)===Number(document.getElementById("expenseCycleSelect")?.value||0)),total=rows.reduce((s,x)=>s+Number(x.amount||0),0);return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเบิกค่าใช้จ่าย</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8;margin:0 0 4px}small{color:#666}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{border:1px solid #ddd;padding:7px;text-align:left}th{background:#f3edfb}.num{text-align:right}.total{font-size:18px;font-weight:800;text-align:right;margin-top:14px}</style></head><body><h1>รายงานเบิกค่าใช้จ่าย</h1><small>${moneyReportSafe(c?expenseCycleLabel(c):"-")} • สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>วันที่</th><th>ชื่อสตาฟ</th><th>หมวด</th><th>รายละเอียด</th><th>วิธีจ่าย</th><th class="num">จำนวนเงิน</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.expense_date||"")}</td><td>${escapeHtml(x.staff_name||"")}</td><td>${escapeHtml(x.category_name_snapshot||"")}</td><td>${escapeHtml(x.other_detail||x.note||"-")}</td><td>${escapeHtml(x.payment_method||"-")}</td><td class="num">${Number(x.amount||0).toLocaleString("th-TH",{minimumFractionDigits:2})}</td></tr>`).join("")}</tbody></table><div class="total">ยอดรวม ${total.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</div>
 <div id="kbankPayrollOverlay" class="kbank-overlay" onclick="if(event.target===this)closeKBankPayroll()">
   <div class="kbank-modal">
@@ -3156,7 +3259,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
   </div>
 </div>
 
-</body></html>`}return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานจัดการเงินเดือน</title><style>body{font-family:Arial,'Noto Sans Thai',sans-serif;padding:28px;color:#222}h1{color:#5121a8}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:7px}th{background:#f3edfb}</style></head><body><h1>รายงานจัดการเงินเดือน</h1><small>สร้างเมื่อ ${now}</small><table><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>พื้นที่</th><th>เรต</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.source_row??"")}</td><td>${escapeHtml(x.employee_name||"")}</td><td>${escapeHtml(x.site_name||"")}</td><td>${escapeHtml(x.rate_per_unit??"")}</td><td>${escapeHtml(x.bank_name||"")}</td><td>${escapeHtml(x.bank_account||"")}</td><td>${x.is_active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}</tbody></table></body></html>`}
+</body></html>`}return buildPayrollPrintHtml(rows,now)}
     async function createMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="CSV"){const blob=new Blob([buildMoneyCsv()],{type:"text/csv;charset=utf-8"});moneyReportLastFile=new File([blob],moneyReportFilename("csv"),{type:blob.type});alert("สร้างไฟล์ Excel (CSV) พร้อมแล้ว") }else{const w=window.open("","_blank");if(!w){alert("เบราว์เซอร์บล็อกหน้าต่างรายงาน กรุณาอนุญาต Pop-up");return}w.document.open();w.document.write(buildMoneyPrintHtml());w.document.close();setTimeout(()=>{w.focus();w.print()},300)}}
     async function downloadMoneyReport(){const fmt=document.getElementById("moneyReportFormat")?.value||"PDF";if(fmt==="PDF"){await createMoneyReport();return}if(!moneyReportLastFile)await createMoneyReport();if(!moneyReportLastFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(moneyReportLastFile);a.download=moneyReportLastFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
     async function generateMoneyReportShareLink(){
