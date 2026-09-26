@@ -93,10 +93,11 @@
     }).join('');
 
     return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเบิกค่าใช้จ่าย</title><style>
-      @page{size:A4 portrait;margin:9mm 10mm 10mm}
+      @page{size:210mm 297mm;margin:9mm 10mm 10mm}
       *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      body{margin:0;color:#202124;background:#fff;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:14pt;line-height:1.18}
-      .report{max-width:190mm;margin:0 auto}
+      html,body{margin:0;padding:0;background:#fff;color:#202124;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:14pt;line-height:1.18}
+      body{width:210mm;max-width:210mm;margin:0 auto}
+      .report{width:190mm;max-width:190mm;margin:0 auto}
       .top{display:flex;justify-content:space-between;gap:12mm;align-items:flex-start;border-bottom:2px solid #5b2a86;padding-bottom:4mm;margin-bottom:4mm}
       .brand{font-size:11pt;font-weight:800;letter-spacing:.35px;color:#5b2a86;margin-bottom:1mm}.title{font-size:24pt;font-weight:800;line-height:1.05;color:#241233}.subtitle{font-size:12.5pt;color:#655b6b;margin-top:1.5mm}
       .doc-meta{text-align:right;font-size:11.5pt;color:#5f5764;min-width:48mm}.doc-meta b{display:block;color:#2f2534;font-size:12.5pt;margin-bottom:1mm}
@@ -111,14 +112,19 @@
       .expense-table tfoot td{background:#f7f3fa;font-weight:800;border-top:1.5px solid #c8b9d5}.staff-sum-label{text-align:right;color:#4e3d57}.staff-sum{font-size:13.5pt;color:#4d1d78}
       .grand{display:flex;justify-content:flex-end;margin-top:1mm}.grand-box{width:78mm;border:1.5px solid #5b2a86;border-radius:3mm;overflow:hidden}.grand-row{display:flex;justify-content:space-between;gap:6mm;padding:2.2mm 3mm;border-bottom:1px solid #ded4e8;font-size:12.5pt}.grand-row:last-child{border-bottom:0;background:#5b2a86;color:#fff;font-size:15pt;font-weight:800}.grand-row b{white-space:nowrap}
       .signs{display:grid;grid-template-columns:repeat(3,1fr);gap:7mm;margin-top:11mm;break-inside:avoid;page-break-inside:avoid}.sign{height:29mm;border:1px solid #bfb7c4;border-radius:2mm;text-align:center;padding:3mm 2mm;font-size:11.5pt;display:flex;flex-direction:column;justify-content:flex-end}.sign-line{border-top:1px solid #555;width:72%;margin:0 auto 2mm}.footer{margin-top:4mm;font-size:9.5pt;color:#8a818e;text-align:right}
-      @media print{body{font-size:14pt}.staff-card{box-shadow:none}}
+      @media print{
+        @page{size:210mm 297mm;margin:9mm 10mm 10mm}
+        html,body{width:210mm!important;min-width:210mm!important;max-width:210mm!important;margin:0!important;padding:0!important}
+        .report{width:190mm!important;min-width:190mm!important;max-width:190mm!important;margin:0 auto!important}
+        body{font-size:14pt}.staff-card{box-shadow:none}
+      }
     </style></head><body><main class="report">
       <header class="top"><div><div class="brand">DIVERGENT CORPORATION CO., LTD.</div><div class="title">รายงานเบิกค่าใช้จ่าย</div><div class="subtitle">รอบเบิก: ${esc(cycle)}</div></div><div class="doc-meta"><b>รายงานค่าใช้จ่ายพนักงาน</b>สร้างเมื่อ ${esc(now)}<br>จำนวน ${rows.length.toLocaleString('th-TH')} รายการ</div></header>
       <div class="summary"><div class="sum-box"><span>จำนวนพนักงาน</span><b>${groups.length.toLocaleString('th-TH')} คน</b></div><div class="sum-box"><span>อนุมัติแล้ว</span><b>${money(approved)}</b></div><div class="sum-box"><span>รอตรวจสอบ</span><b>${money(pending)}</b></div><div class="sum-box total"><span>ยอดรวมทั้งหมด</span><b>${money(total)} บาท</b></div></div>
       ${staffBlocks||'<div style="padding:20mm;text-align:center;color:#777">ไม่มีรายการค่าใช้จ่ายในช่วงที่เลือก</div>'}
       <div class="grand"><div class="grand-box"><div class="grand-row"><span>จำนวนพนักงาน</span><b>${groups.length.toLocaleString('th-TH')} คน</b></div><div class="grand-row"><span>จำนวนรายการ</span><b>${rows.length.toLocaleString('th-TH')} รายการ</b></div><div class="grand-row"><span>ยอดรวมค่าใช้จ่ายทั้งหมด</span><b>${money(total)} บาท</b></div></div></div>
       <div class="signs"><div class="sign"><div class="sign-line"></div><b>ผู้จัดทำรายงาน</b><span>วันที่ ____ / ____ / ____</span></div><div class="sign"><div class="sign-line"></div><b>ผู้ตรวจสอบ</b><span>วันที่ ____ / ____ / ____</span></div><div class="sign"><div class="sign-line"></div><b>ผู้อนุมัติ</b><span>วันที่ ____ / ____ / ____</span></div></div>
-      <div class="footer">Divergent Corporation • Expense Report</div>
+      <div class="footer">Divergent Corporation • Expense Report • A4 Portrait</div>
     </main></body></html>`;
   }
 
@@ -134,6 +140,6 @@
     const total=rows.reduce((s,x)=>s+Number(x.amount||0),0);
     const target=document.getElementById('moneyReportPreview');
     if(!target)return;
-    target.innerHTML=`<b>รายงานเบิกค่าใช้จ่ายแบบแยกรายบุคคล</b><br>รอบ: ${esc(cycleText())}<br>พนักงาน ${groups.length.toLocaleString('th-TH')} คน • ${rows.length.toLocaleString('th-TH')} รายการ<br><b>ยอดรวม ${money(total)} บาท</b><div style="margin-top:6px;font-size:12px;color:#756681">รายงานพิมพ์จะแยกกรอบของแต่ละคนและมียอดรวมรายบุคคล</div>`;
+    target.innerHTML=`<b>รายงานเบิกค่าใช้จ่ายแบบแยกรายบุคคล</b><br>รอบ: ${esc(cycleText())}<br>พนักงาน ${groups.length.toLocaleString('th-TH')} คน • ${rows.length.toLocaleString('th-TH')} รายการ<br><b>ยอดรวม ${money(total)} บาท</b><div style="margin-top:6px;font-size:12px;color:#756681">พิมพ์ A4 แนวตั้ง • รายงานจะแยกกรอบของแต่ละคนและมียอดรวมรายบุคคล</div>`;
   };
 })();
