@@ -19,7 +19,7 @@ function boot(){
   loadOnce('data-paper-order','./js/paper-order.js?v=20260917-1745');
   loadOnce('data-paper-order-next-cycle','./js/paper-order-next-cycle.js?v=20260917-1945');
   loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260917-1745');
-  loadOnce('data-expense-report-v2','./js/expense-report-v2.js?v=20260917-1415');
+  loadOnce('data-expense-report-v2','./js/expense-report-v2.js?v=20260926-1421');
   loadOnce('data-expense-cycle-status-fix','./js/expense-cycle-status-fix.js?v=20260917-1405');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
