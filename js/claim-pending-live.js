@@ -21,7 +21,7 @@ async function api(){
 function fillMonths(){
   const sel=document.getElementById('claimPendingMonth');if(!sel)return;
   const prior=oldToValue(sel.value);
-  const options=['<option value="ALL">ทุกเดือน</option>'].concat(state.months.map(m=>`<option value="${esc(m.key)}">${esc(m.label)}${Number(m.pending)>0?' · '+Number(m.pending).toLocaleString('th-TH')+' แห่ง':''}</option>`));
+  const options=['<option value="ALL">ทุกเดือน</option>'].concat(state.months.map(m=>`<option value="${esc(m.key)}">${esc(m.label)} · ${Number(m.total||0).toLocaleString('th-TH')} รายการ${Number(m.pending)>0?' · ยังเบิกไม่ได้ '+Number(m.pending).toLocaleString('th-TH'):''}</option>`));
   sel.innerHTML=options.join('');
   sel.value=[...sel.options].some(o=>o.value===prior)?prior:'ALL';
 }
@@ -37,34 +37,39 @@ function rowsFor(value){
 }
 function render(){
   const value=selected();const q=String(document.getElementById('claimPendingSearch')?.value||'').trim().toLowerCase();
-  let all=rowsFor(value);const totalRows=all.length;
-  const both=all.filter(r=>(r.missing||[]).length===2).length;
-  const missBill=all.filter(r=>(r.missing||[]).includes('(จน.ราย) ตั้งเบิกตามใบเสร็จ')).length;
-  const missAmount=all.filter(r=>(r.missing||[]).includes('จำนวนเงินตั้งเบิก')).length;
-  if(q)all=all.filter(r=>String(r.branch||'').toLowerCase().includes(q)||String(r.month_label||'').toLowerCase().includes(q));
+  const selectedRows=rowsFor(value);const pendingRows=selectedRows.filter(r=>(r.missing||[]).length>0);
+  const both=pendingRows.filter(r=>(r.missing||[]).length===2).length;
+  const missBill=pendingRows.filter(r=>(r.missing||[]).includes('(จน.ราย) ตั้งเบิกตามใบเสร็จ')).length;
+  const missAmount=pendingRows.filter(r=>(r.missing||[]).includes('จำนวนเงินตั้งเบิก')).length;
+  let visibleRows=selectedRows;
+  if(q)visibleRows=visibleRows.filter(r=>String(r.branch||'').toLowerCase().includes(q)||String(r.month_label||'').toLowerCase().includes(q));
   const set=(id,text)=>{const el=document.getElementById(id);if(el)el.textContent=text;};
-  set('claimPendingCount',totalRows.toLocaleString('th-TH')+' แห่ง');set('claimPendingBoth',both.toLocaleString('th-TH'));set('claimPendingBillCount',missBill.toLocaleString('th-TH'));set('claimPendingAmountCount',missAmount.toLocaleString('th-TH'));
+  set('claimPendingCount',pendingRows.length.toLocaleString('th-TH')+' แห่ง');set('claimPendingBoth',both.toLocaleString('th-TH'));set('claimPendingBillCount',missBill.toLocaleString('th-TH'));set('claimPendingAmountCount',missAmount.toLocaleString('th-TH'));
   const body=document.getElementById('claimPendingBody');
   if(body){
     if(state.loading&&!state.loaded)body.innerHTML='<tr><td colspan="3" style="padding:24px;text-align:center">กำลังโหลดข้อมูลล่าสุดจากฐานข้อมูล...</td></tr>';
     else if(state.error)body.innerHTML=`<tr><td colspan="3" style="padding:24px;text-align:center;color:#b42318">โหลดข้อมูลไม่สำเร็จ: ${esc(state.error)}</td></tr>`;
-    else if(!all.length)body.innerHTML='<tr><td colspan="3" style="padding:24px;text-align:center;color:#168348">ข้อมูลครบ ไม่มีรายการค่าตอบแทนที่ยังเบิกไม่ได้ในเดือนที่เลือก</td></tr>';
-    else body.innerHTML=all.map(r=>{const miss=(r.missing||[]).map(x=>`<span class="pending-missing">ขาด: ${esc(x)}</span>`).join(' ');return `<tr><td>${esc(r.month_label||'')}</td><td><div style="font-weight:800;color:#352245">${esc(r.branch||'-')}</div><div style="margin-top:5px">${miss}</div></td><td><span class="pending-bad">ยังเบิกไม่ได้</span></td></tr>`;}).join('');
+    else if(!visibleRows.length)body.innerHTML='<tr><td colspan="3" style="padding:24px;text-align:center;color:#6f617c">ไม่พบรายการตามตัวกรองที่เลือก</td></tr>';
+    else body.innerHTML=visibleRows.map(r=>{
+      const pending=(r.missing||[]).length>0;
+      const detail=pending?(r.missing||[]).map(x=>`<span class="pending-missing">ขาด: ${esc(x)}</span>`).join(' '):'<span class="pending-ok">ข้อมูลครบสำหรับตั้งเบิก</span>';
+      const status=pending?'<span class="pending-bad">ยังเบิกไม่ได้</span>':'<span class="pending-ok">ข้อมูลครบ</span>';
+      return `<tr><td>${esc(r.month_label||'')}</td><td><div style="font-weight:800;color:#352245">${esc(r.branch||'-')}</div><div style="margin-top:5px">${detail}</div></td><td>${status}</td></tr>`;
+    }).join('');
   }
   const s=document.getElementById('claimPendingStatus');
   if(s){
-    const m=state.months.find(x=>x.key===value);const checked=value==='ALL'?state.totalRecords:Number(m?.total||0);
-    s.textContent=state.error?'โหลดข้อมูลล่าสุดไม่สำเร็จ':`ข้อมูลล่าสุดจากฐานข้อมูลจริง • ตรวจ ${checked.toLocaleString('th-TH')} รายการ • พบ ${totalRows.toLocaleString('th-TH')} การไฟฟ้าที่ข้อมูลไม่ครบ${q?' • แสดงผลค้นหา '+all.length.toLocaleString('th-TH')+' รายการ':''}`;
+    s.textContent=state.error?'โหลดข้อมูลล่าสุดไม่สำเร็จ':`ข้อมูลล่าสุดจากฐานข้อมูลจริง • แสดง ${selectedRows.length.toLocaleString('th-TH')} รายการ • ยังเบิกไม่ได้ ${pendingRows.length.toLocaleString('th-TH')} แห่ง${q?' • ผลค้นหา '+visibleRows.length.toLocaleString('th-TH')+' รายการ':''}`;
   }
 }
 async function load(force=false){
   if(state.loading)return state.loading;if(state.loaded&&!force&&Date.now()-state.loadedAt<30000){render();return;}
   state.error='';state.loading=(async()=>{try{const d=await api();state.months=(d.months||[]).map(m=>({...m,key:monthValue(m.report_year,m.report_month)}));state.rows=d.rows||[];state.totalRecords=Number(d.total_records||0);state.loaded=true;state.loadedAt=Date.now();fillMonths();}catch(e){state.error=String(e?.message||e||'SERVER_ERROR');}finally{state.loading=null;render();}})();render();return state.loading;
 }
-window.claimPendingRows=function(monthKey){return rowsFor(monthKey||selected());};
+window.claimPendingRows=function(monthKey){return rowsFor(monthKey||selected()).filter(r=>(r.missing||[]).length>0);};
 window.renderClaimPendingWorkspace=function(){if(!state.loaded||Date.now()-state.loadedAt>30000)load(false);else render();};
 window.refreshClaimPendingData=function(){return load(true);};
-window.pendingReportSnapshot=function(){const key=selected(),rows=rowsFor(key),both=rows.filter(r=>(r.missing||[]).length===2).length,missBill=rows.filter(r=>(r.missing||[]).includes('(จน.ราย) ตั้งเบิกตามใบเสร็จ')).length,missAmount=rows.filter(r=>(r.missing||[]).includes('จำนวนเงินตั้งเบิก')).length;return {key,label:labelFor(key),rows,both,missBill,missAmount};};
+window.pendingReportSnapshot=function(){const key=selected(),rows=rowsFor(key).filter(r=>(r.missing||[]).length>0),both=rows.filter(r=>(r.missing||[]).length===2).length,missBill=rows.filter(r=>(r.missing||[]).includes('(จน.ราย) ตั้งเบิกตามใบเสร็จ')).length,missAmount=rows.filter(r=>(r.missing||[]).includes('จำนวนเงินตั้งเบิก')).length;return {key,label:labelFor(key),rows,both,missBill,missAmount};};
 const oldOpen=window.openClaimPendingManagement;
 window.openClaimPendingManagement=function(){
   if(typeof window.requireMenuAccess==='function'&&!window.requireMenuAccess('claim_pending','เมนูการไฟฟ้าที่ยังเบิกไม่ได้'))return;
