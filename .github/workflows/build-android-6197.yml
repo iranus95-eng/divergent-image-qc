@@ -14,7 +14,8 @@ jobs:
       - name: Expand Android hotfix source
         run: |
           cd android-hotfix-6.19.7
-          base64 -d project.tar.gz.b64 > project.tar.gz
+          cat project.part00 project.part01 project.part02 project.part03 | base64 -d > project.tar.gz
+          echo "43b1bc0ca8c2d2fe73392ba436274f69a9489e5a72bc93d998fed845901666bd  project.tar.gz" | sha256sum -c -
           tar -xzf project.tar.gz
       - uses: actions/setup-java@v4
         with:
