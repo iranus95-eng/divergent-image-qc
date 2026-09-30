@@ -1,0 +1,35 @@
+name: Build Android 6.19.7 LIVE GPS Restore
+on:
+  workflow_dispatch:
+  push:
+    branches: [ android-live-gps-6197 ]
+    paths:
+      - 'android-hotfix-6.19.7/**'
+      - '.github/workflows/build-android-6197.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expand Android hotfix source
+        run: |
+          cd android-hotfix-6.19.7
+          base64 -d project.tar.gz.b64 > project.tar.gz
+          tar -xzf project.tar.gz
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build release APK
+        working-directory: android-hotfix-6.19.7
+        run: gradle :app:assembleRelease --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DivergentFieldTools-6.19.7-LIVE-GPS-RESTORE
+          path: android-hotfix-6.19.7/app/build/outputs/apk/release/app-release.apk
