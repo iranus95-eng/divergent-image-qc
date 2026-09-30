@@ -6,7 +6,8 @@ function loadOnce(attr,src){
 }
 function boot(){
   loadOnce('data-claim-legacy-persist','./js/claim-legacy-persist.js?v=20260915-0954');
-  loadOnce('data-claim-pending-live','./js/claim-pending-live.js?v=20260930-1845');
+  loadOnce('data-claim-pending-live','./js/claim-pending-live.js?v=20260930-2029');
+  loadOnce('data-claim-date-display-fix','./js/claim-date-display-fix.js?v=20260930-2029');
   loadOnce('data-billing-smart-dropdowns','./js/billing-smart-dropdowns.js?v=20260915-1532');
   loadOnce('data-billing-multi-item','./js/billing-multi-item.js?v=20260915-1540');
   loadOnce('data-billing-final-layout','./js/billing-final-layout.js?v=20260916-0947');
