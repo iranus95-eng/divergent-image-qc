@@ -17,18 +17,24 @@ jobs:
           cat project.part00 project.part01 project.part02 project.part03 | base64 -d > project.tar.gz
           echo "43b1bc0ca8c2d2fe73392ba436274f69a9489e5a72bc93d998fed845901666bd  project.tar.gz" | sha256sum -c -
           tar -xzf project.tar.gz
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android SDK packages
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
       - name: Build release APK
         working-directory: android-hotfix-6.19.7
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: gradle :app:assembleRelease --stacktrace
       - uses: actions/upload-artifact@v4
         with:
