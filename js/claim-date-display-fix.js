@@ -32,13 +32,14 @@ function thaiDate(v){
   return s;
 }
 window.formatClaimThaiDate=thaiDate;
+let legacyPatched=false;
 function patchLegacy(){
-  if(typeof window.claimDisplayDate==='function'){
+  if(typeof window.claimDisplayDate==='function'&&window.claimDisplayDate!==thaiDate){
     window.claimDisplayDate=thaiDate;
-    try{if(typeof window.renderClaimWorkspace==='function')window.renderClaimWorkspace();}catch(_){}
+    if(!legacyPatched){legacyPatched=true;setTimeout(()=>{try{if(typeof window.renderClaimWorkspace==='function')window.renderClaimWorkspace();}catch(_){}},0);}
   }
   const input=document.getElementById('clReceivedDate');
-  if(input&&input.value){const x=thaiDate(input.value);if(x&&x!=='-')input.value=x;}
+  if(input&&input.value){const x=thaiDate(input.value);if(x&&x!=='-'&&x!==input.value)input.value=x;}
 }
 function replaceDatesIn(el){
   if(!el)return;
@@ -62,7 +63,7 @@ function patchShadow(){
 function boot(){
   patchLegacy();patchShadow();
   new MutationObserver(()=>{patchLegacy();patchShadow();}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
-  let tries=0;const t=setInterval(()=>{patchLegacy();if(patchShadow()&&++tries>8)clearInterval(t);if(++tries>80)clearInterval(t);},250);
+  let tries=0;const t=setInterval(()=>{patchLegacy();patchShadow();if(++tries>80)clearInterval(t);},250);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
