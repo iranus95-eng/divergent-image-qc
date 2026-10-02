@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const STYLE_ID='receipt-final-layout-v1';
+const STYLE_ID='receipt-final-layout-v2';
 const EXTRA_BLANK_ROWS=5;
 const CUSTOMER_COLOR='#6d35d4';
 const ACCOUNTING_COLOR='#198754';
@@ -69,11 +69,84 @@ function themePaper(paper){
   paper.classList.toggle('rt-theme-customer',!accounting);
 }
 
-function removeTotals(paper){
+function parseMoney(v){
+  const n=Number(String(v||'').replace(/,/g,'').trim());
+  return Number.isFinite(n)?n:0;
+}
+
+function money(v){
+  return parseMoney(v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function thaiInteger(n){
+  const d=['ศูนย์','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'];
+  const p=['','สิบ','ร้อย','พัน','หมื่น','แสน'];
+  n=Math.floor(Math.abs(n));
+  if(n===0)return '';
+  function six(x){
+    let out='';
+    const a=String(x).padStart(6,'0');
+    for(let i=0;i<6;i++){
+      const v=Number(a[i]);
+      if(!v)continue;
+      const pos=5-i;
+      if(pos===1){
+        if(v===1)out+='สิบ';
+        else if(v===2)out+='ยี่สิบ';
+        else out+=d[v]+'สิบ';
+      }else if(pos===0){
+        if(v===1&&out)out+='เอ็ด';
+        else out+=d[v];
+      }else out+=d[v]+p[pos];
+    }
+    return out;
+  }
+  if(n>=1000000)return thaiInteger(Math.floor(n/1000000))+'ล้าน'+six(n%1000000);
+  return six(n);
+}
+
+function bahtText(v){
+  const n=Math.round(parseMoney(v)*100)/100;
+  const baht=Math.floor(n);
+  const sat=Math.round((n-baht)*100);
+  return (baht?thaiInteger(baht):'ศูนย์')+'บาท'+(sat?thaiInteger(sat)+'สตางค์':'ถ้วน');
+}
+
+function fixTotals(paper){
+  let grossRow=null;
+  let withholdingRow=null;
+  let finalRow=null;
   paper.querySelectorAll('.rt-total-row').forEach(row=>{
     const label=(row.querySelector('b')?.textContent||'').replace(/\s+/g,' ').trim();
-    if(label==='รวมเงินทั้งสิ้น'||label==='หัก ณ ที่จ่าย 1%')row.remove();
+    if(label==='รวมเงินทั้งสิ้น')grossRow=row;
+    else if(label==='หัก ณ ที่จ่าย 1%')withholdingRow=row;
+    else if(label==='จำนวนเงินทั้งสิ้น')finalRow=row;
   });
+
+  if(grossRow&&finalRow){
+    const grossText=(grossRow.querySelector('.r')?.textContent||grossRow.querySelector('span')?.textContent||'').trim();
+    const gross=parseMoney(grossText);
+    const finalValue=finalRow.querySelector('.r')||finalRow.querySelector('span');
+    if(finalValue)finalValue.textContent=grossText;
+    const words=paper.querySelector('.rt-words');
+    if(words&&gross>0)words.innerHTML='<b>ตัวอักษร.</b>&nbsp; ('+bahtText(gross)+')';
+  }
+
+  if(grossRow)grossRow.remove();
+  if(withholdingRow)withholdingRow.remove();
+}
+
+function patchLegacyTransfer(root){
+  if(!root)return;
+  const transfer=root.querySelector('input[name="transfer"]');
+  if(!transfer)return;
+  const subtotal=[...root.querySelectorAll('.rt-item-editor input[name="amount"]')]
+    .reduce((sum,input)=>sum+parseMoney(input.value),0);
+  if(!(subtotal>0))return;
+  const gross=Math.round(subtotal*1.07*100)/100;
+  const legacyNet=Math.round(subtotal*1.06*100)/100;
+  const current=Math.round(parseMoney(transfer.value)*100)/100;
+  if(Math.abs(current-legacyNet)<0.011)transfer.value=gross.toFixed(2);
 }
 
 function addBlankRows(paper){
@@ -91,15 +164,17 @@ function addBlankRows(paper){
 
 function patchPaper(paper){
   if(!paper)return;
+  paper.classList.remove('receipt-final-layout-v1');
   paper.classList.add(STYLE_ID);
   themePaper(paper);
-  removeTotals(paper);
+  fixTotals(paper);
   addBlankRows(paper);
 }
 
 function patchPreview(){
   const root=document.getElementById('receiptTaxV1');
   if(!root)return;
+  patchLegacyTransfer(root);
   root.querySelectorAll('.rt-paper').forEach(patchPaper);
 }
 
