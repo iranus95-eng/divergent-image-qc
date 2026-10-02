@@ -34,8 +34,11 @@ async function fixedLoadDistanceCard(img){
   const box=document.getElementById('distance-'+img.slotId);
   if(!box)return;
   const d=window._qcBatchCoordinateMap?.get(String(img.ca||''))||null;
-  // If the batch API itself failed, keep the legacy single-CA fallback path.
-  if(!d){
+  // Keep the legacy single-CA fallback whenever the batch response is missing
+  // OR the batch row exists but has no notice/work coordinate yet.
+  // The legacy loader merges fetchDualCoordinate() and can recover a valid
+  // notice coordinate before calculating the meter distance.
+  if(!d || !d?.notice){
     if(originalLoadDistance)return originalLoadDistance(img);
     return;
   }
