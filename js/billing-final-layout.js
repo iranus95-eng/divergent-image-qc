@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const MARK='bi-final-layout-v3';
+const MARK='bi-final-layout-v4';
 const COMPANY='บริษัท ไดเวอร์เจนท์ คอร์ปอเรชั่น จำกัด';
 const EXTRA_BLANK_ROWS=5;
 
@@ -125,11 +125,67 @@ function fixNotes(paper){
   if(notes.innerHTML.includes(target))notes.innerHTML=notes.innerHTML.replace(target,replacement);
 }
 
+function parseMoney(v){
+  const n=Number(String(v||'').replace(/,/g,'').trim());
+  return Number.isFinite(n)?n:0;
+}
+
+function thaiInteger(n){
+  const d=['ศูนย์','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'];
+  const p=['','สิบ','ร้อย','พัน','หมื่น','แสน'];
+  n=Math.floor(Math.abs(n));
+  if(n===0)return '';
+  function six(x){
+    let out='';
+    const a=String(x).padStart(6,'0');
+    for(let i=0;i<6;i++){
+      const v=Number(a[i]);
+      if(!v)continue;
+      const pos=5-i;
+      if(pos===1){
+        if(v===1)out+='สิบ';
+        else if(v===2)out+='ยี่สิบ';
+        else out+=d[v]+'สิบ';
+      }else if(pos===0){
+        if(v===1&&out)out+='เอ็ด';
+        else out+=d[v];
+      }else out+=d[v]+p[pos];
+    }
+    return out;
+  }
+  if(n>=1000000)return thaiInteger(Math.floor(n/1000000))+'ล้าน'+six(n%1000000);
+  return six(n);
+}
+
+function bahtText(v){
+  const n=Math.round(parseMoney(v)*100)/100;
+  const baht=Math.floor(n);
+  const sat=Math.round((n-baht)*100);
+  return (baht?thaiInteger(baht):'ศูนย์')+'บาท'+(sat?thaiInteger(sat)+'สตางค์':'ถ้วน');
+}
+
 function fixTotals(paper){
+  let grossRow=null;
+  let withholdingRow=null;
+  let finalRow=null;
   paper.querySelectorAll('.bi-total-row').forEach(row=>{
     const label=(row.querySelector('b')?.textContent||'').trim();
-    if(label==='รวมเงินทั้งสิ้น'||label==='หัก ณ ที่จ่าย 1%')row.remove();
+    if(label==='รวมเงินทั้งสิ้น')grossRow=row;
+    else if(label==='หัก ณ ที่จ่าย 1%')withholdingRow=row;
+    else if(label==='จำนวนเงินทั้งสิ้น')finalRow=row;
   });
+
+  if(grossRow&&finalRow){
+    const grossText=(grossRow.querySelector('span')?.textContent||'').trim();
+    const gross=parseMoney(grossText);
+    const finalValue=finalRow.querySelector('span');
+    if(finalValue)finalValue.textContent=grossText;
+    const words=paper.querySelector('.bi-amount-words');
+    if(words&&gross>0)words.innerHTML='<b>ตัวอักษร.</b>&nbsp;&nbsp; ('+bahtText(gross)+')';
+  }
+
+  if(grossRow)grossRow.remove();
+  if(withholdingRow)withholdingRow.remove();
 }
 
 function addBlankRows(paper){
@@ -168,7 +224,7 @@ function patchSignatures(paper){
 
 function patchPaper(paper){
   if(!paper)return;
-  paper.classList.remove('bi-final-layout-v1','bi-final-layout-v2');
+  paper.classList.remove('bi-final-layout-v1','bi-final-layout-v2','bi-final-layout-v3');
   paper.classList.add(MARK);
   ensureFontStyle(paper);
   fixNotes(paper);
