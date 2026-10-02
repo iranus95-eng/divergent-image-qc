@@ -188,7 +188,7 @@
   'use strict';
   if(document.querySelector('script[data-receipt-master-dropdown]'))return;
   const s=document.createElement('script');
-  s.src='./js/receipt-master-dropdown.js?v=20261002-1645';
+  s.src='./js/receipt-master-dropdown.js?v=20261002-1701';
   s.async=false;
   s.setAttribute('data-receipt-master-dropdown','1');
   document.head.appendChild(s);
