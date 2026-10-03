@@ -29,6 +29,7 @@ function boot(){
   loadOnce('data-payroll-binding-admin','./js/payroll-binding-admin.js?v=20260928-1656');
   loadOnce('data-payroll-excel-export','./js/payroll-excel-export.js?v=20261003-0915');
   loadOnce('data-payroll-deduction-net-fix','./js/payroll-deduction-net-fix.js?v=20261003-1025');
+  loadOnce('data-payroll-site-group-order','./js/payroll-site-group-order.js?v=20261003-1045');
   loadOnce('data-expense-cycle-status-fix','./js/expense-cycle-status-fix.js?v=20260917-1405');
   loadOnce('data-expense-cycle-create','./js/expense-cycle-create.js?v=20261003-0858');
 }
