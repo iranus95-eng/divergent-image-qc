@@ -374,12 +374,65 @@
     window.addEventListener('resize', function () { if (window.innerWidth > 860) drawer(false); });
   }
 
+  // ---- readable text: legacy module pages use 9–13px. Tag on-screen text under 14px with .sa-fz (15px).
+  // Only ever enlarges; skips document papers / PDF pages so invoices and receipts render exactly as before.
+  var PAPER = /paper|pdf|a4|print-?page|preview/i;
+  var fzOk = typeof WeakSet === 'function' ? new WeakSet() : { has: function () { return false; }, add: function () {} };
+  var FZ_SCOPES = '.main-shell .container, #billingInvoiceV1, #receiptTaxV1, #customerImportV1';
+  function inPaper(el, root) {
+    for (var n = el; n && n !== root; n = n.parentElement) {
+      var c = typeof n.className === 'string' ? n.className : '';
+      if (c && PAPER.test(c)) return true;
+      if (n.id && PAPER.test(n.id)) return true;
+    }
+    return false;
+  }
+  function hasOwnText(el) {
+    for (var c = el.firstChild; c; c = c.nextSibling) if (c.nodeType === 3 && /\S/.test(c.nodeValue)) return true;
+    return false;
+  }
+  function readable() {
+    fzTimer = 0;
+    var roots = document.querySelectorAll(FZ_SCOPES);
+    for (var r = 0; r < roots.length; r++) {
+      var root = roots[r];
+      if (!root.getClientRects().length) continue;
+      var els = root.querySelectorAll('*:not(.sa-fz)');
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i], tag = el.tagName;
+        if (fzOk.has(el)) continue;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'OPTION' || el.closest('svg')) continue;
+        if (!(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || hasOwnText(el))) continue;
+        if (!el.getClientRects().length) continue;
+        if (parseFloat(getComputedStyle(el).fontSize) >= 14 || inPaper(el, root)) { fzOk.add(el); continue; }
+        el.classList.add('sa-fz');
+        // inline !important: legacy rules use !important with id selectors, a class cannot win
+        el.style.setProperty('font-size', el.tagName === 'TH' ? '14px' : '15px', 'important');
+      }
+    }
+  }
+  var fzTimer = 0;
+  function scheduleReadable() {
+    if (fzTimer) return;
+    fzTimer = setTimeout(function () {
+      (window.requestIdleCallback || function (f) { f(); })(readable, { timeout: 400 });
+    }, 200);
+  }
+
   function boot() {
     build();
     wrap('applyMenuAccess');
     wrap('commitMenuAccess');
     watch();
     schedule(0);
+    new MutationObserver(scheduleReadable).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+    scheduleReadable();
+    // printing uses the legacy print styles untouched
+    window.addEventListener('beforeprint', function () {
+      var t = document.querySelectorAll('.sa-fz');
+      for (var i = 0; i < t.length; i++) { t[i].classList.remove('sa-fz'); t[i].style.removeProperty('font-size'); }
+    });
+    window.addEventListener('afterprint', scheduleReadable);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
