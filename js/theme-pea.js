@@ -99,8 +99,21 @@
     });
   }
 
+  // tables whose last column holds buttons get it pinned (see css)
+  function pinActions() {
+    var tables = document.querySelectorAll(SCOPE.split(',').map(function (x) { return x.trim() + ' table:not(.t-actions-table):not(.t-actions-no)'; }).join(','));
+    for (var i = 0; i < tables.length; i++) {
+      var tb = tables[i];
+      if (tb.closest('[class*="paper"],[class*="pdf"]')) { tb.classList.add('t-actions-no'); continue; }
+      var rows = tb.tBodies[0] ? tb.tBodies[0].rows : [];
+      if (!rows.length) continue;
+      var hit = false;
+      for (var r = 0; r < Math.min(rows.length, 5); r++) { var c = rows[r].cells[rows[r].cells.length - 1]; if (c && c.colSpan === 1 && c.querySelector('button')) { hit = true; break; } }
+      if (hit) tb.classList.add('t-actions-table');
+    }
+  }
   var t = 0, pendingBtns = [];
-  function schedule() { if (!t) t = requestAnimationFrame(function () { t = 0; classify(); grow(); pendingBtns.splice(0).forEach(reclassify); }); }
+  function schedule() { if (!t) t = requestAnimationFrame(function () { t = 0; classify(); grow(); pinActions(); pendingBtns.splice(0).forEach(reclassify); }); }
   function boot() {
     classify(); grow();
     new MutationObserver(function (muts) {
