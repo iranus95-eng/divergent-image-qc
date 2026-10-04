@@ -41,6 +41,7 @@
   html body .app-shell>main.main-shell{margin-left:var(--sa-side)!important;min-width:0!important;width:auto!important;max-width:none!important;padding:0!important;background:transparent!important}
   html body .app-shell>main.main-shell>.container{width:auto!important;max-width:1280px!important;margin:0 auto!important;padding:24px 28px 48px!important;box-sizing:border-box!important;transform:none!important;zoom:1!important}
   .main-shell img,.main-shell video,.main-shell canvas{max-width:100%}
+  html.sa-wide body .app-shell>main.main-shell>.container{max-width:none!important}
   /* module pages appended straight into <main> (e.g. employee advance) get the same content frame */
   html body .app-shell>main.main-shell>[id$="Workspace"]{max-width:1224px!important;margin:-48px 28px 48px!important;width:auto!important;padding:24px 28px!important;box-sizing:border-box!important;border-radius:18px}
   @media (min-width:1544px){html body .app-shell>main.main-shell>[id$="Workspace"]{margin-left:auto!important;margin-right:auto!important}}

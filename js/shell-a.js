@@ -225,6 +225,8 @@
     OVERLAYS.forEach(function (i) { var e = document.getElementById(i); if (e) e.remove(); });
   }
 
+  // menus shown at the full content width (no 1280px cap), like before the redesign
+  var WIDE = ['navPayroll'];
   var backStack = [];
   function goBack() {
     var overlayOpen = OVERLAYS.some(function (i) { return document.getElementById(i); });
@@ -264,6 +266,7 @@
     var item = MENU.filter(function (m) { return m[0] === id; })[0];
     var t = document.getElementById('saBarTitle'); if (t) t.textContent = item ? item[2] : '';
     root.classList.toggle('sa-has-bar', id !== 'navHome');
+    root.classList.toggle('sa-wide', WIDE.indexOf(id) >= 0);
     [].forEach.call(document.querySelectorAll('#saSide [data-nav], #saBottom [data-nav]'), function (b) {
       if (b.getAttribute('data-nav') === id) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
