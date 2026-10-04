@@ -378,7 +378,7 @@
   // Only ever enlarges; skips document papers / PDF pages so invoices and receipts render exactly as before.
   var PAPER = /paper|pdf|a4|print-?page|preview/i;
   var fzOk = typeof WeakSet === 'function' ? new WeakSet() : { has: function () { return false; }, add: function () {} };
-  var FZ_SCOPES = '.main-shell .container, #billingInvoiceV1, #receiptTaxV1, #customerImportV1';
+  var FZ_SCOPES = '.main-shell .container, .main-shell > [id$="Workspace"], #billingInvoiceV1, #receiptTaxV1, #customerImportV1';
   function inPaper(el, root) {
     for (var n = el; n && n !== root; n = n.parentElement) {
       var c = typeof n.className === 'string' ? n.className : '';

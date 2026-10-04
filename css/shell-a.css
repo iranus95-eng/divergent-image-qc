@@ -40,6 +40,9 @@
   html body .app-shell>main.main-shell{margin-left:var(--sa-side)!important;min-width:0!important;width:auto!important;max-width:none!important;padding:0!important;background:transparent!important}
   html body .app-shell>main.main-shell>.container{width:auto!important;max-width:1280px!important;margin:0 auto!important;padding:24px 28px 48px!important;box-sizing:border-box!important;transform:none!important;zoom:1!important}
   .main-shell img,.main-shell video,.main-shell canvas{max-width:100%}
+  /* module pages appended straight into <main> (e.g. employee advance) get the same content frame */
+  html body .app-shell>main.main-shell>[id$="Workspace"]{max-width:1224px!important;margin:-48px 28px 48px!important;width:auto!important;padding:24px 28px!important;box-sizing:border-box!important;border-radius:18px}
+  @media (min-width:1544px){html body .app-shell>main.main-shell>[id$="Workspace"]{margin-left:auto!important;margin-right:auto!important}}
 
   /* readable module content: shell-a.js tags legacy text smaller than 14px (never document papers / PDF pages) */
   .sa-fz{font-size:15px!important;line-height:1.45}
@@ -104,6 +107,7 @@
   @media (max-width:860px){
     html body .app-shell>main.main-shell{margin-left:0!important}
     html body .app-shell>main.main-shell>.container{padding:16px 12px calc(var(--sa-bottom) + 28px)!important}
+    html body .app-shell>main.main-shell>[id$="Workspace"]{margin:calc(-1 * (var(--sa-bottom) + 28px)) 12px calc(var(--sa-bottom) + 28px)!important;padding:18px 14px!important}
     #billingInvoiceV1,#receiptTaxV1,#customerImportV1{left:0!important;bottom:var(--sa-bottom)!important}
     #saTop{padding:0 10px}
     #saTop .sa-title>span,#saTop .sa-who,.sa-hide-sm{display:none!important}

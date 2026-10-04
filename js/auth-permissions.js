@@ -212,7 +212,7 @@
   function loadEmployeeAdvanceModule(){
     if(document.querySelector('script[data-divergent-employee-advance]'))return;
     const s=document.createElement('script');
-    s.src='js/employee-advance.js?v=20260908-1';
+    s.src='js/employee-advance.js?v=20261004-1';
     s.async=false;
     s.setAttribute('data-divergent-employee-advance','1');
     document.head.appendChild(s);
