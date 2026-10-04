@@ -6,7 +6,7 @@ function loadOnce(attr,src){
 }
 function boot(){
   loadOnce('data-claim-legacy-persist','./js/claim-legacy-persist.js?v=20260915-0954');
-  loadOnce('data-claim-pending-live','./js/claim-pending-live.js?v=20261004-3');
+  loadOnce('data-claim-pending-live','./js/claim-pending-live.js?v=20261004-4');
   loadOnce('data-claim-date-display-fix','./js/claim-date-display-fix.js?v=20260930-2037');
   loadOnce('data-qc-coordinate-display-restore','./js/qc-coordinate-display-restore.js?v=20261003-1115');
   loadOnce('data-billing-smart-dropdowns','./js/billing-smart-dropdowns.js?v=20261004-1');

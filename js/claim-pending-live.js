@@ -66,6 +66,11 @@ function setupStatic(){
     #claimPendingWorkspace .cp-amt{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
     #claimPendingWorkspace .cp-note{display:inline-block;margin-top:4px;font-size:13px;color:#9a3412;background:#FFF4E5;border-radius:6px;padding:2px 8px}
     #claimPendingWorkspace .cp-seq{color:#5F5875;text-align:center}
+    #claimPendingWorkspace .cp-subtotal td{background:#FBF9FE;font-weight:700;color:#3B2366;border-top:1px solid #E2D9F1}
+    #claimPendingWorkspace .cp-subtotal .cp-amt{color:#b42318;font-size:16px}
+    #claimPendingWorkspace .cp-grand td{background:#3B2366;color:#fff;font-weight:800;font-size:16px}
+    #claimPendingWorkspace .cp-grand .cp-sub{color:#E6DDF5}
+    #claimPendingWorkspace .cp-subtotal .cp-sub{font-weight:400;color:#5F5875}
     #claimPendingWorkspace .pending-claim-table{table-layout:auto!important;width:100%!important;min-width:640px!important}
     #claimPendingWorkspace .payroll-head{flex-wrap:wrap}
     #claimPendingWorkspace .payroll-head>div:first-child{flex:1 1 320px;min-width:0}
@@ -91,7 +96,7 @@ function render(){
     if(state.loading&&!state.loaded)body.innerHTML='<tr><td colspan="4" style="padding:24px;text-align:center">กำลังโหลดข้อมูลล่าสุดจากฐานข้อมูล...</td></tr>';
     else if(state.error)body.innerHTML=`<tr><td colspan="4" style="padding:24px;text-align:center;color:#b42318">โหลดข้อมูลไม่สำเร็จ: ${esc(state.error)}</td></tr>`;
     else{
-      const html=[];
+      const html=[];let grand=0,grandCount=0;
       for(const m of monthsFor(value)){
         const rows=visible.filter(r=>r.key===m.key);
         const allInMonth=unpaid.filter(r=>r.key===m.key);
@@ -105,7 +110,11 @@ function render(){
           const note=(r.missing||[]).length?`<div><span class="cp-note">ข้อมูลตั้งเบิกยังไม่ครบ: ${esc(r.missing.join(', '))}</span></div>`:'';
           html.push(`<tr><td class="cp-seq">${esc(r.seq)}</td><td><div style="font-weight:700;color:#352245">${esc(r.branch||'-')}</div>${note}</td><td class="cp-amt">${r.claim_amount>0?money(r.claim_amount):'<span style="color:#9a3412">ยังไม่มียอด</span>'}</td><td><span class="pending-bad">ยังไม่ได้รับเงิน</span></td></tr>`);
         });
+        const vsum=rows.reduce((s,r)=>s+Number(r.claim_amount||0),0);
+        html.push(`<tr class="cp-subtotal"><td></td><td>รวมค้างรับ ${esc(m.label)} <span class="cp-sub">(${n(rows.length)} แห่ง)</span></td><td class="cp-amt">${money(vsum)}</td><td></td></tr>`);
+        grand+=vsum;grandCount+=rows.length;
       }
+      if(grandCount)html.push(`<tr class="cp-grand"><td></td><td>รวมค้างรับทั้งหมด${value==='ALL'?' ทุกเดือน':''} <span class="cp-sub">(${n(grandCount)} แห่ง)</span></td><td class="cp-amt">${money(grand)}</td><td></td></tr>`);
       body.innerHTML=html.length?html.join(''):'<tr><td colspan="4" style="padding:24px;text-align:center;color:#6f617c">'+(q?'ไม่พบรายการตามคำค้นหา':'ทุกแห่งมีวันที่รับเงินแล้ว ✓')+'</td></tr>';
     }
   }
@@ -131,7 +140,9 @@ window.buildPendingPdfPages=function(){
     const sum=rows.reduce((a,r)=>a+Number(r.claim_amount||0),0);
     body.push(`<tr><td colspan="4" style="${td};background:#f4eef8;color:#4a2369;font-weight:900">${reportPdfEsc(m.label)} — ค้างรับเงิน ${n(rows.length)} แห่ง • ${money(sum)} บาท</td></tr>`);
     rows.forEach(r=>body.push(`<tr><td style="${td};text-align:center">${reportPdfEsc(r.seq)}</td><td style="${td};font-weight:700">${reportPdfEsc(r.branch||'-')}${(r.missing||[]).length?`<div style="font-weight:400;color:#9a3412">ข้อมูลตั้งเบิกยังไม่ครบ: ${reportPdfEsc(r.missing.join(', '))}</div>`:''}</td><td style="${td};text-align:right">${r.claim_amount>0?money(r.claim_amount):'-'}</td><td style="${td};color:#a53b4b">ยังไม่ได้รับเงิน</td></tr>`));
+    body.push(`<tr><td style="${td};background:#fbf9fe"></td><td style="${td};background:#fbf9fe;font-weight:900;color:#4a2369">รวมค้างรับ ${reportPdfEsc(m.label)} (${n(rows.length)} แห่ง)</td><td style="${td};background:#fbf9fe;text-align:right;font-weight:900;color:#b42318">${money(sum)}</td><td style="${td};background:#fbf9fe"></td></tr>`);
   }
+  if(s.rows.length)body.push(`<tr><td style="${td};background:#3b2366"></td><td style="${td};background:#3b2366;color:#fff;font-weight:900">รวมค้างรับทั้งหมด (${n(s.rows.length)} แห่ง)</td><td style="${td};background:#3b2366;color:#fff;text-align:right;font-weight:900">${money(s.total)}</td><td style="${td};background:#3b2366"></td></tr>`);
   const pages=[];const PER=34;const chunks=[];for(let i=0;i<body.length;i+=PER)chunks.push(body.slice(i,i+PER));if(!chunks.length)chunks.push([]);
   chunks.forEach((chunk,i)=>{
     const page=document.createElement('div');page.style.cssText=reportA4Base();
