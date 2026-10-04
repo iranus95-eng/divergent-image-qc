@@ -126,6 +126,14 @@
 
   function build() {
     if (document.getElementById('saTop')) return;
+    var bar = document.createElement('div');
+    bar.id = 'saBar';
+    bar.innerHTML = '<button type="button" class="sa-bar-btn" id="saBack">← ย้อนกลับ</button>' +
+      '<button type="button" class="sa-bar-btn" id="saHomeBtn">⌂ หน้าหลัก</button>' +
+      '<span class="sa-bar-title" id="saBarTitle"></span>';
+    bar.querySelector('#saBack').addEventListener('click', goBack);
+    bar.querySelector('#saHomeBtn').addEventListener('click', function () { open('navHome'); });
+    document.body.appendChild(bar);
     var top = document.createElement('header');
     top.id = 'saTop';
     top.innerHTML =
@@ -217,10 +225,21 @@
     OVERLAYS.forEach(function (i) { var e = document.getElementById(i); if (e) e.remove(); });
   }
 
-  function open(id) {
+  var backStack = [];
+  function goBack() {
+    var overlayOpen = OVERLAYS.some(function (i) { return document.getElementById(i); });
+    var prev = backStack.pop();
+    while (prev && prev === active && !overlayOpen) prev = backStack.pop();
+    open(prev || 'navHome', true);
+  }
+  function open(id, fromBack) {
     var el = legacy(id);
     drawer(false);
     if (!el) return;
+    if (!fromBack && active && (active !== id || OVERLAYS.some(function (i) { return document.getElementById(i); }))) {
+      if (id === 'navHome') backStack = [];
+      else { backStack.push(active); if (backStack.length > 30) backStack.shift(); }
+    }
     closeOverlays();
     var before = visiblePages();
     setActive(id);
@@ -242,6 +261,9 @@
 
   function setActive(id) {
     active = id;
+    var item = MENU.filter(function (m) { return m[0] === id; })[0];
+    var t = document.getElementById('saBarTitle'); if (t) t.textContent = item ? item[2] : '';
+    root.classList.toggle('sa-has-bar', id !== 'navHome');
     [].forEach.call(document.querySelectorAll('#saSide [data-nav], #saBottom [data-nav]'), function (b) {
       if (b.getAttribute('data-nav') === id) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');

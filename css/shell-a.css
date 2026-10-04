@@ -4,16 +4,17 @@
  * Module pages (QC, payroll, invoice…) keep their own markup inside .main-shell.
  */
 :root{
-  --sa-ground:#F5F4F8;
+  --sa-ground:#F7F3FA;
   --sa-surface:#FFFFFF;
-  --sa-line:#E4E0EC;
-  --sa-ink:#1C1730;
-  --sa-muted:#5F5875;
-  --sa-accent:#4B2A8C;
-  --sa-accent-soft:#ECE8F4;
+  --sa-line:#E8DEF0;
+  --sa-ink:#2A1F35;
+  --sa-muted:#6E6479;
+  --sa-accent:#74328F;
+  --sa-accent-soft:#F2E9F7;
   --sa-side:264px;
   --sa-top:60px;
   --sa-bottom:68px;
+  --sa-bar:50px;
   --sa-font:'IBM Plex Sans Thai','Sarabun',Tahoma,sans-serif;
 }
 
@@ -50,6 +51,17 @@
 
   /* full-screen module overlays (billing, receipt/tax invoice, customer import) sit in the content area */
   #billingInvoiceV1,#receiptTaxV1,#customerImportV1{top:var(--sa-top)!important;left:var(--sa-side)!important;right:0!important;bottom:0!important;width:auto!important;height:auto!important;max-width:none!important}
+
+
+  /* ---- back / home bar (every menu except หน้าหลัก) ---- */
+  #saBar{display:none;position:fixed;top:var(--sa-top);left:var(--sa-side);right:0;height:var(--sa-bar);z-index:2147481500;align-items:center;gap:8px;padding:0 24px;background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--sa-line);font-family:var(--sa-font);box-sizing:border-box}
+  html.sa-has-bar #saBar{display:flex}
+  html.shell-pending #saBar{display:none!important}
+  #saBar .sa-bar-btn{min-height:36px;padding:0 14px!important;border:1px solid var(--sa-line)!important;border-radius:999px!important;background:#fff!important;color:var(--sa-accent)!important;font:600 14px/1 var(--sa-font)!important;cursor:pointer;white-space:nowrap;box-shadow:none!important;background-image:none!important;transform:none!important;margin:0!important}
+  #saBar .sa-bar-btn:hover{background:var(--sa-accent-soft)!important}
+  #saBar .sa-bar-title{margin-left:8px;color:var(--sa-muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html.sa-has-bar body .app-shell>main.main-shell>.container{padding-top:calc(24px + var(--sa-bar))!important}
+  html.sa-has-bar #billingInvoiceV1,html.sa-has-bar #receiptTaxV1,html.sa-has-bar #customerImportV1{top:calc(var(--sa-top) + var(--sa-bar))!important}
 
   /* ---- top bar ---- */
   #saTop{position:fixed;inset:0 0 auto 0;height:var(--sa-top);z-index:2147482000;display:flex;align-items:center;gap:12px;padding:0 16px 0 20px;background:var(--sa-surface);border-bottom:1px solid var(--sa-line);box-sizing:border-box;font-family:var(--sa-font)}
@@ -107,6 +119,10 @@
   @media (max-width:860px){
     html body .app-shell>main.main-shell{margin-left:0!important}
     html body .app-shell>main.main-shell>.container{padding:16px 12px calc(var(--sa-bottom) + 28px)!important}
+    #saBar{left:0;padding:0 10px;height:46px}
+    html.sa-has-bar body .app-shell>main.main-shell>.container{padding-top:calc(16px + 46px)!important}
+    html.sa-has-bar #billingInvoiceV1,html.sa-has-bar #receiptTaxV1,html.sa-has-bar #customerImportV1{top:calc(var(--sa-top) + 46px)!important}
+    #saBar .sa-bar-title{display:none}
     html body .app-shell>main.main-shell>[id$="Workspace"]{margin:calc(-1 * (var(--sa-bottom) + 28px)) 12px calc(var(--sa-bottom) + 28px)!important;padding:18px 14px!important}
     #billingInvoiceV1,#receiptTaxV1,#customerImportV1{left:0!important;bottom:var(--sa-bottom)!important}
     #saTop{padding:0 10px}
@@ -132,7 +148,7 @@
 }
 
 @media print{
-  #saTop,#saSide,#saBottom,#saScrim,#saSkeleton,#saHome{display:none!important}
+  #saTop,#saSide,#saBottom,#saScrim,#saSkeleton,#saHome,#saBar{display:none!important}
   html body .app-shell>main.main-shell{margin-left:0!important}
   body{padding-top:0!important}
 }
