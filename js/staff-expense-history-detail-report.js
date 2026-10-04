@@ -30,7 +30,8 @@ function openPrint(d){
   const w=window.open('','_blank');if(!w){alert('เบราว์เซอร์ปิดกั้นหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up');return;}w.document.open();w.document.write(html);w.document.close();
 }
 async function run(){try{const d=await history();await openPrint(d);}catch(e){alert('พิมพ์รายงานไม่สำเร็จ: '+(e?.message||e));}}
-function label(){const b=document.getElementById('sehPrintBtn');if(b)b.textContent='🖨 พิมพ์รายงานละเอียด';}
+// only write when different: writing textContent is itself a DOM change and re-triggered this observer forever (page froze when the history loaded)
+function label(){const b=document.getElementById('sehPrintBtn');const t='🖨 พิมพ์รายงานละเอียด';if(b&&b.textContent!==t)b.textContent=t;}
 document.addEventListener('click',e=>{const b=e.target&&e.target.closest?e.target.closest('#sehPrintBtn'):null;if(!b)return;e.preventDefault();e.stopImmediatePropagation();run();},true);
 new MutationObserver(label).observe(document.documentElement,{childList:true,subtree:true});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',label,{once:true});else label();
 })();

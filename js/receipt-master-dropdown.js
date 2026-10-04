@@ -24,7 +24,7 @@ function boot(){
   // Shell A (2026-10-04): home-menu-order.js retired — it re-sorted menus on 8 timers.
   loadOnce('data-expense-report-v2','./js/expense-report-v2.js?v=20260926-1421');
   loadOnce('data-staff-expense-history','./js/staff-expense-history.js?v=20261001-1705');
-  loadOnce('data-staff-expense-history-detail-report','./js/staff-expense-history-detail-report.js?v=20261004-2');
+  loadOnce('data-staff-expense-history-detail-report','./js/staff-expense-history-detail-report.js?v=20261004-3');
   loadOnce('data-payroll-report-id-fix','./js/payroll-report-id-fix.js?v=20261004-1');
   loadOnce('data-payroll-binding-admin','./js/payroll-binding-admin.js?v=20260928-1656');
   loadOnce('data-payroll-excel-export','./js/payroll-excel-export.js?v=20261003-0915');

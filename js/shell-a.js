@@ -357,7 +357,28 @@
     window[name] = w;
   }
 
+  // Legacy pop-ups (history, KBank, confirm dialogs...) use z-index ~10000-20000, below the shell bars.
+  // Lift any visible fixed full-screen layer above the shell. Billing/receipt/import are pages, not pop-ups.
+  var PAGE_OVERLAYS = { billingInvoiceV1: 1, receiptTaxV1: 1, customerImportV1: 1 };
+  var liftTimer = 0;
+  function liftOverlays() {
+    liftTimer = 0;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var cands = document.querySelectorAll('body > *, [class*="overlay"], [class*="modal"], [id$="Overlay"], [id$="Modal"]');
+    for (var i = 0; i < cands.length; i++) {
+      var el = cands[i];
+      if (PAGE_OVERLAYS[el.id] || /^sa/.test(el.id || '') || el.id === 'daViewer' || el.id === 'daToast') continue;
+      var cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') continue;
+      var r = el.getBoundingClientRect();
+      if (r.width < vw * 0.9 || r.height < vh * 0.9) continue;
+      if ((parseInt(cs.zIndex, 10) || 0) < 2147482500) el.style.setProperty('z-index', '2147482500', 'important');
+    }
+  }
+  function scheduleLift() { if (!liftTimer) liftTimer = setTimeout(liftOverlays, 30); }
+
   function watch() {
+    new MutationObserver(scheduleLift).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden', 'open'] });
     var side = document.querySelector('.side-nav');
     if (side) {
       // Legacy nav: items added/removed or shown/hidden -> recheck (we never write to it).
