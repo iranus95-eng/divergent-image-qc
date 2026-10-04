@@ -45,7 +45,11 @@ function ensureStyle(){
   .seh-source{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eee7fb;color:#4e298d;margin-left:6px}.seh-warning{padding:13px 14px;border-radius:12px;background:#fff7e7;color:#815800;font-size:13px;line-height:1.55}.seh-print-note{font-size:12px;color:#776d80;margin-top:12px}
   @media(max-width:850px){.seh-grid,.seh-cycles{grid-template-columns:repeat(2,minmax(0,1fr))}.seh-summary{width:100%;margin-left:0}}
   @media(max-width:540px){.seh-grid,.seh-cycles{grid-template-columns:1fr}.seh-panel{width:100%}.seh-body{padding:15px}.seh-head{padding:17px}.seh-month-amount{font-size:22px}}
-  `;document.head.appendChild(s);
+  
+  .seh-combined .seh-round td{background:#F3EFFA;color:#3B2366;border-top:2px solid #E2D9F1}.seh-combined .seh-round span{color:#5F5875;font-weight:400;margin-left:6px}
+  .seh-combined .seh-subtotal td{background:#FBF9FE;font-weight:700;color:#3B2366;text-align:right}.seh-combined .seh-subtotal td.amount{color:#4d1d78}
+  .seh-combined .seh-monthtotal td{background:#3B2366;color:#fff;font-weight:800;text-align:right;font-size:16px}.seh-muted{color:#6b6475;font-style:italic}
+`;document.head.appendChild(s);
 }
 function ensureModal(){
   ensureStyle();let el=document.getElementById('staffExpenseHistoryModal');if(el)return el;
@@ -61,23 +65,34 @@ function cycleItemsHtml(c){
   const rows=items.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(date(x.expense_date))}</td><td><b>${esc(x.staff_name||'-')}</b></td><td>${esc(x.category||'-')}<div class="seh-item-detail">${esc(x.detail||x.note||'')}</div></td><td>${esc(x.payment_method||'-')}</td><td class="amount">${money(x.amount)}</td></tr>`).join('');
   return `<div class="seh-table-wrap"><table class="seh-table"><thead><tr><th>#</th><th>วันที่</th><th>พนักงาน</th><th>รายการ / รายละเอียด</th><th>วิธีจ่าย</th><th class="amount">จำนวนเงิน (บาท)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function monthDetailHtml(m,cycleKey){
+// 2026-10-04: one combined list per month — every round's items, with a header and subtotal per round
+function monthDetailHtml(m){
   const cycles=Array.isArray(m.cycles)?m.cycles:[];
   if(!cycles.length){
     if(m.source==='IMPORTED')return `<div class="seh-detail"><h3>${esc(m.label)} <span class="seh-source">${sourceLabel(m.source)}</span></h3><div class="seh-warning">เดือนนี้มีเฉพาะยอดรวมย้อนหลัง ${money(m.total_amount)} บาท แต่ข้อมูลที่นำเข้าครั้งแรกไม่ได้เก็บชื่อรอบ/ชีตไว้ จึงยังแยกทุกรอบไม่ได้</div><div class="seh-print-note">แหล่งข้อมูล: ${esc(m.source_file||'ข้อมูลย้อนหลัง')}</div></div>`;
     return `<div class="seh-detail"><h3>${esc(m.label)}</h3><div class="seh-empty">เดือนนี้ยังไม่มีรายการค่าใช้จ่ายสตาฟ</div></div>`;
   }
-  const selected=cycles.find(x=>String(x.cycle_key)===String(cycleKey))||cycles[0];
-  const cards=cycles.map(c=>`<button type="button" class="seh-cycle${String(c.cycle_key)===String(selected.cycle_key)?' active':''}" data-cycle="${esc(c.cycle_key)}"><div class="seh-cycle-title">${esc(cycleLabel(c))}</div><div class="seh-cycle-total">${money(c.total_amount)} บาท</div><div class="seh-cycle-meta">${c.scheduled_date?date(c.scheduled_date)+' · ':''}${c.item_count?Number(c.item_count).toLocaleString('th-TH')+' รายการ · ':''}${esc(c.status||'ย้อนหลัง')}</div></button>`).join('');
-  return `<div class="seh-detail" data-month="${esc(m.key)}"><h3>${esc(m.label)} <span class="seh-source">${sourceLabel(m.source)}</span></h3><div class="seh-sub">ยอดรวมเดือน ${money(m.total_amount)} บาท · ${cycles.length.toLocaleString('th-TH')} รอบค่าใช้จ่าย</div><div class="seh-cycles">${cards}</div><div class="seh-cycle-detail"><h4>${esc(cycleLabel(selected))} · ${money(selected.total_amount)} บาท</h4>${cycleItemsHtml(selected)}</div>${m.source_file?`<div class="seh-print-note">แหล่งข้อมูล: ${esc(m.source_file)}</div>`:''}</div>`;
+  let n=0;const body=[];
+  cycles.forEach(c=>{
+    const items=Array.isArray(c.items)?c.items:[];
+    const meta=[c.scheduled_date?date(c.scheduled_date):'',items.length?items.length.toLocaleString('th-TH')+' รายการ':'',c.status||''].filter(Boolean).join(' · ');
+    body.push(`<tr class="seh-round"><td colspan="6"><b>${esc(cycleLabel(c))}</b> <span>${esc(meta)}</span></td></tr>`);
+    if(c.source==='IMPORTED'||!items.length){
+      body.push(`<tr><td></td><td colspan="4" class="seh-muted">${c.source==='IMPORTED'?'ข้อมูลย้อนหลังจากไฟล์เดิม มีเฉพาะยอดรวมของรอบ ไม่มีรายการย่อย':'รอบนี้ยังไม่มีรายการ'}</td><td class="amount">${money(c.total_amount)}</td></tr>`);
+    }else items.forEach(x=>{n++;body.push(`<tr><td>${n}</td><td>${esc(date(x.expense_date))}</td><td><b>${esc(x.staff_name||'-')}</b></td><td>${esc(x.category||'-')}<div class="seh-item-detail">${esc(x.detail||x.note||'')}</div></td><td>${esc(x.payment_method||'-')}</td><td class="amount">${money(x.amount)}</td></tr>`);});
+    body.push(`<tr class="seh-subtotal"><td colspan="5">รวม ${esc(cycleLabel(c))}</td><td class="amount">${money(c.total_amount)}</td></tr>`);
+  });
+  return `<div class="seh-detail" data-month="${esc(m.key)}"><h3>${esc(m.label)} <span class="seh-source">${sourceLabel(m.source)}</span></h3><div class="seh-sub">ยอดรวมเดือน ${money(m.total_amount)} บาท · ${cycles.length.toLocaleString('th-TH')} รอบค่าใช้จ่าย${n?' · '+n.toLocaleString('th-TH')+' รายการ':''}</div>
+  <div class="seh-table-wrap"><table class="seh-table seh-combined"><thead><tr><th>#</th><th>วันที่</th><th>พนักงาน</th><th>รายการ / รายละเอียด</th><th>วิธีจ่าย</th><th class="amount">จำนวนเงิน (บาท)</th></tr></thead><tbody>${body.join('')}</tbody>
+  <tfoot><tr class="seh-monthtotal"><td colspan="5">รวมทั้งเดือน ${esc(m.label)}</td><td class="amount">${money(m.total_amount)}</td></tr></tfoot></table></div>${m.source_file?`<div class="seh-print-note">แหล่งข้อมูล: ${esc(m.source_file)}</div>`:''}</div>`;
 }
 function render(d,selectedMonthKey,selectedCycleKey){
   const months=d.months||[];const selected=months.find(x=>x.key===selectedMonthKey)||months[months.length-1]||null;
   const content=document.getElementById('sehContent');if(!content)return;
   const defaultCycle=selected?.cycles?.[0]?.cycle_key||null;const activeCycle=selectedCycleKey||defaultCycle;
-  content.innerHTML=`<div class="seh-toolbar"><button type="button" id="sehRefreshBtn">↻ รีเฟรช</button><button type="button" id="sehPrintBtn">🖨 พิมพ์สรุปย้อนหลัง</button><div class="seh-summary">รวม ม.ค.–ปัจจุบัน ${money(d.grand_total)} บาท</div></div><div class="seh-grid">${months.map(m=>`<button type="button" class="seh-month${selected&&m.key===selected.key?' active':''}" data-key="${esc(m.key)}"><div class="seh-month-title">${esc(m.label)}</div><div class="seh-month-amount">${money(m.total_amount)} <span style="font-size:13px">บาท</span></div><div class="seh-month-meta">${sourceLabel(m.source)}${m.cycle_count?` · ${Number(m.cycle_count).toLocaleString('th-TH')} รอบ`:''}${m.item_count?` · ${Number(m.item_count).toLocaleString('th-TH')} รายการ`:''}</div></button>`).join('')}</div><div id="sehDetail">${selected?monthDetailHtml(selected,activeCycle):''}</div>`;
+  content.innerHTML=`<div class="seh-toolbar"><button type="button" id="sehRefreshBtn">↻ รีเฟรช</button><button type="button" id="sehPrintBtn">🖨 พิมพ์สรุปย้อนหลัง</button><div class="seh-summary">รวม ม.ค.–ปัจจุบัน ${money(d.grand_total)} บาท</div></div><div class="seh-grid">${months.map(m=>`<button type="button" class="seh-month${selected&&m.key===selected.key?' active':''}" data-key="${esc(m.key)}"><div class="seh-month-title">${esc(m.label)}</div><div class="seh-month-amount">${money(m.total_amount)} <span style="font-size:13px">บาท</span></div><div class="seh-month-meta">${sourceLabel(m.source)}${m.cycle_count?` · ${Number(m.cycle_count).toLocaleString('th-TH')} รอบ`:''}${m.item_count?` · ${Number(m.item_count).toLocaleString('th-TH')} รายการ`:''}</div></button>`).join('')}</div><div id="sehDetail">${selected?monthDetailHtml(selected):''}</div>`;
   content.querySelectorAll('.seh-month').forEach(btn=>btn.addEventListener('click',()=>render(d,btn.dataset.key,null)));
-  content.querySelectorAll('.seh-cycle').forEach(btn=>btn.addEventListener('click',()=>render(d,selected.key,btn.dataset.cycle)));
+  window.__sehSelectedMonth=selected?selected.key:null;
   document.getElementById('sehRefreshBtn')?.addEventListener('click',()=>openHistory(true));document.getElementById('sehPrintBtn')?.addEventListener('click',()=>printHistory(d));
 }
 function printHistory(d){
