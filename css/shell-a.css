@@ -85,15 +85,15 @@
   /* ---- sidebar ---- */
   #saSide{position:fixed;top:var(--sa-top);left:0;bottom:0;width:var(--sa-side);z-index:2147481000;background:var(--sa-surface);border-right:1px solid var(--sa-line);overflow-y:auto;padding:16px 12px 24px;box-sizing:border-box;font-family:var(--sa-font)}
   #saSide .sa-group{display:flex;flex-direction:column;gap:2px;margin-bottom:16px}
-  #saSide .sa-group-label{font-size:15px;font-weight:700;color:var(--sa-muted);letter-spacing:.04em;padding:0 12px 6px}
-  .sa-nav{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:10px 12px!important;border:0!important;border-radius:10px!important;background:transparent!important;color:#2E2340!important;font-size:17.5px!important;font-weight:700!important;text-align:left;cursor:pointer;box-sizing:border-box}
+  #saSide .sa-group-label{font-size:15px;font-weight:700;font-family:var(--sa-font);font-synthesis:none;color:var(--sa-muted);letter-spacing:.04em;padding:0 12px 6px}
+  .sa-nav{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:10px 12px!important;border:0!important;border-radius:10px!important;background:transparent!important;color:var(--sa-ink)!important;font-size:17.5px!important;font-weight:700!important;font-family:var(--sa-font)!important;font-synthesis:none;-webkit-font-smoothing:antialiased;text-align:left;cursor:pointer;box-sizing:border-box}
   .sa-nav:hover{background:var(--sa-accent-soft)!important}
-  .sa-nav[aria-current="page"]{background:var(--sa-accent)!important;color:#fff!important;font-weight:800!important}
+  .sa-nav[aria-current="page"]{background:var(--sa-accent)!important;color:#fff!important;font-weight:700!important}
   .sa-nav svg{flex-shrink:0}
 
   /* ---- home ---- */
   #saHome{display:flex;flex-direction:column;gap:22px;margin:0 0 24px;font-family:var(--sa-font)}
-  #saHome h1{margin:0;font-size:30px;line-height:1.3}
+  #saHome h1{margin:0;font-size:30px;font-weight:700;font-synthesis:none;line-height:1.3}
   #saHome .sa-sub{margin:4px 0 0;color:var(--sa-muted);font-size:17px}
   #saHome h2{margin:0 0 10px;font-size:17px;font-weight:600;color:var(--sa-muted)}
   #saHome .sa-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
