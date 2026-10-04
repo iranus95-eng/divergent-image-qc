@@ -13,7 +13,7 @@ function boot(){
   loadOnce('data-billing-multi-item','./js/billing-multi-item.js?v=20260915-1540');
   loadOnce('data-billing-final-layout','./js/billing-final-layout.js?v=20261002-1105');
   loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20260916-1144');
-  loadOnce('data-home-menu-dedupe','./js/home-menu-dedupe.js?v=20260915-1635');
+  // Shell A (2026-10-04): home-menu-dedupe.js retired — the shell renders the menu once.
   loadOnce('data-receipt-signature-fix','./js/receipt-signature-fix.js?v=20260915-1647');
   loadOnce('data-receipt-final-layout','./js/receipt-final-layout.js?v=20261002-1402');
   loadOnce('data-receipt-header-align','./js/receipt-header-align.js?v=20260916-1238');
@@ -21,7 +21,7 @@ function boot(){
   loadOnce('data-customer-import','./js/customer-import.js?v=20260917-1040');
   loadOnce('data-paper-order','./js/paper-order.js?v=20260917-1745');
   loadOnce('data-paper-order-next-cycle','./js/paper-order-next-cycle.js?v=20260917-1945');
-  loadOnce('data-home-menu-order','./js/home-menu-order.js?v=20260917-1745');
+  // Shell A (2026-10-04): home-menu-order.js retired — it re-sorted menus on 8 timers.
   loadOnce('data-expense-report-v2','./js/expense-report-v2.js?v=20260926-1421');
   loadOnce('data-staff-expense-history','./js/staff-expense-history.js?v=20261001-1705');
   loadOnce('data-staff-expense-history-detail-report','./js/staff-expense-history-detail-report.js?v=20261001-1945');

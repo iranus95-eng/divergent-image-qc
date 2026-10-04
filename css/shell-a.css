@@ -1,0 +1,130 @@
+/* Divergent Image Rescue — Shell A (2026-10-04)
+ * One sidebar, one render after permissions settle, responsive to phone width.
+ * Replaces: home-menu-order.js, home-menu-dedupe.js, v2 mobile strip, global back/home bar.
+ * Module pages (QC, payroll, invoice…) keep their own markup inside .main-shell.
+ */
+:root{
+  --sa-ground:#F5F4F8;
+  --sa-surface:#FFFFFF;
+  --sa-line:#E4E0EC;
+  --sa-ink:#1C1730;
+  --sa-muted:#5F5875;
+  --sa-accent:#4B2A8C;
+  --sa-accent-soft:#ECE8F4;
+  --sa-side:264px;
+  --sa-top:60px;
+  --sa-bottom:68px;
+  --sa-font:'IBM Plex Sans Thai','Sarabun',Tahoma,sans-serif;
+}
+
+@media screen{
+  html,body{background:var(--sa-ground)!important}
+  body{font-family:var(--sa-font)!important;color:var(--sa-ink);padding-top:var(--sa-top)!important;overflow-x:hidden}
+
+  /* ---- retired navigation surfaces (kept in DOM: their handlers still run) ---- */
+  .app-shell>aside.sidebar{position:fixed!important;left:-10000px!important;top:0!important;width:240px!important;visibility:hidden!important;pointer-events:none!important}
+  .main-shell .container>.header,
+  #divergentGlobalNav,#divergentPageNavV2,.v2-mobile-nav,
+  #homeWorkspace>.home-hero,#homeWorkspace>.home-grid,#homeMenuGrid5,
+  #homeWorkspace>.home-note,#homeWorkspace>.home-logout-row,
+  .divergent-footer{display:none!important}
+
+  /* the legacy theme styles every <button> (gradient, shadow, lift); shell buttons opt out */
+  #saTop button,#saSide button,#saBottom button,#saHome button,button#saScrim{
+    background-image:none!important;box-shadow:none!important;transform:none!important;filter:none!important;
+    margin:0!important;text-transform:none!important;letter-spacing:normal!important;line-height:1.3!important;
+    font-family:var(--sa-font)!important;font-weight:400}
+
+  /* ---- layout ---- */
+  .app-shell{display:block!important;min-height:calc(100vh - var(--sa-top))}
+  html body .app-shell>main.main-shell{margin-left:var(--sa-side)!important;min-width:0!important;width:auto!important;max-width:none!important;padding:0!important;background:transparent!important}
+  html body .app-shell>main.main-shell>.container{width:auto!important;max-width:1280px!important;margin:0 auto!important;padding:24px 28px 48px!important;box-sizing:border-box!important;transform:none!important;zoom:1!important}
+  .main-shell img,.main-shell video,.main-shell canvas{max-width:100%}
+
+  /* full-screen module overlays (billing, receipt/tax invoice, customer import) sit in the content area */
+  #billingInvoiceV1,#receiptTaxV1,#customerImportV1{top:var(--sa-top)!important;left:var(--sa-side)!important;right:0!important;bottom:0!important;width:auto!important;height:auto!important;max-width:none!important}
+
+  /* ---- top bar ---- */
+  #saTop{position:fixed;inset:0 0 auto 0;height:var(--sa-top);z-index:2147482000;display:flex;align-items:center;gap:12px;padding:0 16px 0 20px;background:var(--sa-surface);border-bottom:1px solid var(--sa-line);box-sizing:border-box;font-family:var(--sa-font)}
+  #saTop .sa-mark{width:34px;height:34px;border-radius:9px;background:var(--sa-accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+  #saTop .sa-title{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+  #saTop .sa-title b{font-size:15px;white-space:nowrap}
+  #saTop .sa-title>span{font-size:12px;color:var(--sa-muted)}
+  #saTop .sa-gap{flex:1}
+  #saTop .sa-user{display:flex;align-items:center;gap:10px;min-width:0}
+  #saTop .sa-avatar{width:36px;height:36px;border-radius:50%;background:var(--sa-accent-soft);color:var(--sa-accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex-shrink:0}
+  #saTop .sa-who{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+  #saTop .sa-who b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+  #saTop .sa-who span{font-size:12px;color:var(--sa-muted)}
+  .sa-btn{min-height:40px;padding:0 14px!important;border:1px solid var(--sa-line)!important;border-radius:10px!important;background:var(--sa-surface)!important;color:var(--sa-ink)!important;font-size:13px!important;cursor:pointer;white-space:nowrap}
+  .sa-btn:hover{background:var(--sa-accent-soft)!important}
+  .sa-icon-btn{width:44px;height:44px;padding:0!important;display:none;align-items:center;justify-content:center}
+  #saTop svg,#saSide svg,#saBottom svg,#saHome svg{width:20px!important;height:20px!important;flex-shrink:0}
+  #saBottom svg,#saHome .sa-card-ico svg{width:22px!important;height:22px!important}
+
+  /* ---- sidebar ---- */
+  #saSide{position:fixed;top:var(--sa-top);left:0;bottom:0;width:var(--sa-side);z-index:2147481000;background:var(--sa-surface);border-right:1px solid var(--sa-line);overflow-y:auto;padding:16px 12px 24px;box-sizing:border-box;font-family:var(--sa-font)}
+  #saSide .sa-group{display:flex;flex-direction:column;gap:2px;margin-bottom:16px}
+  #saSide .sa-group-label{font-size:12px;font-weight:600;color:var(--sa-muted);letter-spacing:.04em;padding:0 12px 6px}
+  .sa-nav{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:8px 12px!important;border:0!important;border-radius:10px!important;background:transparent!important;color:#3D3654!important;font-size:14px!important;text-align:left;cursor:pointer;box-sizing:border-box}
+  .sa-nav:hover{background:var(--sa-accent-soft)!important}
+  .sa-nav[aria-current="page"]{background:var(--sa-accent)!important;color:#fff!important;font-weight:600!important}
+  .sa-nav svg{flex-shrink:0}
+
+  /* ---- home ---- */
+  #saHome{display:flex;flex-direction:column;gap:22px;margin:0 0 24px;font-family:var(--sa-font)}
+  #saHome h1{margin:0;font-size:26px;line-height:1.3}
+  #saHome .sa-sub{margin:4px 0 0;color:var(--sa-muted);font-size:15px}
+  #saHome h2{margin:0 0 10px;font-size:15px;font-weight:600;color:var(--sa-muted)}
+  #saHome .sa-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .sa-card{display:flex;align-items:flex-start;gap:12px;min-height:84px;padding:16px!important;border:1px solid var(--sa-line)!important;border-radius:14px!important;background:var(--sa-surface)!important;color:var(--sa-ink)!important;text-align:left;cursor:pointer;box-sizing:border-box;width:100%}
+  .sa-card:hover{border-color:var(--sa-accent)!important}
+  .sa-card .sa-card-ico{width:40px;height:40px;border-radius:10px;background:var(--sa-accent-soft);color:var(--sa-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .sa-card b{display:block;font-size:15px;font-weight:600}
+  .sa-card span{display:block;font-size:13px;color:var(--sa-muted);margin-top:2px;line-height:1.4}
+
+  /* ---- loading (permissions not settled yet) ---- */
+  .sa-sk{background:#E6E2EE;border-radius:10px}
+  #saSkeleton{display:none}
+  html.shell-pending #saSkeleton{display:flex;flex-direction:column;gap:14px;max-width:1280px;margin:0 auto;padding:24px 28px}
+  html.shell-pending .main-shell .container{visibility:hidden!important}
+  html.shell-pending #saSide .sa-group,html.shell-pending #saBottom .sa-tab{visibility:hidden}
+  #saSide .sa-side-sk{display:none}
+  html.shell-pending #saSide .sa-side-sk{display:flex;flex-direction:column;gap:10px}
+  #saSkeleton p{margin:0;color:var(--sa-muted);font-size:13px}
+
+  /* ---- bottom bar + drawer (phone) ---- */
+  #saBottom{display:none}
+  #saScrim{display:none}
+
+  @media (max-width:860px){
+    html body .app-shell>main.main-shell{margin-left:0!important}
+    html body .app-shell>main.main-shell>.container{padding:16px 12px calc(var(--sa-bottom) + 28px)!important}
+    #billingInvoiceV1,#receiptTaxV1,#customerImportV1{left:0!important;bottom:var(--sa-bottom)!important}
+    #saTop{padding:0 10px}
+    #saTop .sa-title>span,#saTop .sa-who,.sa-hide-sm{display:none!important}
+    #saTop .sa-title b{font-size:14px}
+    .sa-icon-btn{display:inline-flex}
+    #saSide{transform:translateX(-100%);transition:transform .18s ease;width:min(86vw,320px);bottom:var(--sa-bottom);box-shadow:none}
+    html.sa-drawer #saSide{transform:none;box-shadow:0 10px 40px rgba(28,23,48,.25)}
+    html.sa-drawer #saScrim{display:block;position:fixed;inset:var(--sa-top) 0 var(--sa-bottom) 0;z-index:2147480000;background:rgba(28,23,48,.35);border:0}
+    #saBottom{display:flex;position:fixed;left:0;right:0;bottom:0;height:var(--sa-bottom);z-index:2147482000;background:var(--sa-surface);border-top:1px solid var(--sa-line);font-family:var(--sa-font)}
+    .sa-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0!important;border-radius:0!important;background:transparent!important;color:var(--sa-muted)!important;padding:0 2px!important;font-size:11px!important;white-space:nowrap;cursor:pointer;min-width:0}
+    .sa-tab[aria-current="page"]{color:var(--sa-accent)!important;font-weight:600!important}
+    html.shell-pending #saSkeleton{padding:16px 14px}
+    #saHome h1{font-size:22px}
+    #saHome .sa-cards{grid-template-columns:1fr 1fr}
+    .sa-card{flex-direction:column;min-height:112px}
+    /* wide module content scrolls inside its own section instead of widening the page.
+       Tables keep their layout (PDF/print rendering of invoices is unchanged). */
+    .main-shell .container>section,.main-shell .card{max-width:100%;overflow-x:auto}
+  }
+  @media (max-width:420px){#saTop .sa-title .sa-hide-xs{display:none}}
+  @media (max-width:380px){#saHome .sa-cards{grid-template-columns:1fr}}
+}
+
+@media print{
+  #saTop,#saSide,#saBottom,#saScrim,#saSkeleton,#saHome{display:none!important}
+  html body .app-shell>main.main-shell{margin-left:0!important}
+  body{padding-top:0!important}
+}

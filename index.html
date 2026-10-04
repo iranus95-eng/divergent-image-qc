@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>document.documentElement.classList.add('shell-pending');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/shell-a.css?v=20261004-1">
   <title>Divergent Image Rescue — V2</title>
 
   <style>
@@ -1057,7 +1062,7 @@
 @media(max-width:760px){.payroll-kpis{grid-template-columns:1fr}.payroll-tools,.payroll-form{grid-template-columns:1fr}.payroll-wide,.payroll-section{grid-column:1}.payroll-rate-row,.payroll-adjust-row{grid-template-columns:1fr}}
 </style>
 
-\n<style id="staff-expense-v1-style">
+<style id="staff-expense-v1-style">
   .expense-workspace{display:none}
   .expense-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
   .expense-head h2{margin:0;color:#32135f}.expense-head p{margin:5px 0 0;color:#786b8d;font-size:13px}
@@ -2086,6 +2091,8 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     let payrollRateDrafts=[]; let payrollAdjustmentDrafts=[];
     let payrollPage=1; const PAYROLL_PAGE_SIZE=200; let payrollFilterTimer=null; let payrollVisibleRows=[];
     const PAYROLL_CACHE_KEY="divergent_payroll_list_cache_v3"; const PAYROLL_CACHE_TTL=5*60*1000;
+    // 2026-10-04: these were assigned but never declared; the ReferenceError stopped fresh payroll loads.
+    let payrollLoadPromise=null; let payrollLoadedAt=0;
     function readPayrollCache(){try{const x=JSON.parse(localStorage.getItem(PAYROLL_CACHE_KEY)||"null");if(!x||!Array.isArray(x.employees))return null;return x}catch(_){return null}}
     function writePayrollCache(d){try{localStorage.setItem(PAYROLL_CACHE_KEY,JSON.stringify({employees:d.employees||[],can_manage:!!d.can_manage,source_month:d.source_month||"",at:Date.now()}))}catch(_){}}
     function usePayrollCache(){const c=readPayrollCache();if(!c)return false;payrollEmployees=c.employees;payrollCanManage=!!c.can_manage;filterPayrollEmployees();const st=document.getElementById("payrollStatus");if(st)st.textContent=`แสดงข้อมูลที่บันทึกไว้ ${payrollEmployees.length} รายการ • กำลังตรวจข้อมูลล่าสุดเบื้องหลัง`;return true}
@@ -6334,5 +6341,6 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 <script src="./js/invoice-master-dropdowns.js?v=20260907-1"></script>
 <script src="./js/app-v2.js?v=20260911-1"></script>
 <script src="./js/claim-register.js?v=20260912-1"></script>
+<script src="./js/shell-a.js?v=20261004-1"></script>
 </body>
 </html>
