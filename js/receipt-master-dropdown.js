@@ -9,10 +9,10 @@ function boot(){
   loadOnce('data-claim-pending-live','./js/claim-pending-live.js?v=20260930-2029');
   loadOnce('data-claim-date-display-fix','./js/claim-date-display-fix.js?v=20260930-2037');
   loadOnce('data-qc-coordinate-display-restore','./js/qc-coordinate-display-restore.js?v=20261003-1115');
-  loadOnce('data-billing-smart-dropdowns','./js/billing-smart-dropdowns.js?v=20260915-1532');
+  loadOnce('data-billing-smart-dropdowns','./js/billing-smart-dropdowns.js?v=20261004-1');
   loadOnce('data-billing-multi-item','./js/billing-multi-item.js?v=20260915-1540');
   loadOnce('data-billing-final-layout','./js/billing-final-layout.js?v=20261002-1105');
-  loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20260916-1144');
+  loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20261004-1');
   // Shell A (2026-10-04): home-menu-dedupe.js retired — the shell renders the menu once.
   loadOnce('data-receipt-signature-fix','./js/receipt-signature-fix.js?v=20260915-1647');
   loadOnce('data-receipt-final-layout','./js/receipt-final-layout.js?v=20261002-1402');
