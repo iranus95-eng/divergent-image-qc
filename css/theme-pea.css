@@ -1,0 +1,129 @@
+/* Divergent — unified light-purple minimal theme (2026-10-04)
+ * One look for every menu: flat light-purple surfaces, one accent purple, thin borders, no gradients
+ * or heavy shadows. Applies on screen only, and never inside document papers / PDF pages, so
+ * invoices, receipts and printed reports look exactly as before.
+ * Buttons are classified by js/theme-pea.js (data-t = primary | secondary | danger | success)
+ * from their original colour, so their meaning is kept while the style is unified.
+ */
+:root{
+  --t-accent:#74328F;        /* deep purple */
+  --t-accent-600:#5E2675;
+  --t-accent-50:#F2E9F7;     /* light purple tint */
+  --t-accent-25:#FAF6FC;
+  --t-line:#E8DEF0;
+  --t-line-strong:#D9C8E6;
+  --t-ink:#2A1F35;
+  --t-muted:#6E6479;
+  --t-ground:#F7F3FA;
+  --t-radius:12px;
+  --t-font:'IBM Plex Sans Thai','Sarabun',Tahoma,sans-serif;
+}
+
+@media screen{
+  /* ---------- page canvas ---------- */
+  html body{background:var(--t-ground)!important;color:var(--t-ink)}
+
+  /* every module element (pages + full-screen menus + pop-ups), papers excluded */
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) :not(:is([class*="paper"],[class*="pdf"],.invoice-paper,.bi-paper,.rt-paper) *):not([class*="paper"]):not(svg):not(svg *):not(i){
+    font-family:var(--t-font)!important;
+  }
+
+  /* ---------- page sections / cards ---------- */
+  html body .main-shell [id$="Workspace"]:not(#homeWorkspace){
+    background:#fff!important;border:1px solid var(--t-line)!important;border-radius:18px!important;box-shadow:none!important;
+  }
+  html body .main-shell .container>[id$="Workspace"]:not(#homeWorkspace){padding:24px 28px!important}
+  @media (max-width:860px){html body .main-shell .container>[id$="Workspace"]:not(#homeWorkspace){padding:16px 14px!important}}
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) :is([class*="card"],[class*="kpi"],[class*="panel"]):not([class*="paper"]):not(:is([class*="paper"],[class*="pdf"]) *):not([id^="sa"]):not(.sa-card){
+    background-image:none!important;box-shadow:none!important;border-color:var(--t-line)!important;border-radius:var(--t-radius)!important;
+  }
+  /* full-screen document menus: same ground as the app */
+  html body :is(#billingInvoiceV1,#receiptTaxV1,#customerImportV1){background:var(--t-ground)!important}
+
+  /* ---------- headings ---------- */
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) :is(h1,h2,h3,h4):not(:is([class*="paper"],[class*="pdf"]) *){
+    color:var(--t-ink)!important;background-image:none!important;-webkit-text-fill-color:currentColor!important;letter-spacing:0!important;
+  }
+
+  /* ---------- blocks that had gradient fills (headers, banners) ---------- */
+  html body [data-t-grad]{background:var(--t-accent)!important;background-image:none!important}
+  html body [data-t-grad="light"]{background:var(--t-accent-50)!important;color:var(--t-ink)!important}
+
+  /* ---------- buttons ---------- */
+  html body button:is([data-t],#t-boost)[data-t]{
+    background-image:none!important;box-shadow:none!important;transform:none!important;filter:none!important;text-shadow:none!important;
+    border-radius:10px!important;border:1px solid transparent!important;font-family:var(--t-font)!important;font-weight:600!important;
+    min-height:38px;transition:background-color .15s,border-color .15s,color .15s!important;
+  }
+  html body button:is([data-t="primary"],#t-boost)[data-t="primary"]{background:var(--t-accent)!important;color:#fff!important;border-color:var(--t-accent)!important}
+  html body button:is([data-t="primary"],#t-boost)[data-t="primary"]:hover:not(:disabled){background:var(--t-accent-600)!important;border-color:var(--t-accent-600)!important}
+  html body button:is([data-t="secondary"],#t-boost)[data-t="secondary"]{background:#fff!important;color:var(--t-accent-600)!important;border-color:var(--t-line-strong)!important}
+  html body button:is([data-t="secondary"],#t-boost)[data-t="secondary"]:hover:not(:disabled){background:var(--t-accent-50)!important}
+  html body button:is([data-t="danger"],#t-boost)[data-t="danger"]{background:#fff!important;color:#B42318!important;border-color:#F1C2BD!important}
+  html body button:is([data-t="danger"],#t-boost)[data-t="danger"]:hover:not(:disabled){background:#FEF3F2!important}
+  html body button:is([data-t="success"],#t-boost)[data-t="success"]{background:#EAF6EE!important;color:#17663A!important;border-color:#C7E7D3!important}
+  html body button:is([data-t="success"],#t-boost)[data-t="success"]:hover:not(:disabled){background:#DDF1E4!important}
+  html body button:is([data-t],#t-boost)[data-t]:disabled{opacity:.55!important;cursor:not-allowed!important}
+  html body button:is([data-t],#t-boost)[data-t]:focus-visible{outline:3px solid #D9C2EA!important;outline-offset:1px!important}
+
+  /* ---------- form fields ---------- */
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),select,textarea):not(:is([class*="paper"],[class*="pdf"]) *){
+    border:1px solid var(--t-line-strong)!important;border-radius:10px!important;background-color:#fff!important;background-image:none!important;
+    box-shadow:none!important;color:var(--t-ink)!important;font-family:var(--t-font)!important;
+  }
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) select:not(:is([class*="paper"],[class*="pdf"]) *){
+    appearance:auto!important;
+  }
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) :is(input,select,textarea):focus{
+    outline:none!important;border-color:var(--t-accent)!important;box-shadow:0 0 0 3px #EADCF3!important;
+  }
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) :is(input,select,textarea)[readonly]{background-color:var(--t-accent-25)!important}
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) input[type="checkbox"],
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) input[type="radio"]{accent-color:var(--t-accent)}
+
+  /* ---------- tables (screen tables only, never document papers) ---------- */
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) table:not(:is([class*="paper"],[class*="pdf"]) *) th{
+    background:var(--t-accent-50)!important;background-image:none!important;color:#4A2560!important;font-weight:600!important;
+    border-color:var(--t-line)!important;
+  }
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) table:not(:is([class*="paper"],[class*="pdf"]) *) :is(td,th){border-color:var(--t-line)!important}
+
+
+  /* ---------- wide tables: action column (แก้ไข / ลบ / ดู) pinned to the right edge ---------- */
+  html body table.t-actions-table tr>:last-child{position:sticky!important;right:0!important;z-index:1;background:#fff!important;box-shadow:-1px 0 0 var(--t-line)!important;white-space:nowrap!important}
+  html body table.t-actions-table thead tr>:last-child{background:var(--t-accent-50)!important;z-index:2}
+  html body table.t-actions-table tr:hover>:last-child{background:var(--t-accent-25)!important}
+  html body table.t-actions-table tr>:last-child button{margin:2px!important}
+
+  /* payroll table: all 16 columns fit the card (compact type, wrapping headers), actions pinned */
+  html body .payroll-table{min-width:0!important;width:100%!important;table-layout:auto!important}
+  html body .payroll-table :is(td,th){padding:8px 6px!important;vertical-align:middle!important;font-size:13px!important;line-height:1.35!important}
+  html body .payroll-table th{white-space:normal!important;font-size:12.5px!important;line-height:1.25!important}
+  html body .payroll-table td.num,html body .payroll-table td:nth-child(14){white-space:nowrap!important}
+  html body .payroll-table td:nth-child(3){white-space:nowrap!important;font-size:12.5px!important}
+  html body .payroll-table td.payroll-name{min-width:130px!important}
+  html body .payroll-table .status-pill{white-space:nowrap!important;display:inline-block;font-size:12px!important;padding:3px 8px!important}
+  html body .payroll-table td.payroll-actions{white-space:nowrap!important}
+  html body .payroll-table td.payroll-actions button{min-height:32px!important;padding:0 10px!important;font-size:13px!important}
+  html body .payroll-table td.payroll-actions .payroll-del{padding:0 8px!important;margin-left:4px!important}
+  @media (max-width:1500px){html body .payroll-table :is(td,th){padding:7px 4px!important;font-size:12.5px!important}}
+
+  /* ---------- links / misc ---------- */
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) a:not(:is([class*="paper"],[class*="pdf"]) *){color:var(--t-accent-600)}
+  html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) hr{border:0;border-top:1px solid var(--t-line)}
+  html body ::selection{background:#E6D4F1}
+
+  /* ---------- document menus: form | preview layout ---------- */
+  /* preview column +10% (invoice preview scales to its column width) */
+  html body .invoice-grid{grid-template-columns:minmax(300px,.5fr) minmax(560px,1fr)!important}
+  html body #billingInvoiceV1 .bi-grid,html body #receiptTaxV1 .rt-grid{grid-template-columns:minmax(480px,.95fr) minmax(540px,1.045fr)!important}
+  html body #billingInvoiceV1 .bi-preview-wrap,html body #receiptTaxV1 .rt-preview-wrap,html body .invoice-preview-wrap{background:#EFEAF4!important;max-height:none!important}
+
+  @media (max-width:1180px){
+    html body .invoice-grid,html body #billingInvoiceV1 .bi-grid,html body #receiptTaxV1 .rt-grid{grid-template-columns:minmax(0,1fr)!important}
+  }
+  @media (max-width:860px){
+    html body .invoice-grid>*,html body #billingInvoiceV1 .bi-grid>*,html body #receiptTaxV1 .rt-grid>*{min-width:0!important}
+    html body .invoice-form-card,html body .invoice-preview-card{min-width:0!important;max-width:100%!important}
+  }
+}

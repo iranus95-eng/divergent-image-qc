@@ -188,7 +188,7 @@
   'use strict';
   if(document.querySelector('script[data-receipt-master-dropdown]'))return;
   const s=document.createElement('script');
-  s.src='./js/receipt-master-dropdown.js?v=20261002-1701';
+  s.src='./js/receipt-master-dropdown.js?v=20261004-9';
   s.async=false;
   s.setAttribute('data-receipt-master-dropdown','1');
   document.head.appendChild(s);
@@ -199,7 +199,7 @@
   'use strict';
   if(document.querySelector('script[data-receipt-smart-dropdowns]'))return;
   const s=document.createElement('script');
-  s.src='./js/receipt-smart-dropdowns.js?v=20260915-1005';
+  s.src='./js/receipt-smart-dropdowns.js?v=20261004-1';
   s.async=false;
   s.setAttribute('data-receipt-smart-dropdowns','1');
   document.head.appendChild(s);

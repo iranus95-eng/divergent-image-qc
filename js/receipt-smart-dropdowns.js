@@ -64,6 +64,7 @@ function ensureAddButton(root){
   const hint=section.querySelector('.rt-subtotal-hint');if(hint)section.insertBefore(row,hint);else section.appendChild(row);
 }
 
+function freeText(root,name,values,placeholder,archType){const el=ensureInput(root,name);if(!el)return;const field=el.closest('.rt-field');const old=field&&field.querySelector(`.rt-smart-picker[data-for="${name}"]`);if(old){const h=old.parentNode.querySelector('.rt-smart-help');if(h)h.remove();old.remove()}el.classList.remove('rt-smart-hidden','rt-smart-source');el.style.display='';const id='rtNoList_'+name;let dl=document.getElementById(id);if(!dl){dl=document.createElement('datalist');dl.id=id;document.body.appendChild(dl)}const arch=(window.DocArchive&&window.DocArchive.numbers)?window.DocArchive.numbers(archType):[];dl.innerHTML=unique([...values,...arch]).map(v=>`<option value="${esc(v)}"></option>`).join('');el.setAttribute('list',id);el.setAttribute('autocomplete','off');el.placeholder=placeholder||'';if(field&&!field.querySelector('.rt-free-help')){const help=document.createElement('div');help.className='rt-smart-help rt-free-help';help.textContent='พิมพ์เลขที่เองได้เลย หรือเลือกจากเลขที่เคยใช้';field.appendChild(help)}if(!el.dataset.rtFreeBound){el.addEventListener('change',()=>remember(name,el.value));el.dataset.rtFreeBound='1'}}
 function refresh(root,data){
   ensureAddButton(root);
   const rows=customerItems(root,data);
@@ -71,8 +72,8 @@ function refresh(root,data){
   picker(root,'tax',opts([...data.customers.map(x=>x.tax_id),...hist('tax')]),'-- เลือกเลขประจำตัวผู้เสียภาษี --');
   picker(root,'branch',opts([...data.customers.map(x=>x.branch_code),...hist('branch')]),'-- เลือกสาขา --');
   let billing={};try{billing=JSON.parse(localStorage.getItem('divergent_billing_invoice_v1')||'{}')}catch(_){ }
-  picker(root,'receiptNo',opts([source(root,'receiptNo')?.value,...hist('receiptNo')]),'-- เลือกเลขที่ใบเสร็จเดิม หรือพิมพ์เลขใหม่ --');
-  picker(root,'invoiceNo',opts([source(root,'invoiceNo')?.value,billing.docNo,...hist('invoiceNo'),...hist('docNo')]),'-- เลือกเลขที่ใบแจ้งหนี้เดิม หรือพิมพ์เลขใหม่ --');
+  freeText(root,'receiptNo',[source(root,'receiptNo')?.value,...hist('receiptNo')],'พิมพ์เลขที่ใบเสร็จ','receipt');
+  freeText(root,'invoiceNo',[source(root,'invoiceNo')?.value,billing.docNo,...hist('invoiceNo'),...hist('docNo')],'พิมพ์เลขที่ใบแจ้งหนี้','billing');
 
   const cards=[...root.querySelectorAll('.rt-item-editor')];
   cards.forEach(card=>{
