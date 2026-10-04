@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/shell-a.css?v=20261004-4">
-<link rel="stylesheet" href="./css/theme-pea.css?v=20261004-6">
+<link rel="stylesheet" href="./css/theme-pea.css?v=20261004-7">
   <title>Divergent Image Rescue — V2</title>
 
   <style>
@@ -2881,7 +2881,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       const b=document.getElementById("payrollBody");if(!b)return;
       if(!payrollVisibleRows.length){b.innerHTML='<tr><td colspan="16">ไม่พบรายการ</td></tr>';const pi=document.getElementById("payrollPagerInfo");if(pi)pi.textContent="0 รายการ";return}
       const pages=Math.max(1,Math.ceil(payrollVisibleRows.length/PAYROLL_PAGE_SIZE)),start=(payrollPage-1)*PAYROLL_PAGE_SIZE,rows=payrollVisibleRows.slice(start,start+PAYROLL_PAGE_SIZE);
-      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}${x.area_count>1?'<div style="font-size:11px;color:#765c91;margin-top:3px">'+x.area_count+' พื้นที่</div>':""}</td><td>${escapeHtml(formatNationalIdOriginal(x.national_id||x.national_id_last4))}</td><td>${(x.area_sites?.length?x.area_sites:[x.site_name||"-"]).map(v=>escapeHtml(v)).join("<br>")}</td><td class="num"><b>${Number(x.work_count??0).toLocaleString("th-TH")}</b></td><td class="num">${x.area_count>1?(x.area_rates||[]).map(v=>claimMoney(v)).join("<br>"):claimMoney(x.rate_per_unit)}</td><td class="num"><b>${claimMoney(x.gross_amount)}</b></td><td class="num">${claimMoney(x.special_amount)}</td><td class="num">${claimMoney(x.withholding_amount)}</td><td class="num"><b>${claimMoney(x.advance_deduction)}</b></td><td class="num">${claimMoney(x.shirt_cost)}</td><td class="num"><b style="color:#5121a8">${claimMoney(x.total_amount??x.transfer_amount)}</b></td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button></td></tr>`).join("");
+      b.innerHTML=rows.map(x=>`<tr><td>${x.source_row??"-"}</td><td class="payroll-name">${escapeHtml(x.employee_name||"")}${x.area_count>1?'<div style="font-size:11px;color:#765c91;margin-top:3px">'+x.area_count+' พื้นที่</div>':""}</td><td>${escapeHtml(formatNationalIdOriginal(x.national_id||x.national_id_last4))}</td><td>${(x.area_sites?.length?x.area_sites:[x.site_name||"-"]).map(v=>escapeHtml(v)).join("<br>")}</td><td class="num"><b>${Number(x.work_count??0).toLocaleString("th-TH")}</b></td><td class="num">${x.area_count>1?(x.area_rates||[]).map(v=>claimMoney(v)).join("<br>"):claimMoney(x.rate_per_unit)}</td><td class="num"><b>${claimMoney(x.gross_amount)}</b></td><td class="num">${claimMoney(x.special_amount)}</td><td class="num">${claimMoney(x.withholding_amount)}</td><td class="num"><b>${claimMoney(x.advance_deduction)}</b></td><td class="num">${claimMoney(x.shirt_cost)}</td><td class="num"><b style="color:#5121a8">${claimMoney(x.total_amount??x.transfer_amount)}</b></td><td>${escapeHtml(x.bank_name||"-")}</td><td>${escapeHtml(x.bank_account||"-")}</td><td>${x.is_active?'<span class="status-pill status-on">ใช้งาน</span>':'<span class="status-pill status-off">ปิด</span>'}</td><td class="payroll-actions"><button class="payroll-edit" onclick="openPayrollEmployee(${x.id})">${payrollCanManage?"แก้ไข":"ดู"}</button>${payrollCanManage?`<button type="button" class="payroll-del" title="ลบพนักงานออกจากรายการเงินเดือน" aria-label="ลบ" onclick="deletePayrollEmployee(${x.id})">🗑</button>`:""}</td></tr>`).join("");
       const pi=document.getElementById("payrollPagerInfo");if(pi)pi.textContent=`แสดง ${start+1}-${Math.min(start+rows.length,payrollVisibleRows.length)} จาก ${payrollVisibleRows.length} รายการ • หน้า ${payrollPage}/${pages}`;
     }
     function refreshPayrollFormula(){
@@ -6345,6 +6345,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 <script src="./js/doc-archive.js?v=20261004-1"></script>
 <script src="./js/report-pdf.js?v=20261004-1"></script>
 <script src="./js/theme-pea.js?v=20261004-3"></script>
-<script src="./js/shell-a.js?v=20261004-7"></script>
+<script src="./js/payroll-delete.js?v=20261004-1"></script>
+<script src="./js/shell-a.js?v=20261004-8"></script>
 </body>
 </html>

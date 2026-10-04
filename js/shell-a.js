@@ -449,6 +449,7 @@
         if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'OPTION' || el.closest('svg')) continue;
         if (!(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || hasOwnText(el))) continue;
         if (!el.getClientRects().length) continue;
+        if (el.closest('.payroll-table, .t-compact')) { fzOk.add(el); continue; } // dense tables keep their own size
         if (parseFloat(getComputedStyle(el).fontSize) >= 14 || inPaper(el, root)) { fzOk.add(el); continue; }
         el.classList.add('sa-fz');
         // inline !important: legacy rules use !important with id selectors, a class cannot win

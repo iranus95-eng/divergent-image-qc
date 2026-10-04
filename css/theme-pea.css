@@ -95,13 +95,18 @@
   html body table.t-actions-table tr:hover>:last-child{background:var(--t-accent-25)!important}
   html body table.t-actions-table tr>:last-child button{margin:2px!important}
 
-  /* payroll table: readable without crushing columns */
-  html body .payroll-table{min-width:1240px!important;table-layout:auto!important}
-  html body .payroll-table :is(td,th){padding:10px 10px!important;vertical-align:middle!important}
-  html body .payroll-table th{white-space:nowrap!important}
-  html body .payroll-table td.num,html body .payroll-table td:nth-child(3),html body .payroll-table td:nth-child(14),html body .payroll-table td:nth-child(15){white-space:nowrap!important}
-  html body .payroll-table td.payroll-name{min-width:190px!important}
-  html body .payroll-table .status-pill{white-space:nowrap!important;display:inline-block}
+  /* payroll table: all 16 columns fit the card (compact type, wrapping headers), actions pinned */
+  html body .payroll-table{min-width:0!important;width:100%!important;table-layout:auto!important}
+  html body .payroll-table :is(td,th){padding:8px 6px!important;vertical-align:middle!important;font-size:13px!important;line-height:1.35!important}
+  html body .payroll-table th{white-space:normal!important;font-size:12.5px!important;line-height:1.25!important}
+  html body .payroll-table td.num,html body .payroll-table td:nth-child(14){white-space:nowrap!important}
+  html body .payroll-table td:nth-child(3){white-space:nowrap!important;font-size:12.5px!important}
+  html body .payroll-table td.payroll-name{min-width:130px!important}
+  html body .payroll-table .status-pill{white-space:nowrap!important;display:inline-block;font-size:12px!important;padding:3px 8px!important}
+  html body .payroll-table td.payroll-actions{white-space:nowrap!important}
+  html body .payroll-table td.payroll-actions button{min-height:32px!important;padding:0 10px!important;font-size:13px!important}
+  html body .payroll-table td.payroll-actions .payroll-del{padding:0 8px!important;margin-left:4px!important}
+  @media (max-width:1500px){html body .payroll-table :is(td,th){padding:7px 4px!important;font-size:12.5px!important}}
 
   /* ---------- links / misc ---------- */
   html body :is(.main-shell,#billingInvoiceV1,#receiptTaxV1,#customerImportV1,[data-t-scope]) a:not(:is([class*="paper"],[class*="pdf"]) *){color:var(--t-accent-600)}
