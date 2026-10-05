@@ -46,6 +46,7 @@ function ensureStyle(){
   @media(max-width:850px){.seh-grid,.seh-cycles{grid-template-columns:repeat(2,minmax(0,1fr))}.seh-summary{width:100%;margin-left:0}}
   @media(max-width:540px){.seh-grid,.seh-cycles{grid-template-columns:1fr}.seh-panel{width:100%}.seh-body{padding:15px}.seh-head{padding:17px}.seh-month-amount{font-size:22px}}
   
+  .seh-people{margin:14px 0 6px}.seh-people h4,.seh-detail-title{margin:16px 0 8px;font-size:16px;color:#3B2366}.seh-people-table td:nth-child(3),.seh-people-table td:nth-child(4){white-space:nowrap}
   .seh-combined .seh-round td{background:#F3EFFA;color:#3B2366;border-top:2px solid #E2D9F1}.seh-combined .seh-round span{color:#5F5875;font-weight:400;margin-left:6px}
   .seh-combined .seh-subtotal td{background:#FBF9FE;font-weight:700;color:#3B2366;text-align:right}.seh-combined .seh-subtotal td.amount{color:#4d1d78}
   .seh-combined .seh-monthtotal td{background:#3B2366;color:#fff;font-weight:800;text-align:right;font-size:16px}.seh-muted{color:#6b6475;font-style:italic}
@@ -65,6 +66,12 @@ function cycleItemsHtml(c){
   const rows=items.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(date(x.expense_date))}</td><td><b>${esc(x.staff_name||'-')}</b></td><td>${esc(x.category||'-')}<div class="seh-item-detail">${esc(x.detail||x.note||'')}</div></td><td>${esc(x.payment_method||'-')}</td><td class="amount">${money(x.amount)}</td></tr>`).join('');
   return `<div class="seh-table-wrap"><table class="seh-table"><thead><tr><th>#</th><th>วันที่</th><th>พนักงาน</th><th>รายการ / รายละเอียด</th><th>วิธีจ่าย</th><th class="amount">จำนวนเงิน (บาท)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+// total claimed per person across every round of the month (rounds with item details only)
+function personTotals(cycles){
+  const map=new Map();
+  (cycles||[]).forEach(c=>{(Array.isArray(c.items)?c.items:[]).forEach(x=>{const name=String(x.staff_name||'ไม่ระบุชื่อ').trim()||'ไม่ระบุชื่อ';let p=map.get(name);if(!p){p={name,count:0,total:0,roundSet:new Set()};map.set(name,p);}p.count++;p.total+=Number(x.amount||0);p.roundSet.add(c.cycle_key||c.id);});});
+  return [...map.values()].map(p=>({name:p.name,count:p.count,total:Math.round(p.total*100)/100,rounds:p.roundSet.size})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name,'th'));
+}
 // 2026-10-04: one combined list per month — every round's items, with a header and subtotal per round
 function monthDetailHtml(m){
   const cycles=Array.isArray(m.cycles)?m.cycles:[];
@@ -82,7 +89,9 @@ function monthDetailHtml(m){
     }else items.forEach(x=>{n++;body.push(`<tr><td>${n}</td><td>${esc(date(x.expense_date))}</td><td><b>${esc(x.staff_name||'-')}</b></td><td>${esc(x.category||'-')}<div class="seh-item-detail">${esc(x.detail||x.note||'')}</div></td><td>${esc(x.payment_method||'-')}</td><td class="amount">${money(x.amount)}</td></tr>`);});
     body.push(`<tr class="seh-subtotal"><td colspan="5">รวม ${esc(cycleLabel(c))}</td><td class="amount">${money(c.total_amount)}</td></tr>`);
   });
-  return `<div class="seh-detail" data-month="${esc(m.key)}"><h3>${esc(m.label)} <span class="seh-source">${sourceLabel(m.source)}</span></h3><div class="seh-sub">ยอดรวมเดือน ${money(m.total_amount)} บาท · ${cycles.length.toLocaleString('th-TH')} รอบค่าใช้จ่าย${n?' · '+n.toLocaleString('th-TH')+' รายการ':''}</div>
+  const people=personTotals(cycles);
+  const personHtml=people.length?`<div class="seh-people"><h4>สรุปยอดเบิกรายบุคคล</h4><div class="seh-table-wrap"><table class="seh-table seh-combined seh-people-table"><thead><tr><th>#</th><th>พนักงาน</th><th>จำนวนรายการ</th><th>รอบที่เบิก</th><th class="amount">ยอดเบิกรวม (บาท)</th></tr></thead><tbody>${people.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b></td><td>${p.count.toLocaleString('th-TH')}</td><td>${p.rounds.toLocaleString('th-TH')} รอบ</td><td class="amount"><b>${money(p.total)}</b></td></tr>`).join('')}</tbody><tfoot><tr class="seh-monthtotal"><td colspan="4">รวม ${people.length.toLocaleString('th-TH')} คน</td><td class="amount">${money(people.reduce((a,p)=>a+p.total,0))}</td></tr></tfoot></table></div></div>`:'';
+  return `<div class="seh-detail" data-month="${esc(m.key)}"><h3>${esc(m.label)} <span class="seh-source">${sourceLabel(m.source)}</span></h3><div class="seh-sub">ยอดรวมเดือน ${money(m.total_amount)} บาท · ${cycles.length.toLocaleString('th-TH')} รอบค่าใช้จ่าย${n?' · '+n.toLocaleString('th-TH')+' รายการ':''}</div>${personHtml}<h4 class="seh-detail-title">รายละเอียดทุกรอบ</h4>
   <div class="seh-table-wrap"><table class="seh-table seh-combined"><thead><tr><th>#</th><th>วันที่</th><th>พนักงาน</th><th>รายการ / รายละเอียด</th><th>วิธีจ่าย</th><th class="amount">จำนวนเงิน (บาท)</th></tr></thead><tbody>${body.join('')}</tbody>
   <tfoot><tr class="seh-monthtotal"><td colspan="5">รวมทั้งเดือน ${esc(m.label)}</td><td class="amount">${money(m.total_amount)}</td></tr></tfoot></table></div>${m.source_file?`<div class="seh-print-note">แหล่งข้อมูล: ${esc(m.source_file)}</div>`:''}</div>`;
 }
