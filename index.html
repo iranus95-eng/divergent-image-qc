@@ -5042,7 +5042,8 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       if(!cas.length){status.style.display="block";status.textContent="กรุณากรอกหมายเลข CA อย่างน้อย 3 หลัก";status.classList.add("status-error");return;}
       status.classList.remove("status-error");status.style.display="block";status.textContent="กำลังค้นหาพิกัด "+cas.length+" รายการ...";
       try{
-        const token=await getLineAccessToken();
+        const token=await getBestDataToken();
+        if(!token)throw new Error("กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
         const all=[],monthlyByCa={};
         for(const ca of cas){
           const r=await fetch("https://neauzvqroaszvqffahkv.functions.supabase.co/image-location-search",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({ca})});
