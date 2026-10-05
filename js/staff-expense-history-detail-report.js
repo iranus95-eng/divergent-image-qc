@@ -39,6 +39,9 @@ function openPrint(d,monthKey){
     c.items.forEach(x=>{n++;body.push(`<tr><td class="c">${n}</td><td>${esc(x.expense_date?date(x.expense_date):'-')}</td><td>${esc(x.staff_name||'-')}</td><td>${esc(x.category||'-')}${x.detail||x.note?`<div class="sub">${esc(x.detail||x.note)}</div>`:''}</td><td class="num">${money(x.amount)}</td></tr>`);});
     body.push(`<tr class="subtotal"><td colspan="4">รวม ${esc(c.label)}</td><td class="num">${money(c.total)}</td></tr>`);
   });
+  const pm=new Map();rounds.forEach((c,ri)=>{if(c.imported)return;c.items.forEach(x=>{const k=String(x.staff_name||'ไม่ระบุชื่อ').trim()||'ไม่ระบุชื่อ';let p=pm.get(k);if(!p){p={name:k,count:0,total:0,r:new Set()};pm.set(k,p);}p.count++;p.total+=Number(x.amount||0);p.r.add(ri);});});
+  const people=[...pm.values()].sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name,'th'));
+  const peopleHtml=people.length?`<h2>สรุปยอดเบิกรายบุคคล</h2><table class="summary"><thead><tr><th style="width:8%">#</th><th>พนักงาน</th><th style="width:14%">จำนวนรายการ</th><th style="width:14%">รอบที่เบิก</th><th class="num" style="width:22%">ยอดเบิกรวม (บาท)</th></tr></thead><tbody>${people.map((p,i)=>`<tr><td class="c">${i+1}</td><td><b>${esc(p.name)}</b></td><td class="c">${p.count}</td><td class="c">${p.r.size}</td><td class="num"><b>${money(p.total)}</b></td></tr>`).join('')}</tbody><tfoot><tr class="total"><td colspan="4">รวม ${people.length} คน</td><td class="num">${money(people.reduce((a,p)=>a+p.total,0))}</td></tr></tfoot></table>`:'';
   const summary=rounds.map((c,i)=>`<tr><td class="c">${i+1}</td><td>${esc(c.label)}</td><td>${esc(c.date||'-')}</td><td class="c">${c.imported?'-':c.items.length}</td><td class="num">${money(c.total)}</td></tr>`).join('');
   const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานค่าใช้จ่ายสตาฟ ${esc(m.label)}</title><style>@page{size:A4 portrait;margin:10mm 9mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,Tahoma,sans-serif;color:#222;font-size:12px;margin:0}
   .brand{font-size:11px;font-weight:800;color:#5b2a86;letter-spacing:.3px}h1{font-size:22px;margin:2px 0 4px}.headnote{color:#666;margin:0 0 12px}
@@ -48,6 +51,7 @@ function openPrint(d,monthKey){
   .sub{font-size:10px;color:#666;margin-top:2px}.muted{color:#777;font-style:italic}h2{font-size:15px;margin:14px 0 6px;color:#3d2466}</style></head><body>
   <div class="brand">DIVERGENT CORPORATION CO., LTD.</div><h1>รายงานค่าใช้จ่ายสตาฟ ${esc(m.label)}</h1><p class="headnote">ยอดรวมเดือน ${money(m.total_amount)} บาท · ${rounds.length} รอบ${n?' · '+n+' รายการ':''} · พิมพ์เมื่อ ${esc(new Date().toLocaleString('th-TH'))}</p>
   <table class="summary"><thead><tr><th style="width:8%">#</th><th>รอบเบิก</th><th style="width:18%">วันที่</th><th style="width:12%">รายการ</th><th class="num" style="width:22%">ยอดรวม (บาท)</th></tr></thead><tbody>${summary}</tbody></table>
+  ${peopleHtml}
   <h2>รายละเอียดทุกรอบ</h2>
   <table class="detail"><thead><tr><th style="width:6%">#</th><th style="width:13%">วันที่</th><th style="width:20%">ผู้เบิก</th><th>รายละเอียดค่าใช้จ่าย</th><th class="num" style="width:18%">จำนวนเงิน (บาท)</th></tr></thead><tbody>${body.join('')}</tbody>
   <tfoot><tr class="total"><td colspan="4">รวมทั้งเดือน ${esc(m.label)}</td><td class="num">${money(m.total_amount)}</td></tr></tfoot></table></body></html>`;
