@@ -43,8 +43,10 @@ function pullBilling(){
   try{
     const b=JSON.parse(localStorage.getItem('divergent_billing_invoice_v1')||'{}');
     if(b.customer)s.customer=b.customer;if(b.address)s.address=b.address;if(b.tax)s.tax=b.tax;if(b.branch)s.branch=b.branch;if(b.docNo)s.invoiceNo=b.docNo;if(b.date){s.invoiceDate=b.date;s.receiptDate=b.date}
-    const subtotal=num(b.qty)*num(b.rate);
-    s.items=[{item:String(b.item||''),detail:String(b.detail||''),period:String(b.period||''),site:String(b.area||''),amount:subtotal||num(b.amount)}];
+    // Copy every line of the billing invoice (e.g. เขตชุมชน + นอกเขตชุมชน), not only the first one.
+    const src=Array.isArray(b.items)&&b.items.length?b.items:[b];
+    s.items=src.map(x=>{const amt=Math.round(num(x.qty)*num(x.rate)*100)/100;return {item:String(x.item||b.item||''),detail:String(x.detail||b.detail||''),period:String(x.period||b.period||''),site:String(x.area||''),amount:amt||num(x.amount)}}).filter(x=>x.item||x.amount);
+    if(!s.items.length)s.items=[blankItem()];
     const c=calc(s);if(c.net>0)s.transfer=c.net;
   }catch(_){}
   return s;
