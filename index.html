@@ -506,13 +506,12 @@
     .location-source-tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9f5ff;color:#006a9c;font-size:12px;font-weight:800;margin-left:6px}
     .location-month-history{margin-top:10px;border:1px solid #e3dbf1;border-radius:10px;overflow:hidden}
     .location-month-title{padding:7px 10px;background:#f5f0ff;color:#4b2378;font-size:13px}
-    .location-month-row{display:grid;grid-template-columns:minmax(110px,1fr) minmax(170px,1.4fr) minmax(120px,1fr) auto;gap:8px;align-items:center;padding:7px 10px;border-top:1px solid #efe9f7;font-size:13px}
+    .location-month-row{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;row-gap:2px;padding:7px 10px;border-top:1px solid #efe9f7;font-size:13px;line-height:1.4}
     .location-month-row.is-latest{background:#f2fbf5}
-    .location-month-label{font-weight:800;color:#3d1978}
-    .location-month-coord{font-family:ui-monospace,Menlo,Consolas,monospace}
-    .location-month-dist{color:#8a5a00}
-    .location-month-row a{color:#5121a8;font-weight:700;text-decoration:none}
-    @media(max-width:640px){.location-month-row{grid-template-columns:1fr 1fr}.location-month-dist{grid-column:1}}
+    .location-month-label{font-weight:800;color:#3d1978;flex:0 0 100%}
+    .location-month-coord{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
+    .location-month-dist{color:#8a5a00;white-space:nowrap}
+    .location-month-row a{color:#5121a8;font-weight:700;text-decoration:none;white-space:nowrap;margin-left:auto}
     .location-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
     .location-actions .share-primary{background:#7339d8;color:white;border:0}
     @media(max-width:800px){.location-distance-card{grid-template-columns:1fr}.location-distance-card .distance-value{font-size:28px}}
