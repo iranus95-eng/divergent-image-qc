@@ -513,6 +513,17 @@
     .location-month-dist{color:#8a5a00;white-space:nowrap}
     .location-month-row a{color:#5121a8;font-weight:700;text-decoration:none;white-space:nowrap;margin-left:auto}
     .location-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    .loc-card.has-preview{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,46%);gap:18px;align-items:stretch}
+    .loc-main{min-width:0}
+    .loc-preview{position:relative;min-height:260px;border-radius:14px;overflow:hidden;border:1px solid #e5dced;background:#eef0f2}
+    .loc-preview iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+    .loc-preview-note{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,.92);border-radius:8px;padding:3px 8px;font-size:12px;color:#444}
+    .loc-icon-actions{gap:10px}
+    .loc-icon-btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 14px 0 10px;border-radius:12px;border:1px solid #e0d8e8;background:#fff;color:#2a1f35;font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;box-shadow:none;background-image:none}
+    .loc-icon-btn svg{width:24px;height:24px;flex:none}
+    .loc-icon-btn.loc-line{background:#06c755;border-color:#06c755;color:#fff}
+    .loc-icon-btn:hover{filter:brightness(.97)}
+    @media(max-width:860px){.loc-card.has-preview{grid-template-columns:1fr}.loc-preview{min-height:220px}}
     .location-actions .share-primary{background:#7339d8;color:white;border:0}
     @media(max-width:800px){.location-distance-card{grid-template-columns:1fr}.location-distance-card .distance-value{font-size:28px}}
 
@@ -5061,14 +5072,16 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
           const historyHtml=months.length>1?`<div class="location-month-history"><div class="location-month-title"><b>พิกัดแยกตามเดือน</b> (${months.length} เดือน${monthsDiffer(months)?' · พิกัดไม่ตรงกัน':' · พิกัดใกล้เคียงกัน'})</div>${months.map((m,j)=>{
             const d=j===0?0:haversineMeters(lat,lng,m.lat,m.lng);
             return `<div class="location-month-row${j===0?' is-latest':''}"><span class="location-month-label">${escapeHtml(m.label)}${j===0?' (ล่าสุด)':''}</span><span class="location-month-coord">${m.lat.toFixed(7)}, ${m.lng.toFixed(7)}</span><span class="location-month-dist">${j===0?'':'ห่างจากล่าสุด '+formatDistance(d)}</span><a href="https://www.google.com/maps?q=${m.lat},${m.lng}" target="_blank" rel="noopener">แผนที่</a></div>`}).join("")}</div>`:"";
-          return `<div class="ca-info-card"><h4>${i+1}. CA ${escapeHtml(x.ca_number||'-')} <span class="location-point-tag">พบพิกัด</span><span class="location-source-tag">${escapeHtml(source)}</span></h4>
+          return `<div class="ca-info-card loc-card${ok?' has-preview':''}"><div class="loc-main"><h4>${i+1}. CA ${escapeHtml(x.ca_number||'-')} <span class="location-point-tag">พบพิกัด</span><span class="location-source-tag">${escapeHtml(source)}</span></h4>
           <div><b>พิกัด${months.length>1?' (ล่าสุด)':''}:</b> ${ok?lat.toFixed(7)+", "+lng.toFixed(7):"ไม่พบพิกัด"}</div>
           <div><b>เวลา:</b> ${escapeHtml(x.event_datetime||x.photo_datetime||x.created_at||'-')}</div>
           <div><b>Site:</b> ${escapeHtml(x.matched_site_code||x.source_site_code||'-')} · <b>สถานะ:</b> ${escapeHtml(x.match_status||'-')}</div>
           <div><b>รูป:</b> ${escapeHtml(x.source_photo_name||'-')}</div>
           ${historyHtml}
-          ${ok?`<div class="location-actions"><a class="soft-button" href="${map}" target="_blank" rel="noopener">เปิด Google Maps</a><button class="soft-button share-primary" onclick="shareWorkLocation('${escapeAttr(x.ca_number)}',${lat},${lng},'${escapeAttr(source)}')">แชร์พิกัดนี้</button></div>`:""}</div>`;
+          ${ok?`<div class="location-actions loc-icon-actions"><a class="loc-icon-btn loc-maps" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank" rel="noopener" title="นำทางด้วย Google Maps" aria-label="นำทางด้วย Google Maps"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s-7-6.4-7-12a7 7 0 0 1 14 0c0 5.6-7 12-7 12z" fill="#ea4335"/><circle cx="12" cy="10" r="2.6" fill="#fff"/></svg><span>Google Maps</span></a><button type="button" class="loc-icon-btn loc-line" onclick="shareWorkLocationLine('${escapeAttr(x.ca_number)}',${lat},${lng},'${escapeAttr(source)}')" title="แชร์พิกัดทาง LINE" aria-label="แชร์พิกัดทาง LINE"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.6 1.6 4.9 4 6.3V21l3.4-2.4c.8.2 1.7.3 2.6.3 5.5 0 10-3.6 10-8s-4.5-8-10-8z" fill="#fff"/></svg><span>LINE</span></button></div>`:""}</div>
+          ${ok?`<div class="loc-preview" data-dest="${lat},${lng}"><iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="แผนที่พิกัด CA ${escapeAttr(x.ca_number)}" src="https://www.google.com/maps?q=${lat},${lng}&z=16&output=embed"></iframe><div class="loc-preview-note">แสดงตำแหน่งพิกัด</div></div>`:""}</div>`;
         }).join("");
+        showRoutePreviews(out);
         if(rows.length===2){
           const a=rows[0],b=rows[1],m=haversineMeters(Number(a.actual_latitude),Number(a.actual_longitude),Number(b.actual_latitude),Number(b.actual_longitude));
           distanceBox.innerHTML=`<div class="location-distance-card"><div><b>ระยะห่างระหว่างพิกัด</b><div class="distance-value">${formatDistance(m)}</div><div class="distance-sub">${escapeHtml(a.ca_number)} ↔ ${escapeHtml(b.ca_number)} · คำนวณระยะเส้นตรงด้วย Haversine</div></div><button class="soft-button share-primary" onclick="shareBothLocations()">แชร์พิกัดทั้งคู่ + ระยะห่าง</button></div>`;
@@ -5081,6 +5094,20 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         if(window.liff&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker"))await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});
         else{await navigator.clipboard.writeText(text);alert("คัดลอกพิกัดแล้ว");}
       }catch(e){alert("แชร์พิกัดไม่สำเร็จ: "+(e?.message||e));}
+    }
+    // route preview: from the viewer's current position when the browser allows it, otherwise just the pin
+    let _myPos=null,_myPosAsked=false;
+    function showRoutePreviews(root){
+      const boxes=[...root.querySelectorAll('.loc-preview[data-dest]')];if(!boxes.length)return;
+      const apply=()=>{if(!_myPos)return;boxes.forEach(b=>{const f=b.querySelector('iframe');f.src=`https://www.google.com/maps?saddr=${_myPos}&daddr=${b.dataset.dest}&output=embed`;const n=b.querySelector('.loc-preview-note');if(n)n.textContent='เส้นทางจากตำแหน่งปัจจุบันของคุณ';});};
+      if(_myPos)return apply();
+      if(_myPosAsked||!navigator.geolocation)return;_myPosAsked=true;
+      navigator.geolocation.getCurrentPosition(p=>{_myPos=p.coords.latitude.toFixed(6)+','+p.coords.longitude.toFixed(6);apply();},()=>{},{enableHighAccuracy:false,timeout:10000,maximumAge:300000});
+    }
+    async function shareWorkLocationLine(ca,lat,lng,source){
+      const text=`Divergent Image Rescue\nCA: ${ca}\nแหล่งพิกัด: ${source||"-"}\nพิกัด: ${lat}, ${lng}\nhttps://www.google.com/maps?q=${lat},${lng}`;
+      try{if(window.liff&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker")){await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});return;}}catch(_){}
+      window.open("https://line.me/R/share?text="+encodeURIComponent(text),"_blank","noopener");
     }
     async function shareWorkLocation(ca,lat,lng,source){
       const text=`Divergent Image Rescue\nCA: ${ca}\nแหล่งพิกัด: ${source||"-"}\nพิกัด: ${lat}, ${lng}\nhttps://www.google.com/maps?q=${lat},${lng}`;
