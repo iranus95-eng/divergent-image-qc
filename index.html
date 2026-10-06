@@ -510,7 +510,7 @@
     .location-month-row.is-latest{background:#f2fbf5}
     .location-month-label{font-weight:800;color:#3d1978;flex:0 0 100%}
     .location-month-coord{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
-    .location-month-dist{color:#8a5a00;white-space:nowrap}
+    .location-month-dist{color:#8a5a00;white-space:nowrap}#locationWorkspace .location-month-share{margin:0 0 0 auto!important;padding:3px 10px!important;min-height:0!important;border:1px solid #06c755!important;border-radius:999px!important;background:#06c755!important;background-image:none!important;color:#fff!important;font:inherit;font-size:12px!important;font-weight:700;line-height:1.4!important;cursor:pointer;box-shadow:none!important;transform:none!important}
     .location-month-row a{color:#5121a8;font-weight:700;text-decoration:none;white-space:nowrap;margin-left:auto}
     .location-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
     #locationResults .loc-card{grid-column:1/-1}
@@ -5072,7 +5072,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
           const months=(monthlyByCa[x.ca_number]||[]);
           const historyHtml=months.length>1?`<div class="location-month-history"><div class="location-month-title"><b>พิกัดแยกตามเดือน</b> (${months.length} เดือน${monthsDiffer(months)?' · พิกัดไม่ตรงกัน':' · พิกัดใกล้เคียงกัน'})</div>${months.map((m,j)=>{
             const d=j===0?0:haversineMeters(lat,lng,m.lat,m.lng);
-            return `<div class="location-month-row${j===0?' is-latest':''}"><span class="location-month-label">${escapeHtml(m.label)}${j===0?' (ล่าสุด)':''}</span><span class="location-month-coord">${m.lat.toFixed(7)}, ${m.lng.toFixed(7)}</span><span class="location-month-dist">${j===0?'':'ห่างจากล่าสุด '+formatDistance(d)}</span><a href="https://www.google.com/maps?q=${m.lat},${m.lng}" target="_blank" rel="noopener">แผนที่</a></div>`}).join("")}</div>`:"";
+            return `<div class="location-month-row${j===0?' is-latest':''}"><span class="location-month-label">${escapeHtml(m.label)}${j===0?' (ล่าสุด)':''}</span><span class="location-month-coord">${m.lat.toFixed(7)}, ${m.lng.toFixed(7)}</span><span class="location-month-dist">${j===0?'':'ห่างจากล่าสุด '+formatDistance(d)}</span><a href="https://www.google.com/maps?q=${m.lat},${m.lng}" target="_blank" rel="noopener">แผนที่</a><button type="button" class="location-month-share" onclick="shareWorkLocationLine('${escapeAttr(x.ca_number)}',${m.lat},${m.lng},'${escapeAttr(source+' · '+m.label)}')">แชร์พิกัด</button></div>`}).join("")}</div>`:"";
           return `<div class="ca-info-card loc-card${ok?' has-preview':''}"><div class="loc-main"><h4>${i+1}. CA ${escapeHtml(x.ca_number||'-')} <span class="location-point-tag">พบพิกัด</span><span class="location-source-tag">${escapeHtml(source)}</span></h4>
           <div><b>พิกัด${months.length>1?' (ล่าสุด)':''}:</b> ${ok?lat.toFixed(7)+", "+lng.toFixed(7):"ไม่พบพิกัด"}</div>
           <div><b>เวลา:</b> ${escapeHtml(x.event_datetime||x.photo_datetime||x.created_at||'-')}</div>
