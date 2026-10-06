@@ -167,9 +167,9 @@
   function scan() {
     queued = false;
     install(document);
-    document.querySelectorAll('.bi-paper,.rt-paper').forEach(clean);
+    document.querySelectorAll('.bi-paper,.rt-paper').forEach(function (p) { try { clean(p); } catch (e) { console.warn('doc-excel-style', e); } });
   }
-  function schedule() { if (!queued) { queued = true; requestAnimationFrame(scan); } }
+  function schedule() { if (!queued) { queued = true; setTimeout(scan, 30); } } // not rAF: it stalls in background tabs
   function boot() {
     scan();
     new MutationObserver(function (muts) {
