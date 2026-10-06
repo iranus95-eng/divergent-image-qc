@@ -474,10 +474,21 @@
 
   // ใบเสร็จ: the menu prints ต้นฉบับ (purple, for the customer) + สำเนา (green, for accounting),
   // but the archive keeps only the on-screen original, so show and print the accounting copy too.
+  // ต้นฉบับ (customer) = purple, สำเนา (accounting) = green. Set inline so the colours survive the PDF capture
+  // (the theme rules in the saved snapshot don't reach html2canvas' copy of the page).
+  var RT_COLORS = { customer: ['#6d35d4', '#4f239d'], accounting: ['#198754', '#146c43'] };
+  function colorReceipt(p) {
+    var f = p.querySelector('.rt-copyfor'), acct = !!(f && /บัญชี/.test(f.textContent));
+    var c = RT_COLORS[acct ? 'accounting' : 'customer'];
+    p.classList.toggle('rt-theme-accounting', acct); p.classList.toggle('rt-theme-customer', !acct);
+    p.querySelectorAll('.rt-table th').forEach(function (th) { th.style.setProperty('background', c[0], 'important'); th.style.setProperty('color', '#fff', 'important'); });
+    p.querySelectorAll('.rt-title,.rt-copybox').forEach(function (el) { el.style.setProperty('border-color', c[0], 'important'); });
+    p.querySelectorAll('.rt-title b,.rt-copybox').forEach(function (el) { el.style.setProperty('color', c[1], 'important'); });
+  }
   function addReceiptCopies(doc) {
     var rtPapers = Array.prototype.slice.call(doc.querySelectorAll('.rt-paper'));
     var hasAcct = rtPapers.some(function (p) { var f = p.querySelector('.rt-copyfor'); return f && /บัญชี/.test(f.textContent); });
-    if (!rtPapers.length || hasAcct) return;
+    if (!rtPapers.length || hasAcct) { rtPapers.forEach(colorReceipt); return; }
     rtPapers.forEach(function (p) {
       var k = p.cloneNode(true), box = k.querySelector('.rt-copybox'), fr = k.querySelector('.rt-copyfor');
       if (box) box.textContent = 'สำเนา / COPY';
@@ -485,6 +496,7 @@
       k.classList.remove('rt-theme-customer'); k.classList.add('rt-theme-accounting');
       p.parentNode.insertBefore(k, p.nextSibling);
     });
+    doc.querySelectorAll('.rt-paper').forEach(colorReceipt);
   }
   // ---------- print: render each page as it looks in the viewer into an A4 PDF ----------
   // Browser printing of the snapshot drops background colours (table header bands) and lets
