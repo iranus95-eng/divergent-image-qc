@@ -100,7 +100,7 @@
       '<style>' + c.css.replace(/<\/style/gi, '<\\/style') + '</style>' +
       '<style>html,body{margin:0;background:#e9e6f0}.arch-stage{padding:24px 0;display:flex;justify-content:center}' +
       '.arch-stage>*{display:flex!important;flex-direction:column!important;align-items:center!important;gap:24px!important;position:static!important;inset:auto!important;width:auto!important;height:auto!important;overflow:visible!important;transform:none!important;background:transparent!important;padding:0!important;margin:0!important;box-shadow:none!important;border:0!important}' +
-      '@media print{html,body{background:#fff}.arch-stage{padding:0}.arch-stage>*{gap:0!important}}</style>' +
+      '@media print{html,body{background:#fff}body *{visibility:visible!important}.arch-stage{padding:0}.arch-stage>*{gap:0!important}}</style>' +
       '</head><body><div class="arch-stage">' + open + body + close + '</div></body></html>';
   }
 
@@ -352,7 +352,18 @@
       var d = await getDoc(id);
       v._doc = d;
       v.querySelector('[data-dv="title"]').textContent = (TYPE_LABEL[d.doc_type] || '') + ' เลขที่ ' + d.doc_no;
-      v.querySelector('iframe').srcdoc = d.html;
+      var fr = v.querySelector('iframe');
+      // Saved snapshots carry the app's print CSS (`body *{visibility:hidden}` + rules that only re-show the
+      // active menu), which makes the archived copy print blank. Override it inside the viewer frame.
+      fr.onload = function () {
+        try {
+          var doc = fr.contentDocument; if (!doc || doc.getElementById('daPrintFix')) return;
+          var st = doc.createElement('style'); st.id = 'daPrintFix';
+          st.textContent = '@media print{html,body{background:#fff!important;margin:0!important}body *{visibility:visible!important}.no-print,[data-no-print]{display:none!important}}';
+          (doc.head || doc.documentElement).appendChild(st);
+        } catch (_) {}
+      };
+      fr.srcdoc = d.html;
     } catch (e) {
       v.style.display = 'none';
       alert('เปิดเอกสารไม่สำเร็จ: ' + (e.message || e));
