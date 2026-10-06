@@ -405,6 +405,7 @@
         var bcss = await billingPrintCss();
         if (bcss) { a4 = doc.createElement('style'); a4.setAttribute('data-da-a4', ''); a4.textContent = bcss; (doc.head || doc.documentElement).appendChild(a4); }
       }
+      if (a4 && doc.fonts) { try { await Promise.all([doc.fonts.load("14pt 'DASarabunPSK'", 'กa1'), doc.fonts.load("bold 14pt 'DASarabunPSK'", 'กa1')]); await doc.fonts.ready; } catch (_) {} }
       var papers = findPapers(doc);
       if (!papers.length) throw new Error('ไม่พบหน้าเอกสาร');
       var pdf = new w.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -441,7 +442,13 @@
       // drop the page-level html/body sizing: only the paper itself should take the A4 box
       billingCssCache = m ? m[1].replace(/@media print\{[\s\S]*$/, '').replace(/(^|\n)\s*html,body\{[^}]*\}/g, '\n').replace(/(^|\n)\s*body\{[^}]*\}/g, '\n') : '';
       // print in TH SarabunPSK 14pt (headings scaled to match)
-      if (billingCssCache) billingCssCache += "\n.bi-paper,.bi-paper *{font-family:'TH SarabunPSK','TH Sarabun New','Sarabun',Tahoma,sans-serif!important}" +
+      // PCs without TH SarabunPSK fall back to a web copy of Sarabun scaled to SarabunPSK's size
+      var FB = 'https://cdn.jsdelivr.net/npm/@fontsource/sarabun@5/files/sarabun-', face = '';
+      [400, 700].forEach(function (w) {
+        face += "@font-face{font-family:'DASarabunPSK';font-weight:" + w + ";size-adjust:66%;src:url(" + FB + 'thai-' + w + "-normal.woff2) format('woff2');unicode-range:U+0E01-0E5B,U+200C-200D,U+25CC}" +
+          "@font-face{font-family:'DASarabunPSK';font-weight:" + w + ";size-adjust:66%;src:url(" + FB + 'latin-' + w + "-normal.woff2) format('woff2')}";
+      });
+      if (billingCssCache) billingCssCache += '\n' + face + "\n.bi-paper,.bi-paper *{font-family:'TH SarabunPSK','DASarabunPSK',sans-serif!important}" +
         '.bi-paper,.bi-info,.bi-info-line,.bi-info-line *,.bi-doc-table,.bi-doc-table th,.bi-doc-table td,.bi-total-row,.bi-total-row *{font-size:14pt!important}' +
         '.bi-company b{font-size:18pt!important}.bi-company .en{font-size:16pt!important}.bi-company div,.bi-taxnote,.bi-customer-copy,.bi-title span{font-size:13pt!important}' +
         '.bi-title b{font-size:22pt!important}.bi-notes,.bi-sign,.bi-sign *{font-size:13pt!important}';
