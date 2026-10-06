@@ -439,6 +439,10 @@
       var m = t.match(/const PRINT_CSS=`([\s\S]*?)`;/);
       // drop the page-level html/body sizing: only the paper itself should take the A4 box
       billingCssCache = m ? m[1].replace(/@media print\{[\s\S]*$/, '').replace(/(^|\n)\s*html,body\{[^}]*\}/g, '\n').replace(/(^|\n)\s*body\{[^}]*\}/g, '\n') : '';
+      // the menu's sizes assume Cordia New; most PCs fall back to a much wider font, so print at 11pt
+      if (billingCssCache) billingCssCache += '\n.bi-paper,.bi-info,.bi-info-line,.bi-info-line *,.bi-doc-table,.bi-doc-table th,.bi-doc-table td,.bi-total-row,.bi-total-row *{font-size:11pt!important}' +
+        '.bi-company b{font-size:14pt!important}.bi-company .en{font-size:12pt!important}.bi-company div,.bi-taxnote,.bi-customer-copy,.bi-title span{font-size:10pt!important}' +
+        '.bi-title b{font-size:16pt!important}.bi-notes,.bi-sign,.bi-sign *{font-size:9.5pt!important}';
     } catch (_) { billingCssCache = ''; }
     return billingCssCache;
   }
