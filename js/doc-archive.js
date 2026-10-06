@@ -231,7 +231,7 @@
     if (!head || head.querySelector('.da-hist')) return;
     var box = document.createElement('div');
     box.className = 'da-hist';
-    box.innerHTML = '<span class="da-hist-label">📅 เอกสารย้อนหลัง</span><select class="da-hist-site" aria-label="เลือกไซด์งาน"><option value="">ทุกไซด์งาน</option></select><input type="month" class="da-hist-month" aria-label="เลือกเดือนเอกสารย้อนหลัง" value="' + monthNow() + '"><button type="button" class="da-hist-go" data-t="none">ดู</button>';
+    box.innerHTML = '<span class="da-hist-label">📅 เอกสารย้อนหลัง</span><input type="month" class="da-hist-month" aria-label="เลือกเดือนเอกสารย้อนหลัง" value="' + monthNow() + '"><select class="da-hist-site" aria-label="เลือกไซด์งาน"><option value="">ทุกไซด์งาน</option></select><button type="button" class="da-hist-go" data-t="none">ดู</button>';
     var inp = box.querySelector('input'), sel = box.querySelector('select');
     var go = function () { openHistory(type, inp.value, sel.value); };
     inp.addEventListener('change', go);
@@ -282,7 +282,7 @@
     var m = document.getElementById('daHist');
     if (!m) {
       m = document.createElement('div'); m.id = 'daHist';
-      m.innerHTML = '<div class="da-hist-card" role="dialog" aria-modal="true"><div class="da-hist-top"><b data-h="title"></b><select data-h="site" aria-label="เลือกไซด์งาน"><option value="">ทุกไซด์งาน</option></select><input type="month" data-h="month"><button type="button" class="da-btn ghost" data-h="close">✕ ปิด</button></div><div data-h="list" class="da-hist-list"></div></div>';
+      m.innerHTML = '<div class="da-hist-card" role="dialog" aria-modal="true"><div class="da-hist-top"><b data-h="title"></b><input type="month" data-h="month"><select data-h="site" aria-label="เลือกไซด์งาน"><option value="">ทุกไซด์งาน</option></select><button type="button" class="da-btn ghost" data-h="close">✕ ปิด</button></div><div data-h="list" class="da-hist-list"></div></div>';
       document.body.appendChild(m);
       m.addEventListener('click', function (e) {
         if (e.target === m || e.target.closest('[data-h="close"]')) { m.style.display = 'none'; return; }
@@ -645,8 +645,8 @@
       '#daViewer iframe{flex:1;width:100%;border:0;background:#e9e6f0}' +
       '.da-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483600;background:#1C1730;color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;max-width:min(92vw,560px);box-shadow:0 10px 30px rgba(0,0,0,.25);display:none}' +
       '.da-toast.ok{background:#166534}.da-toast.err{background:#9f1239}' +
-      '@media (max-width:860px){.da-toast{bottom:84px}.da-head h2{font-size:22px}}' +
-      '.da-hist{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}.da-hist-label{font-weight:700;color:#4B2A8C;font-size:14px;white-space:nowrap}' +
+      '@media (max-width:860px){.da-hist{flex-wrap:wrap}.da-toast{bottom:84px}.da-head h2{font-size:22px}}' +
+      '.da-hist{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:nowrap;flex:0 1 auto;min-width:0}.da-hist>*{flex:none}.da-hist .da-hist-site{flex:0 1 200px;min-width:120px;max-width:200px}.da-hist-label{font-weight:700;color:#4B2A8C;font-size:14px;white-space:nowrap}' +
       '.da-hist-site,#daHist select{min-height:38px;max-width:260px;border:1px solid #D8CFEA;border-radius:10px;padding:0 8px;font:inherit;font-size:14px;background:#fff;color:#1C1730}' +
       '.da-hist-month,#daHist input[type=month]{min-height:38px;border:1px solid #D8CFEA;border-radius:10px;padding:0 10px;font:inherit;font-size:14px;background:#fff;color:#1C1730}' +
       '.da-hist-go{min-height:38px;padding:0 16px!important;border:1px solid #4B2A8C!important;border-radius:10px!important;background:#4B2A8C!important;background-image:none!important;color:#fff!important;font:inherit;font-size:14px!important;font-weight:600;cursor:pointer;box-shadow:none!important;transform:none!important}' +
