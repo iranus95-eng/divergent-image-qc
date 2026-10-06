@@ -397,6 +397,13 @@
       if (!w.html2canvas) await loadScript(doc, 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
       if (!w.jspdf) await loadScript(doc, 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
       if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+      // ใบแจ้งหนี้-ใบวางบิล snapshots keep the on-screen layout, which runs taller than A4.
+      // Apply the billing menu's own A4 print layout while capturing so the PDF matches it.
+      var a4 = null;
+      if (doc.querySelector('.bi-paper')) {
+        var bcss = await billingPrintCss();
+        if (bcss) { a4 = doc.createElement('style'); a4.setAttribute('data-da-a4', ''); a4.textContent = bcss; (doc.head || doc.documentElement).appendChild(a4); }
+      }
       var papers = findPapers(doc);
       if (!papers.length) throw new Error('ไม่พบหน้าเอกสาร');
       var pdf = new w.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -411,6 +418,7 @@
         if (i) pdf.addPage('a4', 'portrait');
         pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', (210 - wmm) / 2, 0, wmm, hmm);
       }
+      if (a4) a4.remove();
       var url = URL.createObjectURL(pdf.output('blob'));
       if (out) { try { out.location.replace(url); } catch (_) { out.location.href = url; } }
       else { var a = document.createElement('a'); a.href = url; a.download = (d.doc_no || 'document') + '.pdf'; document.body.appendChild(a); a.click(); a.remove(); }
@@ -418,7 +426,21 @@
     } catch (e) {
       if (out) out.close();
       alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e));
-    } finally { btn.disabled = false; btn.textContent = label; }
+    } finally {
+      doc.querySelectorAll('style[data-da-a4]').forEach(function (s) { s.remove(); });
+      btn.disabled = false; btn.textContent = label;
+    }
+  }
+  var billingCssCache = null;
+  async function billingPrintCss() {
+    if (billingCssCache !== null) return billingCssCache;
+    try {
+      var t = await (await fetch('js/billing-a4-fix.js', { cache: 'no-store' })).text();
+      var m = t.match(/const PRINT_CSS=`([\s\S]*?)`;/);
+      // drop the page-level html/body sizing: only the paper itself should take the A4 box
+      billingCssCache = m ? m[1].replace(/@media print\{[\s\S]*$/, '').replace(/(^|\n)\s*html,body\{[^}]*\}/g, '\n').replace(/(^|\n)\s*body\{[^}]*\}/g, '\n') : '';
+    } catch (_) { billingCssCache = ''; }
+    return billingCssCache;
   }
 
   // ---------- reopen in its menu for editing / reprinting ----------
