@@ -342,7 +342,7 @@
         '<button type="button" class="da-btn ghost" data-dv="close">✕ ปิด</button></div><iframe title="เอกสาร" data-dv="frame"></iframe>';
       document.body.appendChild(v);
       v.querySelector('[data-dv="close"]').onclick = function () { v.style.display = 'none'; v.querySelector('iframe').srcdoc = ''; };
-      v.querySelector('[data-dv="print"]').onclick = function () { var f = v.querySelector('iframe'); try { f.contentWindow.focus(); f.contentWindow.print(); } catch (_) {} };
+      v.querySelector('[data-dv="print"]').onclick = function () { printViewer(v, this); };
       v.querySelector('[data-dv="edit"]').onclick = function () { var d = v._doc; v.style.display = 'none'; if (d) restore(d); };
       document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && v.style.display === 'flex') v.querySelector('[data-dv="close"]').click(); });
     }
@@ -368,6 +368,57 @@
       v.style.display = 'none';
       alert('เปิดเอกสารไม่สำเร็จ: ' + (e.message || e));
     }
+  }
+
+  // ---------- print: render each page as it looks in the viewer into an A4 PDF ----------
+  // Browser printing of the snapshot drops background colours (table header bands) and lets
+  // the text reflow past the page, so do what the document menus do: capture each paper
+  // with html2canvas and place it on its own A4 page with jsPDF.
+  function loadScript(doc, src) {
+    return new Promise(function (res, rej) {
+      var s = doc.createElement('script'); s.src = src; s.onload = res; s.onerror = function () { rej(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ')); };
+      (doc.head || doc.documentElement).appendChild(s);
+    });
+  }
+  function findPapers(doc) {
+    var list = doc.querySelectorAll('.bi-paper,.rt-paper,.invoice-paper');
+    if (!list.length) { var st = doc.querySelector('.arch-stage'); list = st ? st.firstElementChild.children : []; }
+    return Array.prototype.filter.call(list, function (el) {
+      return el.getBoundingClientRect().height > 50 && !el.parentElement.closest('.bi-paper,.rt-paper,.invoice-paper');
+    });
+  }
+  async function printViewer(v, btn) {
+    var fr = v.querySelector('iframe'), d = v._doc, w = fr.contentWindow, doc = fr.contentDocument;
+    if (!doc || !d) return;
+    var label = btn.textContent, out = window.open('', '_blank');
+    if (out) out.document.write('<p style="font-family:Tahoma,sans-serif;text-align:center;padding:48px">กำลังสร้าง PDF...</p>');
+    btn.disabled = true; btn.textContent = 'กำลังสร้าง PDF...';
+    try {
+      if (!w.html2canvas) await loadScript(doc, 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      if (!w.jspdf) await loadScript(doc, 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+      var papers = findPapers(doc);
+      if (!papers.length) throw new Error('ไม่พบหน้าเอกสาร');
+      var pdf = new w.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+      for (var i = 0; i < papers.length; i++) {
+        var p = papers[i], shadow = p.style.boxShadow;
+        p.style.boxShadow = 'none';
+        var c = await w.html2canvas(p, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+        p.style.boxShadow = shadow;
+        // fit the captured page inside A4 (210 x 297 mm), keeping its proportions
+        var ratio = c.height / c.width, wmm = 210, hmm = wmm * ratio;
+        if (hmm > 297) { hmm = 297; wmm = hmm / ratio; }
+        if (i) pdf.addPage('a4', 'portrait');
+        pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', (210 - wmm) / 2, 0, wmm, hmm);
+      }
+      var url = URL.createObjectURL(pdf.output('blob'));
+      if (out) { try { out.location.replace(url); } catch (_) { out.location.href = url; } }
+      else { var a = document.createElement('a'); a.href = url; a.download = (d.doc_no || 'document') + '.pdf'; document.body.appendChild(a); a.click(); a.remove(); }
+      setTimeout(function () { URL.revokeObjectURL(url); }, 120000);
+    } catch (e) {
+      if (out) out.close();
+      alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e));
+    } finally { btn.disabled = false; btn.textContent = label; }
   }
 
   // ---------- reopen in its menu for editing / reprinting ----------
