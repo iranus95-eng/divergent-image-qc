@@ -85,12 +85,12 @@ const EXACT_CSS=`${FONT_FACE}
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table .xl-center{text-align:center!important}
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table .xl-left{text-align:left!important;padding-left:2px!important;white-space:normal!important}
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table .xl-words{text-align:center!important;white-space:normal!important;overflow:hidden!important;line-height:1!important}
-#invoicePaper.invoice-excel-exact #pInvCompletionNote{position:absolute!important;left:22.68px!important;top:623.8px!important;width:730px!important;height:101.6px!important;margin:0!important;padding:0 2px!important;display:flex!important;align-items:center!important;white-space:pre-line!important;overflow:hidden!important;text-align:left!important;font-size:14pt!important;line-height:1.1!important}
+#invoicePaper.invoice-excel-exact #pInvCompletionNote{position:absolute!important;left:22.68px!important;top:calc(623.8px + var(--xl-shift,0px))!important;width:730px!important;height:101.6px!important;margin:0!important;padding:0 2px!important;display:flex!important;align-items:center!important;white-space:pre-line!important;overflow:hidden!important;text-align:left!important;font-size:14pt!important;line-height:1.1!important}
 #invoicePaper.invoice-excel-exact .xl-close-1,#invoicePaper.invoice-excel-exact .xl-close-2,#invoicePaper.invoice-excel-exact .xl-sign-name,#invoicePaper.invoice-excel-exact .xl-sign-role{position:absolute!important;left:22.68px!important;width:730px!important;height:28px!important;text-align:center!important;font-size:14pt!important;line-height:28px!important;white-space:pre!important;margin:0!important;padding:0!important}
-#invoicePaper.invoice-excel-exact .xl-close-1{top:755.4px!important}
-#invoicePaper.invoice-excel-exact .xl-close-2{top:783.4px!important}
-#invoicePaper.invoice-excel-exact .xl-sign-name{top:867.4px!important}
-#invoicePaper.invoice-excel-exact .xl-sign-role{top:895.4px!important}
+#invoicePaper.invoice-excel-exact .xl-close-1{top:calc(755.4px + var(--xl-shift,0px))!important}
+#invoicePaper.invoice-excel-exact .xl-close-2{top:calc(783.4px + var(--xl-shift,0px))!important}
+#invoicePaper.invoice-excel-exact .xl-sign-name{top:calc(867.4px + var(--xl-shift,0px))!important}
+#invoicePaper.invoice-excel-exact .xl-sign-role{top:calc(895.4px + var(--xl-shift,0px))!important}
 #invoicePaper.invoice-excel-exact .xl-hidden{display:none!important}
 @media print{
  @page{size:A4 portrait;margin:0}
@@ -196,6 +196,13 @@ function syncExact(){
   byId('pInvGrand').textContent=money(totals.grand);
   if(originalWords)byId('pInvBahtText').textContent=originalWords;
   const c=byId('pInvCustomer');if(c)c.textContent=selectedCustomer();
+  fitBelowTable();
+}
+// Excel row 20 starts right under the total row; when item names wrap the table grows, so move the text below with it
+function fitBelowTable(){
+  const p=byId(PAPER_ID),t=p&&p.querySelector('.xl-table'),d=p&&p.querySelector('.xl-desc');if(!t||!d||!d.offsetHeight)return;
+  const k=d.offsetHeight/89,bottom=(t.offsetTop+t.offsetHeight)/k;
+  p.style.setProperty('--xl-shift',Math.max(0,Math.min(60,bottom-623.8)).toFixed(1)+'px');
 }
 
 function printExact(){
