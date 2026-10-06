@@ -406,6 +406,20 @@
         if (bcss) { a4 = doc.createElement('style'); a4.setAttribute('data-da-a4', ''); a4.textContent = bcss; (doc.head || doc.documentElement).appendChild(a4); }
       }
       if (a4 && doc.fonts) { try { await Promise.all([doc.fonts.load("14pt 'DASarabunPSK'", 'กa1'), doc.fonts.load("bold 14pt 'DASarabunPSK'", 'กa1')]); await doc.fonts.ready; } catch (_) {} }
+      // ใบเสร็จ: the menu prints ต้นฉบับ (purple, for the customer) + สำเนา (green, for accounting),
+      // but the archive keeps only the on-screen original, so add the accounting copy for printing.
+      var rtCopies = [];
+      var rtPapers = Array.prototype.slice.call(doc.querySelectorAll('.rt-paper'));
+      var hasAcct = rtPapers.some(function (p) { var f = p.querySelector('.rt-copyfor'); return f && /บัญชี/.test(f.textContent); });
+      if (rtPapers.length && !hasAcct) {
+        rtPapers.forEach(function (p) {
+          var k = p.cloneNode(true), box = k.querySelector('.rt-copybox'), fr = k.querySelector('.rt-copyfor');
+          if (box) box.textContent = 'สำเนา / COPY';
+          if (fr) fr.textContent = 'สำหรับบัญชี';
+          k.classList.remove('rt-theme-customer'); k.classList.add('rt-theme-accounting');
+          p.parentNode.insertBefore(k, p.nextSibling); rtCopies.push(k);
+        });
+      }
       var papers = findPapers(doc);
       if (!papers.length) throw new Error('ไม่พบหน้าเอกสาร');
       var pdf = new w.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -420,6 +434,7 @@
         if (i) pdf.addPage('a4', 'portrait');
         pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', (210 - wmm) / 2, 0, wmm, hmm);
       }
+      rtCopies.forEach(function (k) { k.remove(); });
       if (a4) a4.remove();
       var url = URL.createObjectURL(pdf.output('blob'));
       if (out) { try { out.location.replace(url); } catch (_) { out.location.href = url; } }
@@ -430,6 +445,7 @@
       alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e));
     } finally {
       doc.querySelectorAll('style[data-da-a4]').forEach(function (s) { s.remove(); });
+      (rtCopies || []).forEach(function (k) { if (k.parentNode) k.remove(); });
       btn.disabled = false; btn.textContent = label;
     }
   }
