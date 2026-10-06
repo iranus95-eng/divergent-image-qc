@@ -362,6 +362,7 @@
           var st = doc.createElement('style'); st.id = 'daPrintFix';
           st.textContent = '@media print{html,body{background:#fff!important;margin:0!important}body *{visibility:visible!important}.no-print,[data-no-print]{display:none!important}}';
           (doc.head || doc.documentElement).appendChild(st);
+          addReceiptCopies(doc);
         } catch (_) {}
       };
       fr.srcdoc = d.html;
@@ -371,6 +372,20 @@
     }
   }
 
+  // ใบเสร็จ: the menu prints ต้นฉบับ (purple, for the customer) + สำเนา (green, for accounting),
+  // but the archive keeps only the on-screen original, so show and print the accounting copy too.
+  function addReceiptCopies(doc) {
+    var rtPapers = Array.prototype.slice.call(doc.querySelectorAll('.rt-paper'));
+    var hasAcct = rtPapers.some(function (p) { var f = p.querySelector('.rt-copyfor'); return f && /บัญชี/.test(f.textContent); });
+    if (!rtPapers.length || hasAcct) return;
+    rtPapers.forEach(function (p) {
+      var k = p.cloneNode(true), box = k.querySelector('.rt-copybox'), fr = k.querySelector('.rt-copyfor');
+      if (box) box.textContent = 'สำเนา / COPY';
+      if (fr) fr.textContent = 'สำหรับบัญชี';
+      k.classList.remove('rt-theme-customer'); k.classList.add('rt-theme-accounting');
+      p.parentNode.insertBefore(k, p.nextSibling);
+    });
+  }
   // ---------- print: render each page as it looks in the viewer into an A4 PDF ----------
   // Browser printing of the snapshot drops background colours (table header bands) and lets
   // the text reflow past the page, so do what the document menus do: capture each paper
@@ -409,17 +424,7 @@
       // ใบเสร็จ: the menu prints ต้นฉบับ (purple, for the customer) + สำเนา (green, for accounting),
       // but the archive keeps only the on-screen original, so add the accounting copy for printing.
       var rtCopies = [];
-      var rtPapers = Array.prototype.slice.call(doc.querySelectorAll('.rt-paper'));
-      var hasAcct = rtPapers.some(function (p) { var f = p.querySelector('.rt-copyfor'); return f && /บัญชี/.test(f.textContent); });
-      if (rtPapers.length && !hasAcct) {
-        rtPapers.forEach(function (p) {
-          var k = p.cloneNode(true), box = k.querySelector('.rt-copybox'), fr = k.querySelector('.rt-copyfor');
-          if (box) box.textContent = 'สำเนา / COPY';
-          if (fr) fr.textContent = 'สำหรับบัญชี';
-          k.classList.remove('rt-theme-customer'); k.classList.add('rt-theme-accounting');
-          p.parentNode.insertBefore(k, p.nextSibling); rtCopies.push(k);
-        });
-      }
+      addReceiptCopies(doc);
       var papers = findPapers(doc);
       if (!papers.length) throw new Error('ไม่พบหน้าเอกสาร');
       var pdf = new w.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
