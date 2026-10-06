@@ -18,6 +18,9 @@
   --sa-font:'IBM Plex Sans Thai','Sarabun',Tahoma,sans-serif;
 }
 
+/* whole app a notch smaller on desktop: module pages use fixed px sizes, so scale the page instead */
+@media screen and (min-width:861px){html{zoom:.9}}
+
 @media screen{
   html,body{background:var(--sa-ground)!important}
   body{font-family:var(--sa-font)!important;color:var(--sa-ink);padding-top:var(--sa-top)!important;overflow-x:hidden}
