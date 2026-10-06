@@ -226,7 +226,7 @@
   }
 
   // menus shown at the full content width (no 1280px cap), like before the redesign
-  var WIDE = ['navPayroll'];
+  var WIDE = ['navPayroll', 'navDocArchive'];
   var backStack = [];
   function goBack() {
     var overlayOpen = OVERLAYS.some(function (i) { return document.getElementById(i); });
