@@ -223,7 +223,56 @@
       bar.insertBefore(ob, bar.firstChild);
     }
   }
-  function scan() { bind('invoice'); bind('billing'); bind('receipt'); }
+  // ---------- per-menu "เอกสารย้อนหลัง" month picker: lists only this menu's documents ----------
+  var HIST_HEAD = { invoice: '#invoiceWorkspace .workspace-title', billing: '#billingInvoiceV1 .bi-top', receipt: '#receiptTaxV1 .rt-top' };
+  function monthNow() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+  function addHistoryControl(type) {
+    var head = document.querySelector(HIST_HEAD[type]);
+    if (!head || head.querySelector('.da-hist')) return;
+    var box = document.createElement('div');
+    box.className = 'da-hist';
+    box.innerHTML = '<span class="da-hist-label">📅 เอกสารย้อนหลัง</span><input type="month" class="da-hist-month" aria-label="เลือกเดือนเอกสารย้อนหลัง" value="' + monthNow() + '"><button type="button" class="da-hist-go" data-t="none">ดู</button>';
+    var inp = box.querySelector('input'), go = function () { if (inp.value) openHistory(type, inp.value); };
+    inp.addEventListener('change', go);
+    box.querySelector('button').addEventListener('click', go);
+    head.appendChild(box);
+  }
+  async function openHistory(type, ym) {
+    var m = document.getElementById('daHist');
+    if (!m) {
+      m = document.createElement('div'); m.id = 'daHist';
+      m.innerHTML = '<div class="da-hist-card" role="dialog" aria-modal="true"><div class="da-hist-top"><b data-h="title"></b><input type="month" data-h="month"><button type="button" class="da-btn ghost" data-h="close">✕ ปิด</button></div><div data-h="list" class="da-hist-list"></div></div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function (e) {
+        if (e.target === m || e.target.closest('[data-h="close"]')) { m.style.display = 'none'; return; }
+        var b = e.target.closest('[data-hv]'); if (!b) return;
+        var id = Number(b.dataset.id);
+        if (b.dataset.hv === 'view') view(id);
+        else { m.style.display = 'none'; edit(id); }
+      });
+      m.querySelector('[data-h="month"]').addEventListener('change', function () { if (this.value) openHistory(m._type, this.value); });
+    }
+    m._type = type;
+    m.style.display = 'flex';
+    m.querySelector('[data-h="month"]').value = ym;
+    var y = Number(ym.slice(0, 4)), mo = Number(ym.slice(5, 7));
+    m.querySelector('[data-h="title"]').textContent = (TYPE_LABEL[type] || '') + ' · ' + TH_MONTHS[mo - 1] + ' ' + (y + 543);
+    var list = m.querySelector('[data-h="list"]');
+    list.innerHTML = '<div class="da-empty">กำลังโหลด...</div>';
+    var last = new Date(y, mo, 0).getDate();
+    try {
+      var j = await call({ action: 'list', doc_type: type, from: ym + '-01', to: ym + '-' + String(last).padStart(2, '0') });
+      if (m._type !== type || m.querySelector('[data-h="month"]').value !== ym) return;
+      var docs = j.documents || [];
+      if (!docs.length) { list.innerHTML = '<div class="da-empty">ไม่มี' + esc(TYPE_LABEL[type]) + 'ในเดือนนี้</div>'; return; }
+      list.innerHTML = '<div class="da-count">' + docs.length + ' เอกสาร</div><table class="da-table da-hist-table"><thead><tr><th>เลขที่</th><th>วันที่เอกสาร</th><th>ลูกค้า</th><th class="da-r">ยอดรวม</th><th></th></tr></thead><tbody>' +
+        docs.map(function (d) {
+          return '<tr><td><b>' + esc(d.doc_no) + '</b></td><td>' + esc(thDate(d.doc_date)) + '</td><td class="da-cust">' + esc(d.customer_name || '-') + '</td><td class="da-r">' + (d.total_amount == null ? '-' : money(d.total_amount)) + '</td>' +
+            '<td><div class="da-actions"><button type="button" class="da-btn" data-hv="view" data-id="' + d.id + '">ดู / พิมพ์</button><button type="button" class="da-btn ghost" data-hv="edit" data-id="' + d.id + '">เปิดแก้ไข</button></div></td></tr>';
+        }).join('') + '</tbody></table>';
+    } catch (e) { list.innerHTML = '<div class="da-empty da-err">โหลดเอกสารไม่สำเร็จ: ' + esc(e.message || e) + '</div>'; }
+  }
+  function scan() { bind('invoice'); bind('billing'); bind('receipt'); addHistoryControl('invoice'); addHistoryControl('billing'); addHistoryControl('receipt'); }
 
   // ---------- archive page ----------
   var pageState = { type: '', search: '', from: '', to: '', docs: [], loading: false };
@@ -547,7 +596,14 @@
       '.da-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483600;background:#1C1730;color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;max-width:min(92vw,560px);box-shadow:0 10px 30px rgba(0,0,0,.25);display:none}' +
       '.da-toast.ok{background:#166534}.da-toast.err{background:#9f1239}' +
       '@media (max-width:860px){.da-toast{bottom:84px}.da-head h2{font-size:22px}}' +
-      '@media print{#daViewer,.da-toast{display:none!important}}';
+      '.da-hist{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}.da-hist-label{font-weight:700;color:#4B2A8C;font-size:14px;white-space:nowrap}' +
+      '.da-hist-month,#daHist input[type=month]{min-height:38px;border:1px solid #D8CFEA;border-radius:10px;padding:0 10px;font:inherit;font-size:14px;background:#fff;color:#1C1730}' +
+      '.da-hist-go{min-height:38px;padding:0 16px!important;border:1px solid #4B2A8C!important;border-radius:10px!important;background:#4B2A8C!important;background-image:none!important;color:#fff!important;font:inherit;font-size:14px!important;font-weight:600;cursor:pointer;box-shadow:none!important;transform:none!important}' +
+      '#daHist{position:fixed;inset:0;z-index:2147482000;background:rgba(28,23,48,.5);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;box-sizing:border-box}' +
+      '#daHist .da-hist-card{background:#fff;border-radius:16px;width:min(980px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);color:#1C1730}' +
+      '#daHist .da-hist-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid #E4E0EC}#daHist .da-hist-top b{font-size:17px;flex:1;min-width:200px}' +
+      '#daHist .da-hist-list{overflow:auto;padding:12px 16px 16px}#daHist .da-hist-table{min-width:640px}' +
+      '@media print{#daViewer,#daHist,.da-toast,.da-hist{display:none!important}}';
     document.head.appendChild(st);
   }
 
