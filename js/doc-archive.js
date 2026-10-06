@@ -231,17 +231,58 @@
     if (!head || head.querySelector('.da-hist')) return;
     var box = document.createElement('div');
     box.className = 'da-hist';
-    box.innerHTML = '<span class="da-hist-label">📅 เอกสารย้อนหลัง</span><input type="month" class="da-hist-month" aria-label="เลือกเดือนเอกสารย้อนหลัง" value="' + monthNow() + '"><button type="button" class="da-hist-go" data-t="none">ดู</button>';
-    var inp = box.querySelector('input'), go = function () { if (inp.value) openHistory(type, inp.value); };
+    box.innerHTML = '<span class="da-hist-label">📅 เอกสารย้อนหลัง</span><select class="da-hist-site" aria-label="เลือกไซด์งาน"><option value="">ทุกไซด์งาน</option></select><input type="month" class="da-hist-month" aria-label="เลือกเดือนเอกสารย้อนหลัง" value="' + monthNow() + '"><button type="button" class="da-hist-go" data-t="none">ดู</button>';
+    var inp = box.querySelector('input'), sel = box.querySelector('select');
+    var go = function () { openHistory(type, inp.value, sel.value); };
     inp.addEventListener('change', go);
     box.querySelector('button').addEventListener('click', go);
     head.appendChild(box);
+    fillSites(type, sel);
   }
-  async function openHistory(type, ym) {
+  // ไซด์งาน = customer branch; documents spell the same branch differently, so group by สาขาที่ when present
+  function siteKey(name) { var m = String(name || '').match(/สาขาที่\s*0*(\d+)/); return m ? 'b' + m[1] : String(name || '').replace(/\s+/g, ' ').trim(); }
+  function siteLabel(name) {
+    var n = String(name || '').replace(/^\s*\d{3,5}\s*·\s*/, '').replace(/การไฟฟ้าส่วนภูมิภาค/g, '').replace(/สาขาอำเภอ|สาขา(?!ที่)/g, '').replace(/^\s*(อำเภอ|จังหวัด)/, '').replace(/\s+/g, ' ').trim();
+    var m = n.match(/^(.*?)\(\s*สาขาที่\s*(\d+)\s*\)/);
+    return m ? (m[1].trim() || 'สาขา') + ' · ' + m[2] : n;
+  }
+  var sitesCache = {}, siteAlias = {};
+  function siteOf(name) { var k = siteKey(name); return siteAlias[k] || k; }
+  async function loadSites(type) {
+    if (sitesCache[type]) return sitesCache[type];
+    var j = await call({ action: 'list', doc_type: type, limit: 1000 });
+    var by = {};
+    (j.documents || []).forEach(function (d) {
+      if (!d.customer_name) return;
+      var k = siteKey(d.customer_name), o = by[k] || (by[k] = { key: k, names: {}, n: 0 });
+      o.n++; o.names[d.customer_name] = (o.names[d.customer_name] || 0) + 1;
+    });
+    var list = Object.keys(by).map(function (k) {
+      var o = by[k], best = Object.keys(o.names).sort(function (a, b) { return o.names[b] - o.names[a]; })[0];
+      return { key: k, label: siteLabel(best), base: siteLabel(best).split(' · ')[0] };
+    });
+    // names written without "สาขาที่" (e.g. ใบตั้งหนี้) join the branch with the same place name
+    var branchByBase = {};
+    list.forEach(function (x) { if (/^b\d+$/.test(x.key) && !branchByBase[x.base]) branchByBase[x.base] = x.key; });
+    list = list.filter(function (x) {
+      if (/^b\d+$/.test(x.key) || !branchByBase[x.base]) return true;
+      siteAlias[x.key] = branchByBase[x.base]; return false;
+    }).sort(function (a, b) { return a.label.localeCompare(b.label, 'th'); });
+    sitesCache[type] = list;
+    return list;
+  }
+  async function fillSites(type, sel) {
+    try {
+      var list = await loadSites(type), cur = sel.value;
+      sel.innerHTML = '<option value="">ทุกไซด์งาน</option>' + list.map(function (x) { return '<option value="' + esc(x.key) + '">' + esc(x.label) + '</option>'; }).join('');
+      sel.value = cur;
+    } catch (_) {}
+  }
+  async function openHistory(type, ym, site) {
     var m = document.getElementById('daHist');
     if (!m) {
       m = document.createElement('div'); m.id = 'daHist';
-      m.innerHTML = '<div class="da-hist-card" role="dialog" aria-modal="true"><div class="da-hist-top"><b data-h="title"></b><input type="month" data-h="month"><button type="button" class="da-btn ghost" data-h="close">✕ ปิด</button></div><div data-h="list" class="da-hist-list"></div></div>';
+      m.innerHTML = '<div class="da-hist-card" role="dialog" aria-modal="true"><div class="da-hist-top"><b data-h="title"></b><select data-h="site" aria-label="เลือกไซด์งาน"><option value="">ทุกไซด์งาน</option></select><input type="month" data-h="month"><button type="button" class="da-btn ghost" data-h="close">✕ ปิด</button></div><div data-h="list" class="da-hist-list"></div></div>';
       document.body.appendChild(m);
       m.addEventListener('click', function (e) {
         if (e.target === m || e.target.closest('[data-h="close"]')) { m.style.display = 'none'; return; }
@@ -250,21 +291,30 @@
         if (b.dataset.hv === 'view') view(id);
         else { m.style.display = 'none'; edit(id); }
       });
-      m.querySelector('[data-h="month"]').addEventListener('change', function () { if (this.value) openHistory(m._type, this.value); });
+      var re = function () { openHistory(m._type, m.querySelector('[data-h="month"]').value, m.querySelector('[data-h="site"]').value); };
+      m.querySelector('[data-h="month"]').addEventListener('change', re);
+      m.querySelector('[data-h="site"]').addEventListener('change', re);
     }
+    site = site || '';
+    var siteSel = m.querySelector('[data-h="site"]');
+    if (m._type !== type) { siteSel.innerHTML = '<option value="">ทุกไซด์งาน</option>'; }
     m._type = type;
     m.style.display = 'flex';
-    m.querySelector('[data-h="month"]').value = ym;
-    var y = Number(ym.slice(0, 4)), mo = Number(ym.slice(5, 7));
-    m.querySelector('[data-h="title"]').textContent = (TYPE_LABEL[type] || '') + ' · ' + TH_MONTHS[mo - 1] + ' ' + (y + 543);
+    m.querySelector('[data-h="month"]').value = ym || '';
+    await fillSites(type, siteSel); siteSel.value = site;
+    var siteName = site ? (siteSel.options[siteSel.selectedIndex] || {}).text || '' : '';
+    var y = ym ? Number(ym.slice(0, 4)) : 0, mo = ym ? Number(ym.slice(5, 7)) : 0;
+    m.querySelector('[data-h="title"]').textContent = (TYPE_LABEL[type] || '') + ' · ' + (ym ? TH_MONTHS[mo - 1] + ' ' + (y + 543) : 'ทุกเดือน') + (siteName ? ' · ' + siteName : '');
     var list = m.querySelector('[data-h="list"]');
     list.innerHTML = '<div class="da-empty">กำลังโหลด...</div>';
-    var last = new Date(y, mo, 0).getDate();
+    var req = (m._req = (m._req || 0) + 1);
     try {
-      var j = await call({ action: 'list', doc_type: type, from: ym + '-01', to: ym + '-' + String(last).padStart(2, '0') });
-      if (m._type !== type || m.querySelector('[data-h="month"]').value !== ym) return;
-      var docs = j.documents || [];
-      if (!docs.length) { list.innerHTML = '<div class="da-empty">ไม่มี' + esc(TYPE_LABEL[type]) + 'ในเดือนนี้</div>'; return; }
+      var body = { action: 'list', doc_type: type, limit: 1000 };
+      if (ym) { body.from = ym + '-01'; body.to = ym + '-' + String(new Date(y, mo, 0).getDate()).padStart(2, '0'); }
+      var j = await call(body);
+      if (req !== m._req) return;
+      var docs = (j.documents || []).filter(function (d) { return !site || siteOf(d.customer_name) === site; });
+      if (!docs.length) { list.innerHTML = '<div class="da-empty">ไม่มี' + esc(TYPE_LABEL[type]) + (ym ? 'ในเดือนนี้' : '') + (siteName ? 'ของ ' + esc(siteName) : '') + '</div>'; return; }
       list.innerHTML = '<div class="da-count">' + docs.length + ' เอกสาร</div><table class="da-table da-hist-table"><thead><tr><th>เลขที่</th><th>วันที่เอกสาร</th><th>ลูกค้า</th><th class="da-r">ยอดรวม</th><th></th></tr></thead><tbody>' +
         docs.map(function (d) {
           return '<tr><td><b>' + esc(d.doc_no) + '</b></td><td>' + esc(thDate(d.doc_date)) + '</td><td class="da-cust">' + esc(d.customer_name || '-') + '</td><td class="da-r">' + (d.total_amount == null ? '-' : money(d.total_amount)) + '</td>' +
@@ -597,6 +647,7 @@
       '.da-toast.ok{background:#166534}.da-toast.err{background:#9f1239}' +
       '@media (max-width:860px){.da-toast{bottom:84px}.da-head h2{font-size:22px}}' +
       '.da-hist{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}.da-hist-label{font-weight:700;color:#4B2A8C;font-size:14px;white-space:nowrap}' +
+      '.da-hist-site,#daHist select{min-height:38px;max-width:260px;border:1px solid #D8CFEA;border-radius:10px;padding:0 8px;font:inherit;font-size:14px;background:#fff;color:#1C1730}' +
       '.da-hist-month,#daHist input[type=month]{min-height:38px;border:1px solid #D8CFEA;border-radius:10px;padding:0 10px;font:inherit;font-size:14px;background:#fff;color:#1C1730}' +
       '.da-hist-go{min-height:38px;padding:0 16px!important;border:1px solid #4B2A8C!important;border-radius:10px!important;background:#4B2A8C!important;background-image:none!important;color:#fff!important;font:inherit;font-size:14px!important;font-weight:600;cursor:pointer;box-shadow:none!important;transform:none!important}' +
       '#daHist{position:fixed;inset:0;z-index:2147482000;background:rgba(28,23,48,.5);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;box-sizing:border-box}' +
