@@ -1,0 +1,41 @@
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+const url=Deno.env.get("SUPABASE_URL")!;let key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";try{const x=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}");if(x?.default)key=x.default;}catch(_){ }
+const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});const CH="2011407195";
+const H={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
+const J=(b:any,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...H,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
+const cols="id,created_at,username,role,is_active,expires_at,last_seen_at,can_create_users,can_upload_data,can_edit_users,can_set_expiry,can_toggle_users,can_delete_users,can_disconnect_users,can_manage_permissions,can_access_user_management,line_user_id,line_display_name,can_access_qc,can_access_payroll,can_manage_payroll,can_access_staff_expenses,can_manage_staff_expenses,can_access_invoice,can_access_billing";
+const authCache=new Map<string,{until:number,u:any}>();const payrollCache=new Map<string,{until:number,rows:any[]}>();
+async function auth(req:Request){const t=(req.headers.get("authorization")||"").replace(/^Bearer\s+/i,"").trim();if(!t)throw Error("AUTH_REQUIRED");const hit=authCache.get(t);if(hit&&hit.until>Date.now())return hit.u;let u:any=null;const looksSession=/^[a-f0-9]{64}$/i.test(t);
+ if(looksSession){const {data:s,error:se}=await db.from("app_sessions").select("user_id,expires_at,is_active").eq("token",t).maybeSingle();if(se)throw se;if(s?.is_active&&s.expires_at&&new Date(s.expires_at).getTime()>Date.now()){const r=await db.from("app_users").select(cols).eq("id",s.user_id).maybeSingle();if(r.error)throw r.error;u=r.data;}}
+ if(!u){const vr=await fetch("https://api.line.me/oauth2/v2.1/verify?access_token="+encodeURIComponent(t));const v=await vr.json().catch(()=>({}));if(vr.ok&&String(v?.client_id||"")===CH&&Number(v?.expires_in)>0){const pr=await fetch("https://api.line.me/v2/profile",{headers:{Authorization:"Bearer "+t}});const p=await pr.json().catch(()=>({}));if(pr.ok&&p?.userId){const r=await db.from("app_users").select(cols).eq("line_user_id",p.userId).maybeSingle();if(r.error)throw r.error;u=r.data;}}}
+ if(!u)throw Error("AUTH_INVALID");if(!u.is_active)throw Error("USER_DISABLED");if(u.expires_at&&new Date(u.expires_at).getTime()<=Date.now())throw Error("USER_EXPIRED");const out={...u,admin:String(u.role||"").toLowerCase()==="admin"};authCache.set(t,{until:Date.now()+60000,u:out});return out;}
+// Payroll batches (รอบเงินเดือน). payroll_current_month() also opens the new batch after the 3rd if needed.
+async function payrollPeriods(){
+  const {data:cur,error:ce}=await db.rpc("payroll_current_month");if(ce)throw ce;
+  const {data,error}=await db.from("payroll_periods").select("source_month,period_month,status,starts_at,closed_at").order("period_month",{ascending:false}).limit(36);if(error)throw error;
+  return {current:String(cur||""),periods:data||[]};
+}
+async function payrollRows(month:string,fresh=false){
+  if(!fresh){const hit=payrollCache.get(month);if(hit&&hit.until>Date.now())return hit.rows;}
+  const {data,error}=await db.from("payroll_master_rows")
+    .select("id,source_row,source_month,employee_name,national_id,bank_name,bank_account,site_name,work_count,rate_per_unit,gross_amount,special_amount,withholding_amount,advance_deduction,shirt_cost,total_amount,transfer_amount,profile_id,is_active,updated_at,notes")
+    .eq("source_month",month).eq("is_active",true).gte("source_row",1).order("source_row").limit(500);
+  if(error)throw error;
+  const pids=[...new Set((data||[]).map((x:any)=>x.profile_id).filter(Boolean))];
+  const bound=new Map<number,any>();
+  if(pids.length){
+    const {data:ps,error:pe}=await db.from("employee_payroll_profiles").select("id,app_user_id").in("id",pids);
+    if(pe)throw pe;
+    for(const p of ps||[])bound.set(Number(p.id),p.app_user_id);
+  }
+  const rows=(data||[]).map((x:any)=>({...x,app_user_id:x.profile_id?bound.get(Number(x.profile_id))||null:null,national_id_last4:String(x.national_id||"").replace(/\D/g,"").slice(-4)}));
+  payrollCache.set(month,{until:Date.now()+15000,rows});
+  return rows;
+}
+async function expenseItems(cid:number){const r=await db.from("staff_expense_items").select("id,cycle_id,staff_user_id,staff_name,expense_date,category_id,category_name_snapshot,other_detail,amount,bank_name,bank_account,payment_method,note,source_type,source_ref,is_active,created_at,updated_at").eq("cycle_id",cid).eq("is_active",true).order("expense_date").order("id");if(r.error)throw r.error;return r.data||[];}
+Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{headers:H});if(req.method!=="POST")return J({error:"METHOD_NOT_ALLOWED"},405);try{const u=await auth(req);const b=await req.json().catch(()=>({}));const a=String(b.action||"");
+ if(a==="users"){if(!(u.admin||u.can_access_user_management===true))throw Error("ACCESS_DENIED");const {data,error}=await db.from("app_users").select(cols).order("created_at",{ascending:false});if(error)throw error;const now=Date.now();return J({ok:true,users:(data||[]).map((x:any)=>({...x,is_online:x.is_active===true&&!!x.last_seen_at&&(now-new Date(x.last_seen_at).getTime())<=120000})),current_user_id:u.id,current_permissions:{role:u.role,can_access_user_management:u.admin||u.can_access_user_management===true,can_create_users:u.admin||u.can_create_users===true,can_edit_users:u.admin||u.can_edit_users===true,can_set_expiry:u.admin||u.can_set_expiry===true,can_toggle_users:u.admin||u.can_toggle_users===true,can_delete_users:u.admin||u.can_delete_users===true,can_disconnect_users:u.admin||u.can_disconnect_users===true,can_manage_permissions:u.admin||u.can_manage_permissions===true,can_access_payroll:u.admin||u.can_access_payroll===true,can_manage_payroll:u.admin||u.can_manage_payroll===true,can_access_staff_expenses:u.admin||u.can_access_staff_expenses===true,can_manage_staff_expenses:u.admin||u.can_manage_staff_expenses===true,can_access_invoice:u.admin||u.can_access_invoice===true,can_access_billing:u.admin||u.can_access_billing===true}});}
+ if(a==="payroll"){const manage=u.admin||u.can_manage_payroll===true;if(!(u.admin||u.can_access_payroll===true||manage))throw Error("ACCESS_DENIED");const pp=await payrollPeriods();const asked=String(b.source_month||"").slice(0,20);const month=asked&&pp.periods.some((p:any)=>p.source_month===asked)?asked:pp.current;const period=pp.periods.find((p:any)=>p.source_month===month)||null;const open=period?.status==="OPEN";const fresh=b.fresh===true;const rows=await payrollRows(month,fresh);return J({ok:true,employees:rows,can_manage:manage&&open,manage_role:manage,period_open:open,source_month:month,current_month:pp.current,periods:pp.periods,record_count:rows.length,cached:!fresh});}
+ if(a==="expense_bootstrap"||a==="expense_items"){const manage=u.admin||u.can_manage_staff_expenses===true;if(!(u.admin||u.can_access_staff_expenses===true||manage))throw Error("ACCESS_DENIED");if(a==="expense_items"){const cid=Number(b.cycle_id||0);return J({ok:true,items:cid?await expenseItems(cid):[],can_manage:manage});}const [cr,gr]=await Promise.all([db.from("staff_expense_cycles").select("id,cycle_month,cycle_type,scheduled_date,actual_date,status,note,created_at,updated_at").order("cycle_month",{ascending:false}).order("scheduled_date",{ascending:false}).limit(100),db.from("staff_expense_categories").select("id,category_code,category_name,is_recurring,sort_order,is_active").eq("is_active",true).order("sort_order").order("id")]);if(cr.error)throw cr.error;if(gr.error)throw gr.error;const cycles=cr.data||[];const initialId=Number(b.cycle_id||cycles[0]?.id||0);return J({ok:true,cycles,categories:gr.data||[],can_manage:manage,initial_cycle_id:initialId||null,initial_items:initialId?await expenseItems(initialId):[]});}
+ return J({error:"UNKNOWN_ACTION"},400);
+ }catch(e){const m=e instanceof Error?e.message:String(e);const s=m==="AUTH_REQUIRED"||m==="AUTH_INVALID"?401:m.includes("ACCESS")||m.includes("USER_")?403:500;console.error("web-list-api",m);return J({error:s===500?"SERVER_ERROR":m,detail:s===500?m:undefined},s)}});
