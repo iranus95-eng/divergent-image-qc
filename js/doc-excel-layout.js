@@ -15,6 +15,16 @@
   function cleanText(t) { return String(t == null ? '' : t).replace(/ /g, ' ').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{2,}/g, '\n').trim(); }
   function hasDirectText(el) { for (var n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && /\S/.test(n.nodeValue)) return true; return false; }
   function textOf(el) {
+    // items of a flex row sit on one line on paper, but innerText puts each on its own line
+    var cs = css(el);
+    if (/flex/.test(cs.display) && !/column/.test(cs.flexDirection) && cs.flexWrap === 'nowrap') {
+      var row = [];
+      for (var c = el.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType === 3) { if (/\S/.test(c.nodeValue)) row.push(cleanText(c.nodeValue)); }
+        else if (c.nodeType === 1 && !SKIP[c.tagName] && !isHidden(c)) { var tt = textOf(c); if (tt) row.push(tt); }
+      }
+      return cleanText(row.join(' '));
+    }
     if (!el.querySelector('button,input,select,textarea,script,style')) return cleanText(el.innerText);
     var parts = [];
     for (var n = el.firstChild; n; n = n.nextSibling) {
@@ -67,7 +77,7 @@
       var fs = parseFloat(cs.fontSize) || 14, lh = parseFloat(cs.lineHeight) || fs * 1.25;
       var ta = cs.textAlign, va = cs.verticalAlign;
       leaves.push({
-        b: b, text: text, pb: /^T[DH]$/.test(el.tagName) || !el.parentElement ? null : box(el.parentElement),
+        b: b, text: text, lines: Math.max(text.split('\n').length, Math.round((b.y2 - b.y1) / lh)), pb: /^T[DH]$/.test(el.tagName) || !el.parentElement ? null : box(el.parentElement),
         font: { name: fontName(cs.fontFamily), size: Math.round(fs * 0.75 * 2) / 2, bold: (parseInt(cs.fontWeight, 10) || 400) >= 600, italic: cs.fontStyle === 'italic', underline: /underline/.test(cs.textDecorationLine || cs.textDecoration || ''), color: rgba(cs.color) || 'FF000000' },
         align: {
           h: ta === 'center' ? 'center' : (ta === 'right' || ta === 'end') ? 'right' : 'left',
@@ -192,6 +202,13 @@
         }
       }
       if (g.r2 > g.r1 || g.c2 > g.c1) merges.push(g);
+    });
+    // Excel draws Thai text with taller lines than the browser: grow the last row of a text block
+    // until every line fits (only ever grows, so nothing else moves out of place)
+    placed.forEach(function (p) {
+      var g = p.g, l = p.l, need = l.lines * l.font.size * (l.lines > 1 ? 1.45 : 1.3) + 2, have = 0;
+      for (var r = g.r1; r <= g.r2; r++) have += rows[r] * 0.75;
+      if (need > have + 0.5) rows[g.r2] += (need - have) / 0.75;
     });
     var imgs = [];
     for (var k = 0; k < m.images.length; k++) {
