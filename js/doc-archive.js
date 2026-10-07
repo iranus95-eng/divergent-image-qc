@@ -207,7 +207,7 @@
     var bar = a.bar(root);
     if (type === 'invoice' && !bar.querySelector('.da-save')) {
       var sv = document.createElement('button');
-      sv.type = 'button'; sv.className = 'invoice-small-btn da-save'; sv.textContent = '💾 บันทึกเข้าระบบ';
+      sv.type = 'button'; sv.className = 'invoice-small-btn da-save'; sv.textContent = '💾 บันทึก'; sv.title = 'บันทึกเข้าระบบ';
       sv.addEventListener('click', function () { var html; try { html = capture('invoice'); } catch (e) { toast(e.message, 'err'); return; } archive('invoice', html, 'manual'); });
       bar.insertBefore(sv, bar.firstChild);
     }
@@ -215,7 +215,7 @@
       var ob = document.createElement('button');
       ob.type = 'button';
       ob.className = (type === 'billing' ? 'bi-btn secondary' : type === 'receipt' ? 'rt-btn secondary' : 'invoice-small-btn') + ' da-open';
-      ob.textContent = '📂 เอกสารย้อนหลัง';
+      ob.textContent = type === 'invoice' ? '📂 ย้อนหลัง' : '📂 เอกสารย้อนหลัง'; ob.title = 'เอกสารย้อนหลัง';
       ob.addEventListener('click', function () {
         if (type !== 'invoice') { var r = a.root(); if (r) r.remove(); }
         go(type);
@@ -658,6 +658,10 @@
       '#daHist .da-hist-card{background:#fff;border-radius:16px;width:min(980px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);color:#1C1730}' +
       '#daHist .da-hist-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid #E4E0EC}#daHist .da-hist-top b{font-size:17px;flex:1;min-width:200px}' +
       '#daHist .da-hist-list{overflow:auto;padding:12px 16px 16px}#daHist .da-hist-table{min-width:640px}' +
+      '.da-hist>*{margin:0!important;box-sizing:border-box!important;height:38px!important;min-height:38px!important;align-self:center}.da-hist-label{display:inline-flex;align-items:center}' +
+      '#invoiceWorkspace .workspace-title{align-items:center!important}' +
+      '#invoiceWorkspace .invoice-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px!important;justify-content:stretch!important}' +
+      '#invoiceWorkspace .invoice-actions>button{width:100%!important;min-width:0!important;height:42px!important;min-height:42px!important;margin:0!important;padding:0 8px!important;font-size:14px!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;display:flex!important;align-items:center;justify-content:center;gap:4px}' +
       '@media print{#daViewer,#daHist,.da-toast,.da-hist{display:none!important}}';
     document.head.appendChild(st);
   }
