@@ -165,6 +165,14 @@ function makeCopy(paper,variant,index){
   return clone;
 }
 
+// same 3 pages as the PDF, used by the Excel export
+window.billingPrintDocumentHTML=function(){
+  const root=document.getElementById('billingInvoiceV1');const paper=root&&root.querySelector('#billingPaper');if(!paper)return '';
+  normalizeTaxIdLine(root);
+  const pagesHTML=COPY_VARIANTS.map((variant,index)=>makeCopy(paper,variant,index).outerHTML).join('');
+  return `<!doctype html><html lang="th"><head><meta charset="utf-8"><style>${PRINT_CSS}\nhtml,body{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;margin:0!important}.bi-pdf-page{display:block!important;margin:0!important}</style></head><body>${pagesHTML}</body></html>`;
+};
+
 function generateThreeCopyPdf(root){
   const paper=root&&root.querySelector('#billingPaper');
   if(!paper)return;
