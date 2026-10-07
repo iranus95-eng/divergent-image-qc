@@ -166,7 +166,7 @@
   'use strict';
   if(document.querySelector('script[data-billing-a4-fix]'))return;
   const s=document.createElement('script');
-  s.src='./js/billing-a4-fix.js?v=20260915-0523';
+  s.src='./js/billing-a4-fix.js?v=20261007-1';
   s.async=false;
   s.setAttribute('data-billing-a4-fix','1');
   document.head.appendChild(s);
@@ -177,7 +177,7 @@
   'use strict';
   if(document.querySelector('script[data-receipt-tax-v1]'))return;
   const s=document.createElement('script');
-  s.src='./js/receipt-tax-invoice.js?v=20260915-0900';
+  s.src='./js/receipt-tax-invoice.js?v=20261007-1';
   s.async=false;
   s.setAttribute('data-receipt-tax-v1','1');
   document.head.appendChild(s);
