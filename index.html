@@ -1836,6 +1836,14 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     </section>
 
     <section class="payroll-workspace" id="payrollWorkspace">
+      <style>
+      #payrollWorkspace .payroll-tools{grid-template-columns:minmax(200px,240px) 1fr auto}
+      .payroll-month-select{width:100%;padding:11px 12px;border:1px solid #ded1ee;border-radius:11px;background:#fff;font:inherit;color:inherit;box-sizing:border-box}
+      .payroll-period-note{margin:0 0 12px;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5}
+      .payroll-period-note.is-open{background:#eef8f1;color:#1d6b3d;border:1px solid #cfe9d8}
+      .payroll-period-note.is-closed{background:#fff6e8;color:#8a5a12;border:1px solid #f1dcb4}
+      @media (max-width:760px){#payrollWorkspace .payroll-tools{grid-template-columns:1fr}}
+      </style>
       <div class="payroll-head">
         <div><h2>จัดการเงินเดือน</h2><p>ข้อมูลพนักงาน • รูปแบบตามข้อมูลต้นฉบับ • เพิ่มใหม่ต่อท้ายอัตโนมัติ</p></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -1844,12 +1852,13 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
           <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
         </div>
       </div>
+      <div class="payroll-period-note" id="payrollPeriodNote" hidden></div>
       <div class="payroll-kpis">
-        <div class="payroll-kpi"><span>รายการเดือนล่าสุดที่แสดง</span><b id="payrollCount">0</b></div>
+        <div class="payroll-kpi"><span>รายการในรอบที่แสดง</span><b id="payrollCount">0</b></div>
         <div class="payroll-kpi"><span>ผูกบัญชีผู้ใช้แล้ว</span><b id="payrollBound">0</b></div>
         <div class="payroll-kpi"><span>สถานะระบบ</span><b style="font-size:18px;color:#18884a">พร้อมใช้งาน</b></div>
       </div>
-      <div class="payroll-tools"><input id="payrollSearch" placeholder="ค้นหาชื่อ / ไซด์งาน / เลขบัตร / ธนาคาร / เลขบัญชี" oninput="schedulePayrollFilter()"><button onclick="loadPayrollEmployees(true)">รีเฟรช</button></div>
+      <div class="payroll-tools"><select id="payrollMonthSelect" class="payroll-month-select" title="เลือกรอบเงินเดือน" onchange="changePayrollMonth(this.value)"><option value="">รอบปัจจุบัน</option></select><input id="payrollSearch" placeholder="ค้นหาชื่อ / ไซด์งาน / เลขบัตร / ธนาคาร / เลขบัญชี" oninput="schedulePayrollFilter()"><button onclick="loadPayrollEmployees(true)">รีเฟรช</button></div>
       <div id="payrollPager" style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:-4px 0 10px;color:#735c8c;font-size:12px"><span id="payrollPagerInfo"></span><div style="display:flex;gap:6px"><button class="payroll-edit" onclick="payrollPrevPage()">‹ ก่อนหน้า</button><button class="payroll-edit" onclick="payrollNextPage()">ถัดไป ›</button></div></div>
       <div class="payroll-table-wrap"><table class="payroll-table"><thead><tr><th>ลำดับ</th><th>ชื่อพนักงาน</th><th>เลขบัตรประชาชน</th><th>ไซด์งาน</th><th>จำนวนราย</th><th>เรต</th><th>ยอดก่อนหัก</th><th>เงินพิเศษ</th><th>หัก 3%</th><th>หักเบิกล่วงหน้า</th><th>ค่าเสื้อ</th><th>ยอดสุทธิ</th><th>ธนาคาร</th><th>เลขบัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody id="payrollBody"><tr><td colspan="16">กำลังโหลด...</td></tr></tbody></table></div>
       <div class="payroll-status" id="payrollStatus"></div>
@@ -2111,12 +2120,26 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     // update.  This preserves their ids so an edit never turns into a new row.
     let payrollRateDrafts=[]; let payrollAdjustmentDrafts=[];
     let payrollPage=1; const PAYROLL_PAGE_SIZE=200; let payrollFilterTimer=null; let payrollVisibleRows=[];
-    const PAYROLL_CACHE_KEY="divergent_payroll_list_cache_v3"; const PAYROLL_CACHE_TTL=5*60*1000;
+    const PAYROLL_CACHE_KEY="divergent_payroll_list_cache_v4"; let payrollSelectedMonth=""; let payrollPeriodsInfo=[]; let payrollCurrentMonth=""; const PAYROLL_CACHE_TTL=5*60*1000;
     // 2026-10-04: these were assigned but never declared; the ReferenceError stopped fresh payroll loads.
     let payrollLoadPromise=null; let payrollLoadedAt=0;
     function readPayrollCache(){try{const x=JSON.parse(localStorage.getItem(PAYROLL_CACHE_KEY)||"null");if(!x||!Array.isArray(x.employees))return null;return x}catch(_){return null}}
-    function writePayrollCache(d){try{localStorage.setItem(PAYROLL_CACHE_KEY,JSON.stringify({employees:d.employees||[],can_manage:!!d.can_manage,source_month:d.source_month||"",at:Date.now()}))}catch(_){}}
-    function usePayrollCache(){const c=readPayrollCache();if(!c)return false;payrollEmployees=c.employees;payrollCanManage=!!c.can_manage;filterPayrollEmployees();const st=document.getElementById("payrollStatus");if(st)st.textContent=`แสดงข้อมูลที่บันทึกไว้ ${payrollEmployees.length} รายการ • กำลังตรวจข้อมูลล่าสุดเบื้องหลัง`;return true}
+    function writePayrollCache(d){if(payrollSelectedMonth&&payrollSelectedMonth!==d.current_month)return;try{localStorage.setItem(PAYROLL_CACHE_KEY,JSON.stringify({employees:d.employees||[],can_manage:!!d.can_manage,source_month:d.source_month||"",current_month:d.current_month||"",periods:d.periods||[],period_open:d.period_open!==false,at:Date.now()}))}catch(_){}}
+    function usePayrollCache(){if(payrollSelectedMonth)return false;const c=readPayrollCache();if(!c)return false;payrollEmployees=c.employees;payrollCanManage=!!c.can_manage;applyPayrollPeriodInfo(c);filterPayrollEmployees();const st=document.getElementById("payrollStatus");if(st)st.textContent=`แสดงข้อมูลที่บันทึกไว้ ${payrollEmployees.length} รายการ • กำลังตรวจข้อมูลล่าสุดเบื้องหลัง`;return true}
+
+    // รอบเงินเดือน: ปิดรอบหลังวันที่ 3 ของเดือนถัดไป รอบที่ปิดแล้วดูได้อย่างเดียว
+    function payrollMonthLabel(code){const m={"มค":"มกราคม","กพ":"กุมภาพันธ์","มีค":"มีนาคม","เมย":"เมษายน","พค":"พฤษภาคม","มิย":"มิถุนายน","กค":"กรกฎาคม","สค":"สิงหาคม","กย":"กันยายน","ตค":"ตุลาคม","พย":"พฤศจิกายน","ธค":"ธันวาคม"};const r=String(code||"").match(/^(\D+)(\d{2})$/);return r&&m[r[1]]?`${m[r[1]]} 25${r[2]}`:String(code||"")}
+    function applyPayrollPeriodInfo(d){
+      if(Array.isArray(d.periods)&&d.periods.length)payrollPeriodsInfo=d.periods;
+      if(d.current_month)payrollCurrentMonth=d.current_month;
+      const month=d.source_month||payrollCurrentMonth;const open=d.period_open!==false;
+      const sel=document.getElementById("payrollMonthSelect");
+      if(sel&&payrollPeriodsInfo.length){sel.innerHTML=payrollPeriodsInfo.map(p=>`<option value="${escapeHtml(p.source_month)}">${escapeHtml(payrollMonthLabel(p.source_month))}${p.status==="OPEN"?" • รอบปัจจุบัน":" • ปิดรอบแล้ว"}</option>`).join("");sel.value=month;}
+      const note=document.getElementById("payrollPeriodNote");
+      if(note&&month){note.hidden=false;if(open){note.className="payroll-period-note is-open";note.textContent=`รอบ ${payrollMonthLabel(month)} • เปิดรับรายการ รวมเบิกเงินล่วงหน้าที่อนุมัติตั้งแต่วันที่ 4 • ปิดรอบอัตโนมัติหลังวันที่ 3 ของเดือนถัดไป`;}else{note.className="payroll-period-note is-closed";note.textContent=`รอบ ${payrollMonthLabel(month)} ปิดรอบแล้ว • ดูได้อย่างเดียว แก้ไขไม่ได้`;}}
+      const add=document.getElementById("payrollAddBtn");if(add)add.style.display=payrollCanManage?"":"none";
+    }
+    async function changePayrollMonth(v){payrollSelectedMonth=(v&&v!==payrollCurrentMonth)?v:"";payrollEmployees=[];payrollPage=1;const b=document.getElementById("payrollBody");if(b)b.innerHTML='<tr><td colspan="16" style="padding:18px;text-align:center">กำลังโหลดรอบ '+escapeHtml(payrollMonthLabel(v))+'...</td></tr>';await loadPayrollEmployees(true);}
     function schedulePayrollFilter(){clearTimeout(payrollFilterTimer);payrollFilterTimer=setTimeout(()=>{payrollPage=1;filterPayrollEmployees()},120)}
     function payrollPrevPage(){if(payrollPage>1){payrollPage--;renderPayrollPage()}}
     function payrollNextPage(){const pages=Math.max(1,Math.ceil(payrollVisibleRows.length/PAYROLL_PAGE_SIZE));if(payrollPage<pages){payrollPage++;renderPayrollPage()}}
@@ -2690,7 +2713,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
 
 
     async function payrollApi(action,payload={}){const accessToken=await getBestDataToken();if(!accessToken)throw new Error("AUTH_REQUIRED");const r=await fetch(PAYROLL_WEB_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){throw new Error("PAYROLL_INVALID_RESPONSE")}if(r.ok)return d;const err=String(d.error||("HTTP "+r.status));if(err!=="LINE_AUTH_FAILED"||action!=="get_employee")throw new Error(err);const list=await webListApi("payroll");const employee=(list.employees||[]).find(x=>String(x.id||x.master_row_id||"")===String(payload.id||payload.employee_id||payload.master_row_id||""))||{};return {...list,employee}}async function payrollListApi(force=false){
-      return await webListApi("payroll",force?{fresh:true}:{});
+      const q=force?{fresh:true}:{};if(payrollSelectedMonth)q.source_month=payrollSelectedMonth;return await webListApi("payroll",q);
     }
 
 
@@ -2835,7 +2858,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
           if(ra!==rb)return ra-rb;
           return String(a.employee_name||"").localeCompare(String(b.employee_name||""),"th");
         });
-        payrollCanManage=!!d.can_manage; payrollPage=1; writePayrollCache({...d,employees:payrollEmployees});
+        payrollCanManage=!!d.can_manage; payrollPage=1; applyPayrollPeriodInfo(d); writePayrollCache({...d,employees:payrollEmployees});
         filterPayrollEmployees();
         if(st)st.textContent=`พร้อมใช้งาน • ${payrollEmployees.length} รายการ • อัปเดตล่าสุด ${new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;
         return true;
