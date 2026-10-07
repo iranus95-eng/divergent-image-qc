@@ -14,8 +14,8 @@ function boot(){
   loadOnce('data-billing-final-layout','./js/billing-final-layout.js?v=20261007-2');
   loadOnce('data-receipt-smart-dropdowns','./js/receipt-smart-dropdowns.js?v=20261004-1');
   // Shell A (2026-10-04): home-menu-dedupe.js retired — the shell renders the menu once.
-  loadOnce('data-receipt-signature-fix','./js/receipt-signature-fix.js?v=20260915-1647');
-  loadOnce('data-receipt-final-layout','./js/receipt-final-layout.js?v=20261002-1402');
+  loadOnce('data-receipt-signature-fix','./js/receipt-signature-fix.js?v=20261007-1');
+  loadOnce('data-receipt-final-layout','./js/receipt-final-layout.js?v=20261007-2');
   loadOnce('data-receipt-header-align','./js/receipt-header-align.js?v=20260916-1238');
   loadOnce('data-receipt-company-tax-label','./js/receipt-company-tax-label.js?v=20260916-1137');
   loadOnce('data-customer-import','./js/customer-import.js?v=20260917-1040');

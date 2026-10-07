@@ -90,7 +90,8 @@
     R + ' .rt-signs{position:static!important;margin:5.2mm 0 0!important}',
     R + ' .rt-signs .rt-sign{height:30.4mm!important;min-height:30.4mm!important;max-height:30.4mm!important}',
     R + ' .rt-sign,' + R + ' .rt-sign *{font-size:9.35pt!important;line-height:1.35!important}',
-    R + ' .rt-sign.center span:first-child{font-size:7.65pt!important}'
+    // every line in the three boxes the same size, on one line, inside its box
+    R + ' .rt-sign.center>span{white-space:nowrap!important;overflow:hidden!important;max-width:100%!important}'
   ].join('\n');
 
   window.__DOC_EXCEL_CSS = CSS;

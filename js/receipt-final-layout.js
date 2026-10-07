@@ -162,6 +162,48 @@ function addBlankRows(paper){
   }
 }
 
+// Every item row holds one line of text, so all rows keep the same height and size.
+// A description too long for its cell continues on the next row (split on Thai word breaks),
+// and an empty filler row is dropped so the table keeps its size.
+const SEGMENTER=typeof Intl!=='undefined'&&Intl.Segmenter?new Intl.Segmenter('th',{granularity:'word'}):null;
+function lineCount(td){
+  const r=td.ownerDocument.createRange();r.selectNodeContents(td);
+  const tops=new Set();[...r.getClientRects()].forEach(x=>{if(x.width>0.5)tops.add(Math.round(x.top))});
+  return tops.size;
+}
+function fitItemRows(paper){
+  const tbody=paper.querySelector('.rt-table tbody');
+  if(!tbody)return;
+  let splits=0;
+  for(let i=0;i<tbody.rows.length&&splits<30;i++){
+    const tr=tbody.rows[i],td=tr.cells[1];
+    if(!td||td.children.length)continue;
+    const text=td.textContent;
+    if(!text.trim()||lineCount(td)<=1)continue;
+    const raw=SEGMENTER?[...SEGMENTER.segment(text)].map(s=>s.segment):text.split(/(\s+)/);
+    // keep abbreviations such as "มิ.ย." / "พ.ค." in one piece
+    const parts=[];
+    raw.forEach(p=>{const last=parts.length?parts[parts.length-1]:'';if(last&&!/\s$/.test(last)&&!/^\s/.test(p)&&(/\.$/.test(last)||/^\./.test(p)))parts[parts.length-1]=last+p;else parts.push(p)});
+    const fits=n=>{td.textContent=parts.slice(0,n).join('');return lineCount(td)<=1};
+    let lo=1,hi=parts.length-1,best=0;
+    while(lo<=hi){const mid=(lo+hi)>>1;if(fits(mid)){best=mid;lo=mid+1}else hi=mid-1}
+    if(!best){td.textContent=text;continue}
+    // prefer breaking at a space when one is close to the end of the line
+    for(let k=best;k>Math.max(0,best-6);k--){if(/^\s/.test(parts[k]||'')||/\s$/.test(parts[k-1]||'')){best=k;break}}
+    td.textContent=parts.slice(0,best).join('').trimEnd();
+    const nr=tr.ownerDocument.createElement('tr');
+    nr.className='rt-wrap-row';
+    nr.innerHTML='<td></td><td></td><td></td><td></td><td></td>';
+    nr.cells[1].textContent=parts.slice(best).join('').trim();
+    tr.after(nr);
+    splits++;
+    const rows=[...tbody.rows];
+    for(let k=rows.length-1;k>i+1;k--){
+      if(!rows[k].classList.contains('rt-final-extra-blank')&&!rows[k].textContent.trim()){rows[k].remove();break;}
+    }
+  }
+}
+
 function patchPaper(paper){
   if(!paper)return;
   paper.classList.remove('receipt-final-layout-v1');
@@ -169,6 +211,7 @@ function patchPaper(paper){
   themePaper(paper);
   fixTotals(paper);
   addBlankRows(paper);
+  try{fitItemRows(paper)}catch(e){console.warn('receipt rows',e)}
 }
 
 function patchPreview(){
