@@ -67,7 +67,7 @@
       var fs = parseFloat(cs.fontSize) || 14, lh = parseFloat(cs.lineHeight) || fs * 1.25;
       var ta = cs.textAlign, va = cs.verticalAlign;
       leaves.push({
-        b: b, text: text,
+        b: b, text: text, pb: /^T[DH]$/.test(el.tagName) || !el.parentElement ? null : box(el.parentElement),
         font: { name: fontName(cs.fontFamily), size: Math.round(fs * 0.75 * 2) / 2, bold: (parseInt(cs.fontWeight, 10) || 400) >= 600, italic: cs.fontStyle === 'italic', underline: /underline/.test(cs.textDecorationLine || cs.textDecoration || ''), color: rgba(cs.color) || 'FF000000' },
         align: {
           h: ta === 'center' ? 'center' : (ta === 'right' || ta === 'end') ? 'right' : 'left',
@@ -152,7 +152,7 @@
       for (c = g.c1; c <= g.c2; c++) { if (s.top) cell(g.r1, c).border.top = s.top; if (s.bottom) cell(g.r2, c).border.bottom = s.bottom; }
       for (r = g.r1; r <= g.r2; r++) { if (s.left) cell(r, g.c1).border.left = s.left; if (s.right) cell(r, g.c2).border.right = s.right; }
     });
-    var owner = {}, merges = [];
+    var owner = {}, merges = [], placed = [];
     m.leaves.forEach(function (l, li) {
       var g = rng(l.b);
       var free = true, r, c;
@@ -162,8 +162,36 @@
       target.v = l.text; target.font = l.font; target.align = l.align;
       if (free) {
         for (r = g.r1; r <= g.r2; r++) for (c = g.c1; c <= g.c2; c++) owner[r + ',' + c] = li;
-        if (g.r2 > g.r1 || g.c2 > g.c1) merges.push(g);
+        placed.push({ g: g, l: l, li: li });
       }
+    });
+    // Excel's fonts often run a little wider than the browser's: let one-line text use the empty space
+    // beside it inside its own box (never across a border or another text), so it does not get shrunk
+    function edge(r1, r2, c, side) { for (var r = r1; r <= r2; r++) { var k = cells[r + ',' + c]; if (k && k.border[side]) return true; } return false; }
+    function taken(r1, r2, c, side) {
+      for (var r = r1; r <= r2; r++) {
+        if (owner[r + ',' + c] != null) return true;
+        var k = cells[r + ',' + c]; if (k && (k.border[side] || (k.v != null && k.v !== ''))) return true;
+      }
+      return false;
+    }
+    placed.forEach(function (p) {
+      var g = p.g, l = p.l, r;
+      if (l.pb && !l.align.wrap) {
+        if (l.align.h === 'left') {
+          var lim = Math.min(cols.length - 1, nearest(X, l.pb.x2) - 1);
+          while (g.c2 < lim && !edge(g.r1, g.r2, g.c2, 'right') && !taken(g.r1, g.r2, g.c2 + 1, 'left')) { g.c2++; for (r = g.r1; r <= g.r2; r++) owner[r + ',' + g.c2] = p.li; }
+        } else if (l.align.h === 'right') {
+          var lo = Math.max(0, nearest(X, l.pb.x1));
+          while (g.c1 > lo && !edge(g.r1, g.r2, g.c1, 'left') && !taken(g.r1, g.r2, g.c1 - 1, 'right')) {
+            var from = cell(g.r1, g.c1), keep = { v: from.v, font: from.font, align: from.align };
+            from.v = null; from.font = null; from.align = null; // a merged cell shows its top-left value
+            g.c1--; for (r = g.r1; r <= g.r2; r++) owner[r + ',' + g.c1] = p.li;
+            var to = cell(g.r1, g.c1); to.v = keep.v; to.font = keep.font; to.align = keep.align;
+          }
+        }
+      }
+      if (g.r2 > g.r1 || g.c2 > g.c1) merges.push(g);
     });
     var imgs = [];
     for (var k = 0; k < m.images.length; k++) {

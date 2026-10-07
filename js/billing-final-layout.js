@@ -50,11 +50,27 @@ function ensureFontStyle(paper){
   border:1px solid #111!important;
 }
 .bi-paper.${MARK} .bi-signs .bi-sign.bi-sign-party{
-  justify-content:flex-end!important;
-  align-items:stretch!important;
-  text-align:left!important;
-  gap:1.5mm!important;
-  padding-bottom:2.2mm!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  text-align:center!important;
+  padding:1.8mm 2mm 2mm!important;
+}
+/* party boxes mirror the company box: title on top (same place and size), signing line, then the date */
+.bi-paper.${MARK} .bi-sign-party-title{
+  width:100%!important;
+  display:block!important;
+  text-align:center!important;
+  font-size:10.5pt!important;
+  line-height:1.15!important;
+  white-space:nowrap!important;
+  margin:0!important;
+  padding:0!important;
+}
+.bi-paper.${MARK} .bi-sign-party .bi-sign-entry{
+  width:100%!important;
+  min-height:0!important;
+  font-size:11.5pt!important;
+  grid-template-columns:11mm minmax(0,1fr)!important; /* room for "วันที่" so Excel does not shrink it */
 }
 .bi-paper.${MARK} .bi-sign-entry{
   width:100%!important;
@@ -201,6 +217,10 @@ function addBlankRows(paper){
   }
 }
 
+function partyBox(title){
+  return '<div class="bi-sign-company-name bi-sign-party-title">'+title+'</div><div class="bi-sign-authority"><span class="bi-sign-authority-line"></span><div class="bi-sign-entry"><span class="bi-sign-entry-label">วันที่</span><span class="bi-sign-fill-line"></span></div></div>';
+}
+
 function patchSignatures(paper){
   const signs=paper.querySelectorAll('.bi-signs .bi-sign');
   if(signs.length<3)return;
@@ -211,11 +231,11 @@ function patchSignatures(paper){
 
   left.classList.remove('center','bi-sign-company');
   left.classList.add('bi-sign-party');
-  left.innerHTML='<div class="bi-sign-entry"><span class="bi-sign-entry-label">ผู้รับใบแจ้งหนี้</span><span class="bi-sign-fill-line"></span></div><div class="bi-sign-entry"><span class="bi-sign-entry-label">วันที่</span><span class="bi-sign-fill-line"></span></div>';
+  left.innerHTML=partyBox('ผู้รับใบแจ้งหนี้');
 
   middle.classList.remove('center','bi-sign-company');
   middle.classList.add('bi-sign-party');
-  middle.innerHTML='<div class="bi-sign-entry"><span class="bi-sign-entry-label">ผู้ส่งใบแจ้งหนี้</span><span class="bi-sign-fill-line"></span></div><div class="bi-sign-entry"><span class="bi-sign-entry-label">วันที่</span><span class="bi-sign-fill-line"></span></div>';
+  middle.innerHTML=partyBox('ผู้ส่งใบแจ้งหนี้');
 
   right.classList.remove('bi-sign-party');
   right.classList.add('center','bi-sign-company');
