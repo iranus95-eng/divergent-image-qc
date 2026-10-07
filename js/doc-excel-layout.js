@@ -24,8 +24,20 @@
     if (t.length > 1) return null;
     return /[×xX✓✔]/.test(t) ? '\u2612' : '\u2610';
   }
+  // lines written into ONE cell (label + value + tick boxes), so Excel keeps them in one size instead of
+  // shrinking narrow pieces; the text may run on into the empty cells beside it
+  var ONE_CELL = '[data-xl-line],.rt-taxline,.bi-info>div:first-child>.bi-info-line:last-child';
+  function oneCell(el) { try { return el.nodeType === 1 && el.matches(ONE_CELL); } catch (e) { return false; } }
+  function joinRow(el) {
+    var row = [];
+    for (var c = el.firstChild; c; c = c.nextSibling) {
+      if (c.nodeType === 3) { if (/\S/.test(c.nodeValue)) row.push(cleanText(c.nodeValue)); }
+      else if (c.nodeType === 1 && !SKIP[c.tagName] && !isHidden(c)) { var tt = textOf(c); if (tt) row.push(tt.replace(/\n/g, ' ')); }
+    }
+    return cleanText(row.join('  '));
+  }
   function textOf(el) {
-    if (el.nodeType === 1) { var tb = tickBox(el); if (tb) return tb; }
+    if (el.nodeType === 1) { var tb = tickBox(el); if (tb) return tb; if (oneCell(el)) return joinRow(el); }
     // items of a flex row sit on one line on paper, but innerText puts each on its own line
     var cs = css(el);
     if (/flex/.test(cs.display) && !/column/.test(cs.flexDirection) && cs.flexWrap === 'nowrap') {
@@ -108,8 +120,12 @@
       if (fill === 'FFFFFFFF') fill = null;
       if (fill || sides.top || sides.right || sides.bottom || sides.left) decos.push({ b: b, fill: fill, sides: sides });
     }
-    function leaf(el, cs, b) {
+    function leaf(el, cs, b, overflow) {
       var text = textOf(el); if (!text) return;
+      if (overflow) { // the line's own size may differ from its text: take the first text piece's font
+        var first = [].find.call(el.querySelectorAll('*'), function (k) { return hasDirectText(k) && !tickBox(k); });
+        if (first) cs = css(first);
+      }
       var tick = tickBox(el, cs) && el.parentElement;
       if (tick) cs = css(el.parentElement); // box character in the size of the text around it
       var fs = (parseFloat(cs.fontSize) || 14) * (tick ? 1.3 : 1), lh = parseFloat(cs.lineHeight) || fs * 1.25;
@@ -120,7 +136,8 @@
         align: {
           h: ta === 'center' ? 'center' : (ta === 'right' || ta === 'end') ? 'right' : 'left',
           v: /^T[DH]$/.test(el.tagName) ? (va === 'top' ? 'top' : va === 'bottom' ? 'bottom' : 'center') : 'center',
-          wrap: /\n/.test(text) || (b.y2 - b.y1) > lh * 1.6
+          wrap: !overflow && (/\n/.test(text) || (b.y2 - b.y1) > lh * 1.6),
+          overflow: !!overflow
         }
       });
     }
@@ -132,6 +149,7 @@
       var b = box(el);
       if (b.x2 - b.x1 < 0.5 && b.y2 - b.y1 < 0.5) return;
       if (el !== page && tickBox(el, cs)) { leaf(el, cs, b); return; }
+      if (el !== page && oneCell(el)) { deco(el, cs, b); leaf(el, cs, b, true); return; }
       if (el !== page) deco(el, cs, b);
       var cell = /^T[DH]$/.test(el.tagName);
       if (cell || hasDirectText(el)) {
@@ -306,7 +324,7 @@
     var borderId = bXml === this.borders[0] ? 0 : this.idx(this.borders, bXml);
     var numFmtId = 0;
     if (fmt === '#,##0.00') numFmtId = 4; else if (fmt === '#,##0') numFmtId = 3;
-    var al = cl.align, aXml = al ? '<alignment horizontal="' + al.h + '" vertical="' + al.v + '"' + (al.wrap ? ' wrapText="1"' : ' shrinkToFit="1"') + '/>' : ''; // one-line text shrinks rather than clipping when Excel's font runs wider
+    var al = cl.align, aXml = al ? '<alignment horizontal="' + al.h + '" vertical="' + al.v + '"' + (al.wrap ? ' wrapText="1"' : al.overflow ? '' : ' shrinkToFit="1"') + '/>' : ''; // one-line text shrinks rather than clipping when Excel's font runs wider
     var xml = '<xf numFmtId="' + numFmtId + '" fontId="' + fontId + '" fillId="' + fillId + '" borderId="' + borderId + '" xfId="0"' + (numFmtId ? ' applyNumberFormat="1"' : '') + (fontId ? ' applyFont="1"' : '') + (fillId ? ' applyFill="1"' : '') + (borderId ? ' applyBorder="1"' : '') + (aXml ? ' applyAlignment="1">' + aXml + '</xf>' : '/>');
     return this.idx(this.xfs, xml);
   };
