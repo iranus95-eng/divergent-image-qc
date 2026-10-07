@@ -65,7 +65,7 @@ const EXACT_CSS=`${FONT_FACE}
 #invoicePaper.invoice-excel-exact .xl-top .xl-label{padding-left:2px!important}
 #invoicePaper.invoice-excel-exact .xl-top .xl-value{grid-column:2/8!important;padding-left:2px!important}
 #invoicePaper.invoice-excel-exact .xl-top .xl-span{grid-column:1/8!important;padding-left:2px!important}
-#invoicePaper.invoice-excel-exact .xl-top .xl-no-label{grid-column:6!important;justify-content:flex-end!important;align-items:center!important;padding-right:2px!important}
+#invoicePaper.invoice-excel-exact .xl-top .xl-no-label{grid-column:6!important;justify-content:flex-end!important;align-items:flex-end!important;padding-right:2px!important}
 #invoicePaper.invoice-excel-exact .xl-top .xl-no{grid-column:7!important;padding-left:2px!important}
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table{position:absolute!important;left:22.68px!important;top:354px!important;width:730px!important;margin:0!important;border-collapse:collapse!important;border-spacing:0!important;table-layout:fixed!important;font-size:14pt!important;line-height:1.1!important;background:#fff!important}
 #invoicePaper.invoice-excel-exact .invoice-table.xl-table col:nth-child(1){width:57px!important}

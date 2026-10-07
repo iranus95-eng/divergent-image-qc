@@ -52,7 +52,7 @@
     both(' .bi-info>div:last-child .bi-info-line') + '{grid-template-columns:12mm minmax(0,1fr)!important}',
     both(' .bi-info-line b') + '{font-weight:400!important;white-space:nowrap!important}',
     both(' .bi-info-line *') + '{font-size:9.35pt!important}',
-    R + ' .rt-taxline,' + B + ' .bi-info>div:first-child .bi-info-line:last-child{grid-template-columns:max-content minmax(0,1fr)!important;column-gap:4mm!important;margin-top:1mm!important}',
+    R + ' .rt-taxline,' + B + ' .bi-info>div:first-child .bi-info-line:last-child{align-items:center!important;grid-template-columns:max-content minmax(0,1fr)!important;column-gap:4mm!important;margin-top:1mm!important}',
     R + ' .rt-taxline{line-height:4mm!important}',
 
     // ---- item table: header row 25.5pt, body rows 18pt, header text 11pt (not bold) ----
@@ -78,6 +78,8 @@
     B + ' .bi-signs .bi-sign{height:28mm!important;min-height:28mm!important;max-height:28mm!important;font-size:9.35pt!important;line-height:1.3!important}',
     B + ' .bi-sign *{font-size:9.35pt!important;line-height:1.3!important}',
     B + ' .bi-sign-company-name{font-size:8.5pt!important}',
+    // signing line + date / role sit one line higher, leaving a free line under them
+    B + ' .bi-sign-authority{margin:0 auto 4.5mm!important}',
 
     // ---- receipt bottom rows 41-48 ----
     R + ' .rt-bottom{margin-top:1mm!important;gap:3mm!important}',
