@@ -14,7 +14,18 @@
   function isHidden(el, cs) { cs = cs || css(el); return cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0; }
   function cleanText(t) { return String(t == null ? '' : t).replace(/ /g, ' ').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{2,}/g, '\n').trim(); }
   function hasDirectText(el) { for (var n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && /\S/.test(n.nodeValue)) return true; return false; }
+  // a small bordered square (tick box) becomes a box character, so it stays square in Excel
+  function tickBox(el, cs) {
+    cs = cs || css(el);
+    var r = el.getBoundingClientRect(), w = r.width, h = r.height;
+    if (!(w > 6 && w < 26 && h > 6 && h < 26 && Math.abs(w - h) < 5)) return null;
+    if (!borderSide(cs, 'Top') || !borderSide(cs, 'Right') || !borderSide(cs, 'Bottom') || !borderSide(cs, 'Left')) return null;
+    var t = (el.textContent || '').trim();
+    if (t.length > 1) return null;
+    return /[×xX✓✔]/.test(t) ? '\u2612' : '\u2610';
+  }
   function textOf(el) {
+    if (el.nodeType === 1) { var tb = tickBox(el); if (tb) return tb; }
     // items of a flex row sit on one line on paper, but innerText puts each on its own line
     var cs = css(el);
     if (/flex/.test(cs.display) && !/column/.test(cs.flexDirection) && cs.flexWrap === 'nowrap') {
@@ -25,7 +36,8 @@
       }
       return cleanText(row.join(' '));
     }
-    if (!el.querySelector('button,input,select,textarea,script,style')) return cleanText(el.innerText);
+    var boxes = [].filter.call(el.querySelectorAll('*'), function (k) { return tickBox(k); });
+    if (!boxes.length && !el.querySelector('button,input,select,textarea,script,style')) return cleanText(el.innerText);
     var parts = [];
     for (var n = el.firstChild; n; n = n.nextSibling) {
       if (n.nodeType === 3) parts.push(n.nodeValue);
@@ -47,6 +59,29 @@
     if (/sarabun/i.test(first)) return 'TH SarabunPSK';
     return first || 'Tahoma';
   }
+  // the font the browser really drew with (first installed one in the list), so Excel uses the same widths
+  var fontCache = {}, probe = null;
+  function installed(name) {
+    if (!probe) probe = document.createElement('canvas').getContext('2d');
+    var t = 'กขคงจฉ abcdefWM 0123', base = ['monospace', 'serif'];
+    return base.some(function (g) {
+      probe.font = '40px ' + g; var a = probe.measureText(t).width;
+      probe.font = '40px "' + name + '", ' + g; return Math.abs(probe.measureText(t).width - a) > 0.5;
+    });
+  }
+  function webFont(name) { try { var hit = false; document.fonts.forEach(function (f) { if (f.family.replace(/["']/g, '') === name) hit = true; }); return hit; } catch (e) { return false; } }
+  function excelFont(ff) {
+    if (fontCache[ff]) return fontCache[ff];
+    var list = String(ff || '').split(',').map(function (x) { return x.replace(/["']/g, '').trim(); }).filter(Boolean), pick = '';
+    for (var i = 0; i < list.length && !pick; i++) {
+      var n = list[i];
+      if (/sarabun/i.test(n)) { pick = 'TH SarabunPSK'; break; }
+      if (/^(serif|sans-serif|monospace|cursive|fantasy|system-ui)$/i.test(n)) break;
+      if (webFont(n)) continue; // a web font Excel will not have
+      try { if (installed(n)) pick = n; } catch (e) { pick = n; }
+    }
+    return (fontCache[ff] = pick || fontName(ff) === 'TH SarabunPSK' && 'TH SarabunPSK' || 'Tahoma');
+  }
   function borderSide(cs, side) {
     var w = parseFloat(cs['border' + side + 'Width']) || 0, st = cs['border' + side + 'Style'];
     if (w < 0.4 || st === 'none' || st === 'hidden') return null;
@@ -67,6 +102,7 @@
     }
     var leaves = [], decos = [], images = [];
     function deco(el, cs, b) {
+      if (tickBox(el, cs)) return;
       var sides = { top: borderSide(cs, 'Top'), right: borderSide(cs, 'Right'), bottom: borderSide(cs, 'Bottom'), left: borderSide(cs, 'Left') };
       var fill = rgba(cs.backgroundColor);
       if (fill === 'FFFFFFFF') fill = null;
@@ -74,11 +110,13 @@
     }
     function leaf(el, cs, b) {
       var text = textOf(el); if (!text) return;
-      var fs = parseFloat(cs.fontSize) || 14, lh = parseFloat(cs.lineHeight) || fs * 1.25;
+      var tick = tickBox(el, cs) && el.parentElement;
+      if (tick) cs = css(el.parentElement); // box character in the size of the text around it
+      var fs = (parseFloat(cs.fontSize) || 14) * (tick ? 1.3 : 1), lh = parseFloat(cs.lineHeight) || fs * 1.25;
       var ta = cs.textAlign, va = cs.verticalAlign;
       leaves.push({
-        b: b, text: text, lines: Math.max(text.split('\n').length, Math.round((b.y2 - b.y1) / lh)), pb: /^T[DH]$/.test(el.tagName) || !el.parentElement ? null : box(el.parentElement),
-        font: { name: fontName(cs.fontFamily), size: Math.round(fs * 0.75 * 2) / 2, bold: (parseInt(cs.fontWeight, 10) || 400) >= 600, italic: cs.fontStyle === 'italic', underline: /underline/.test(cs.textDecorationLine || cs.textDecoration || ''), color: rgba(cs.color) || 'FF000000' },
+        b: b, text: text, cssFont: (cs.fontStyle === 'italic' ? 'italic ' : '') + cs.fontWeight + ' ' + fs + 'px ' + cs.fontFamily, lines: Math.max(text.split('\n').length, Math.round((b.y2 - b.y1) / lh)), pb: /^T[DH]$/.test(el.tagName) || !el.parentElement ? null : box(el.parentElement),
+        font: { name: excelFont(cs.fontFamily), size: Math.round(fs * 0.75 * 2) / 2, bold: (parseInt(cs.fontWeight, 10) || 400) >= 600, italic: cs.fontStyle === 'italic', underline: /underline/.test(cs.textDecorationLine || cs.textDecoration || ''), color: rgba(cs.color) || 'FF000000' },
         align: {
           h: ta === 'center' ? 'center' : (ta === 'right' || ta === 'end') ? 'right' : 'left',
           v: /^T[DH]$/.test(el.tagName) ? (va === 'top' ? 'top' : va === 'bottom' ? 'bottom' : 'center') : 'center',
@@ -93,6 +131,7 @@
       if (el.tagName === 'svg' || el.tagName === 'SVG') return;
       var b = box(el);
       if (b.x2 - b.x1 < 0.5 && b.y2 - b.y1 < 0.5) return;
+      if (el !== page && tickBox(el, cs)) { leaf(el, cs, b); return; }
       if (el !== page) deco(el, cs, b);
       var cell = /^T[DH]$/.test(el.tagName);
       if (cell || hasDirectText(el)) {
@@ -203,10 +242,22 @@
       }
       if (g.r2 > g.r1 || g.c2 > g.c1) merges.push(g);
     });
+    // Excel's text often runs wider than the browser's: count the lines a wrapped cell will need there
+    var mctx = null;
+    placed.forEach(function (p) {
+      var l = p.l, g = p.g; if (!l.align.wrap || !l.cssFont) return;
+      try {
+        if (!mctx) mctx = document.createElement('canvas').getContext('2d');
+        mctx.font = l.cssFont;
+        var avail = -6; for (var c = g.c1; c <= g.c2; c++) avail += cols[c]; if (avail < 10) return;
+        var n = 0; String(l.text).split('\n').forEach(function (t) { n += Math.max(1, Math.ceil(mctx.measureText(t).width * 1.12 / avail)); });
+        if (n > l.lines) l.lines = n;
+      } catch (e) { }
+    });
     // Excel draws Thai text with taller lines than the browser: grow the last row of a text block
     // until every line fits (only ever grows, so nothing else moves out of place)
     placed.forEach(function (p) {
-      var g = p.g, l = p.l, need = l.lines * l.font.size * (l.lines > 1 ? 1.45 : 1.3) + 2, have = 0;
+      var g = p.g, l = p.l, need = l.lines * l.font.size * (l.lines > 1 ? 1.62 : 1.3) + 2, have = 0;
       for (var r = g.r1; r <= g.r2; r++) have += rows[r] * 0.75;
       if (need > have + 0.5) rows[g.r2] += (need - have) / 0.75;
     });
