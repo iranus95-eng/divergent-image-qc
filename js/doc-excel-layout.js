@@ -210,6 +210,13 @@
       for (var r = g.r1; r <= g.r2; r++) have += rows[r] * 0.75;
       if (need > have + 0.5) rows[g.r2] += (need - have) / 0.75;
     });
+    // rows of a table that differ only by pixel rounding get one common height
+    for (var ri = 0; ri < rows.length;) {
+      var rj = ri;
+      while (rj + 1 < rows.length && rows[ri] >= 12 && Math.abs(rows[rj + 1] - rows[ri]) <= 1.2) rj++;
+      if (rj > ri) { var hi = 0; for (var q = ri; q <= rj; q++) hi = Math.max(hi, rows[q]); for (q = ri; q <= rj; q++) rows[q] = hi; }
+      ri = rj + 1;
+    }
     var imgs = [];
     for (var k = 0; k < m.images.length; k++) {
       var im = m.images[k], data = await imageData(im.el); if (!data) continue;

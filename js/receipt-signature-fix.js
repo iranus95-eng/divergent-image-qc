@@ -12,7 +12,7 @@ const CSS=`
   width:100%!important;
   text-align:center!important;
   white-space:nowrap!important;
-  font-size:9.5pt!important;
+  font-size:10pt!important;
   line-height:1.05!important;
   margin:0 0 auto!important;
 }
@@ -27,11 +27,14 @@ const CSS=`
   display:block!important;
   width:100%!important;
   text-align:center!important;
-  font-size:10.5pt!important;
+  white-space:nowrap!important;
+  font-size:10pt!important;
   line-height:1.05!important;
   margin:0!important;
 }
 `;
+// all three boxes (ผู้รับเงิน, ผู้รับใบเสร็จ, บริษัท) share one layout: title at the top, signing line,
+// then the date / role line, every line in the same size and kept inside the box
 const PDF_CSS=`
 .rt-sign.center{
   justify-content:flex-start!important;
@@ -43,7 +46,7 @@ const PDF_CSS=`
   width:100%!important;
   text-align:center!important;
   white-space:nowrap!important;
-  font-size:8.8pt!important;
+  font-size:9.5pt!important;
   line-height:1.05!important;
   margin:0 0 auto!important;
 }
@@ -58,6 +61,7 @@ const PDF_CSS=`
   display:block!important;
   width:100%!important;
   text-align:center!important;
+  white-space:nowrap!important;
   font-size:9.5pt!important;
   line-height:1.05!important;
   margin:0!important;
