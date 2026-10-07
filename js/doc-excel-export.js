@@ -150,7 +150,7 @@
   // ---- each menu ----
   var TARGETS = [
     { // ใบตั้งหนี้
-      id: 'invExcelBtn', anchor: function () { return document.querySelector('#invoiceWorkspace .invoice-actions'); }, mode: 'append', cls: 'invoice-small-btn',
+      id: 'invExcelBtn', label: '📗 Excel', anchor: function () { return document.querySelector('#invoiceWorkspace .invoice-actions'); }, mode: 'append', cls: 'invoice-small-btn',
       run: function (btn) {
         var p = document.getElementById('invoicePaper'); if (!p) return alert('ไม่พบตัวอย่างเอกสาร');
         exportBook('ใบตั้งหนี้', pagesToSheets([p], 'ใบตั้งหนี้'), docNoFrom(p.innerText), btn);
@@ -207,7 +207,7 @@
       var root = a.ownerDocument;
       if (root.getElementById(t.id)) return;
       var b = root.createElement('button');
-      b.type = 'button'; b.id = t.id; b.className = t.cls + ' doc-excel-btn'; b.textContent = 'ส่งออก Excel';
+      b.type = 'button'; b.id = t.id; b.className = t.cls + ' doc-excel-btn'; b.textContent = t.label || 'ส่งออก Excel';
       b.title = 'บันทึกเป็นไฟล์ Excel ชื่อไฟล์ตามเอกสารและวันที่บันทึก';
       b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); t.run(b); });
       if (t.mode === 'after') a.insertAdjacentElement('afterend', b); else a.appendChild(b);
