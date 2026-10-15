@@ -1,7 +1,8 @@
 /* เสนอราคาแจ้งเตือน (2026-10-15)
  * Upload the PEA quotation PDF as it is (every office's form differs), type the unit price, and the
- * page is printed / saved back as PDF looking exactly like the original with the numbers filled in.
- *  - The original page is drawn as the background (pdf.js), so layout, logo and fonts stay untouched.
+ * same PDF file is saved / printed with the numbers filled in — it goes into the PEA system, so the
+ * original file is kept 100%: pdf-lib adds only the digits on top of its pages (nothing re-drawn).
+ *  - pdf.js reads the text positions and renders the on-screen preview.
  *  - Tables are found from their column headers (ราคา/หน่วย, จำนวนเงิน, ภาษีมูลค่าเพิ่ม, รวมเป็นเงินทั้งสิ้น)
  *    and every quantity under "จำนวน" becomes a row: amount = qty × unit price, VAT 7%, total.
  *  - Only the unit price is typed; everything else is calculated.
@@ -15,12 +16,16 @@
   var PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   var RENDER_SCALE = 3;          // page pixels per PDF point for printing (≈216 dpi)
   var VAT = 0.07;
-  var FONT = "'TH Sarabun New','TH SarabunPSK',Sarabun,'Leelawadee UI',Tahoma,sans-serif";
+  var PDFLIB = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+  // Digits are written as outlines of Sarabun ExtraLight (SIL Open Font License, Cadson Demak / Google Fonts),
+  // the same design and stroke as the TH SarabunPSK digits in the PEA forms. Units: 1000 per em, y down, baseline 0.
+  var UPM = 1000;
+  var GLYPHS = {"0":[540,"M47 -350Q47 -528 104 -619Q162 -710 270 -710Q378 -710 436 -619Q493 -528 493 -350Q493 -172 436 -81Q378 10 270 10Q162 10 104 -81Q47 -172 47 -350ZM437 -350Q437 -503 394 -583Q350 -663 270 -663Q190 -663 146 -584Q103 -504 103 -350Q103 -197 146 -117Q190 -37 270 -37Q350 -37 394 -117Q437 -197 437 -350Z"],"1":[540,"M138 -50H262V-630L119 -546V-599L284 -700H318V-50H441V0H138Z"],"2":[540,"M70 -58Q145 -114 219 -192Q293 -270 344 -357Q394 -444 394 -520Q394 -585 356 -623Q319 -661 254 -661Q201 -661 154 -637Q107 -613 82 -575L53 -612Q82 -657 136 -684Q190 -710 255 -710Q345 -710 398 -659Q451 -608 451 -523Q451 -402 356 -277Q262 -152 140 -50H487V0H70Z"],"3":[540,"M52 -89 82 -126Q107 -85 156 -62Q205 -39 262 -39Q338 -39 384 -80Q431 -120 431 -185Q431 -258 372 -300Q313 -341 212 -341H194V-393H212Q270 -393 314 -412Q357 -432 380 -467Q404 -502 404 -545Q404 -600 368 -630Q332 -661 270 -661Q214 -661 167 -638Q120 -614 94 -574L64 -611Q93 -657 148 -684Q203 -710 270 -710Q357 -710 408 -667Q460 -624 460 -552Q460 -487 420 -438Q379 -388 310 -369Q394 -355 441 -306Q488 -258 488 -184Q488 -127 460 -83Q432 -39 381 -14Q330 10 263 10Q193 10 136 -16Q80 -43 52 -89Z"],"4":[540,"M365 -129H30V-178L346 -700H421V-177H504V-129H421V0H365ZM365 -177V-641L84 -177Z"],"5":[540,"M52 -89 82 -126Q107 -86 154 -62Q200 -39 256 -39Q336 -39 382 -88Q429 -138 429 -224Q429 -306 386 -355Q343 -404 270 -404Q224 -404 185 -385Q146 -366 124 -334H77L109 -700H464V-651H160L140 -405Q163 -427 202 -440Q241 -452 283 -452Q377 -452 432 -391Q488 -330 488 -226Q488 -118 426 -54Q364 10 258 10Q189 10 134 -16Q79 -43 52 -89Z"],"6":[540,"M51 -248Q51 -356 101 -454Q151 -553 238 -621Q324 -689 428 -710L435 -666Q360 -647 296 -602Q231 -557 186 -495Q141 -433 123 -363Q146 -398 186 -419Q227 -440 283 -440Q348 -440 394 -410Q441 -379 466 -328Q490 -276 490 -214Q490 -150 464 -100Q439 -49 390 -20Q342 10 276 10Q207 10 156 -22Q106 -53 78 -112Q51 -170 51 -248ZM435 -215Q435 -294 391 -342Q347 -391 274 -391Q202 -391 158 -342Q113 -294 113 -215Q113 -136 158 -88Q202 -39 274 -39Q347 -39 391 -88Q435 -136 435 -215Z"],"7":[540,"M423 -651H60V-700H481V-640Q370 -515 312 -358Q254 -200 254 0H197Q201 -121 218 -222Q235 -323 284 -432Q332 -542 423 -651Z"],"8":[540,"M44 -189Q44 -254 75 -302Q106 -350 170 -374Q122 -393 96 -438Q69 -482 69 -537Q69 -617 123 -664Q177 -710 270 -710Q363 -710 417 -664Q471 -617 471 -537Q471 -481 444 -437Q418 -393 371 -374Q434 -350 465 -302Q496 -254 496 -189Q496 -97 436 -44Q376 10 270 10Q164 10 104 -44Q44 -97 44 -189ZM415 -530Q415 -591 378 -626Q340 -661 270 -661Q200 -661 162 -626Q125 -591 125 -530Q125 -468 164 -432Q202 -396 270 -396Q338 -396 376 -432Q415 -468 415 -530ZM440 -196Q440 -268 395 -309Q350 -350 270 -350Q191 -350 146 -309Q100 -268 100 -196Q100 -123 145 -81Q190 -39 270 -39Q350 -39 395 -80Q440 -122 440 -196Z"],"9":[540,"M106 -35Q184 -53 250 -98Q317 -142 361 -204Q405 -266 417 -335Q396 -302 354 -282Q313 -261 262 -261Q200 -261 152 -290Q104 -319 78 -370Q51 -421 51 -486Q51 -551 78 -602Q104 -653 152 -682Q201 -710 265 -710Q372 -710 431 -638Q490 -566 490 -444Q490 -332 442 -236Q394 -139 308 -74Q222 -10 113 10ZM428 -485Q428 -564 384 -612Q339 -661 266 -661Q194 -661 150 -612Q106 -564 106 -485Q106 -406 150 -358Q194 -309 265 -309Q338 -309 383 -358Q428 -406 428 -485Z"],",":[223,"M170 -27Q170 19 146 72Q121 126 82 162L61 138Q84 112 100 76Q117 40 122 6L107 7Q86 7 72 -8Q59 -22 59 -45Q59 -70 74 -86Q89 -101 113 -101Q138 -101 154 -81Q170 -61 170 -27Z"],".":[223,"M62 -41Q62 -64 76 -78Q89 -92 111 -92Q133 -92 147 -78Q161 -63 161 -41Q161 -19 147 -4Q133 10 111 10Q89 10 76 -4Q62 -18 62 -41Z"],"-":[340,"M40 -288H300V-244H40Z"]};
 
   var st = { name: '', pages: [], rows: [], pdf: null, busy: false };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  function money(v) { return (Math.round(v * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function money(v) { return (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function num(s) { var n = Number(String(s == null ? '' : s).replace(/,/g, '').trim()); return isFinite(n) ? n : 0; }
   function calc(r) { var a = r.qty * r.price; var v = Math.round(a * VAT * 100) / 100; return { amount: a, vat: v, total: a + v }; }
 
@@ -182,6 +187,7 @@
     try {
       var lib = await loadPdfJs();
       var data = new Uint8Array(await file.arrayBuffer());
+      st.bytes = data.slice();          // pdf.js hands its copy to the worker; the original file is kept untouched here
       var pdf = await lib.getDocument({ data: data }).promise;
       st.pdf = pdf; st.name = file.name.replace(/\.pdf$/i, ''); st.pages = []; st.rows = [];
       for (var n = 1; n <= pdf.numPages; n++) {
@@ -213,46 +219,64 @@
   }
 
   // ---------------------------------------------------------------- drawing
+  function glyphWidth(str) { var w = 0; for (var i = 0; i < str.length; i++) w += (GLYPHS[str[i]] || GLYPHS['0'])[0]; return w; }
+  var paths = {};
+  function path2d(ch) { if (!paths[ch]) paths[ch] = new Path2D(GLYPHS[ch][1]); return paths[ch]; }
+
+  // Everything that goes on the paper, in PDF points measured from the page's top-left corner:
+  //  marks: numbers right-aligned at x on baseline y;  blanks: small boxes over placeholder "-" to clear.
+  function layout() {
+    var out = { marks: [], blanks: [] };
+    // digits as big as the ones printed in the PDF: size so a printed number ("237,000", or the item no. "1") has the same width
+    function sizeFor(refStr, refW, h) {
+      var u = glyphWidth(String(refStr || '0').replace(/[^0-9,.\-]/g, '') || '0');
+      var size = refW > 0 ? refW * UPM / u : h * 0.67;
+      return Math.min(size, h * 0.9);
+    }
+    function put(page, text, cell, y, size) {
+      var pad = 3, room = cell[1] - cell[0] - pad * 2, w = glyphWidth(text) * size / UPM;
+      if (w > room) size = size * room / w;
+      out.marks.push({ page: page, text: text, x: cell[1] - pad, y: y, size: size });
+    }
+    st.rows.forEach(function (r) {
+      if (!(r.price > 0)) return;
+      var v = calc(r), b = r.cells || r.table.bounds;
+      var size = sizeFor(r.refStr, r.refW, r.h);
+      var vals = { price: r.price, amount: v.amount, vat: v.vat, total: v.total };
+      if (r.qtyEdit && r.qty > 0) put(r.page, r.qty.toLocaleString('en-US'), b.qty, r.y, size);
+      r.table.cols.forEach(function (k) { if (k !== 'qty') put(r.page, money(vals[k]), b[k], r.y, size); });
+    });
+    allTables().forEach(function (t) {
+      if (!t.sums.length || !st.rows.some(function (r) { return r.table === t && r.price > 0; })) return;
+      var tot = tableTotals(t), size = sizeFor(t.refStr, t.refW, t.refH || 15);
+      t.sums.forEach(function (sm) {
+        sm.blank.forEach(function (i) { out.blanks.push({ page: t.page, x: i.x - 0.6, y: i.y - i.h * 0.62, w: i.w + 1.2, h: i.h * 0.62 + 1 }); });
+        put(t.page, money(tot[sm.key]), sm.cell || t.bounds.amount, sm.y, size);
+      });
+    });
+    return out;
+  }
+
+  // on-screen preview: the page picture with the same outlines drawn on top
   function drawPage(pi, scale) {
-    var pg = st.pages[pi];
+    var pg = st.pages[pi], L = layout();
     var c = document.createElement('canvas');
     c.width = Math.round(pg.w * scale); c.height = Math.round(pg.h * scale);
     var g = c.getContext('2d');
     g.drawImage(pg.bg, 0, 0, c.width, c.height);
-    g.fillStyle = '#000'; g.textBaseline = 'alphabetic'; g.textAlign = 'right';
-    // our digits are as big as the digits printed in the PDF: scale the font until a printed number is as wide as there
-    function sizeFor(refStr, refW, h) {
-      var size = h * scale;
-      g.font = size + 'px ' + FONT;
-      var w0 = g.measureText(refStr || '0').width;
-      if (w0 > 0 && refW > 0) size = size * (refW * scale) / w0;
-      return Math.min(size, h * scale * 1.1);
-    }
-    function put(text, cell, y, size) {
-      var pad = 3, room = (cell[1] - cell[0] - pad * 2) * scale, fs = size;
-      g.font = fs + 'px ' + FONT;
-      var tw = g.measureText(text).width;
-      if (tw > room) { fs = fs * room / tw; g.font = fs + 'px ' + FONT; }
-      g.fillText(text, (cell[1] - pad) * scale, y * scale);
-    }
-    st.rows.forEach(function (r) {
-      if (r.page !== pi || !(r.price > 0)) return;
-      var v = calc(r), b = r.cells || r.table.bounds;
-      var size = sizeFor(r.refStr, r.refW, r.h);
-      var vals = { price: r.price, amount: v.amount, vat: v.vat, total: v.total };
-      if (r.qtyEdit && r.qty > 0) put(r.qty.toLocaleString('en-US'), b.qty, r.y, size);
-      r.table.cols.forEach(function (k) { if (k !== 'qty') put(money(vals[k]), b[k], r.y, size); });
-    });
-    allTables().forEach(function (t) {
-      if (t.page !== pi || !t.sums.length) return;
-      if (!st.rows.some(function (r) { return r.table === t && r.price > 0; })) return;
-      var tot = tableTotals(t), size = sizeFor(t.refStr, t.refW, t.refH || 15);
-      t.sums.forEach(function (sm) {
-        g.fillStyle = '#fff';
-        sm.blank.forEach(function (i) { g.fillRect((i.x - 1) * scale, (i.y - i.h * 0.85) * scale, (i.w + 2) * scale, i.h * scale); });
-        g.fillStyle = '#000';
-        put(money(tot[sm.key]), sm.cell || t.bounds.amount, sm.y, size);
-      });
+    g.fillStyle = '#fff';
+    L.blanks.forEach(function (b) { if (b.page === pi) g.fillRect(b.x * scale, b.y * scale, b.w * scale, b.h * scale); });
+    g.fillStyle = '#000';
+    L.marks.forEach(function (m) {
+      if (m.page !== pi) return;
+      var k = m.size / UPM, x = m.x - glyphWidth(m.text) * k;
+      for (var i = 0; i < m.text.length; i++) {
+        var ch = GLYPHS[m.text[i]] ? m.text[i] : '0';
+        g.setTransform(k * scale, 0, 0, k * scale, x * scale, m.y * scale);
+        g.fill(path2d(ch));
+        x += GLYPHS[ch][0] * k;
+      }
+      g.setTransform(1, 0, 0, 1, 0, 0);
     });
     return c;
   }
@@ -267,27 +291,70 @@
     });
   }
 
-  function savePdf() {
-    if (!st.pages.length) return;
-    var J = window.jspdf && window.jspdf.jsPDF;
-    if (!J) { alert('ตัวสร้าง PDF ยังโหลดไม่เสร็จ ลองใหม่อีกครั้ง'); return; }
-    var first = st.pages[0];
-    var doc = new J({ unit: 'pt', format: [first.w, first.h], orientation: first.w > first.h ? 'l' : 'p', compress: true });
-    st.pages.forEach(function (pg, i) {
-      if (i) doc.addPage([pg.w, pg.h], pg.w > pg.h ? 'l' : 'p');
-      doc.addImage(drawPage(i, RENDER_SCALE).toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pg.w, pg.h);
+  var pdfLibReady = null;
+  function loadPdfLib() {
+    if (window.PDFLib) return Promise.resolve(window.PDFLib);
+    if (pdfLibReady) return pdfLibReady;
+    pdfLibReady = new Promise(function (ok, fail) {
+      var s = document.createElement('script'); s.src = PDFLIB; s.async = true;
+      s.onload = function () { ok(window.PDFLib); };
+      s.onerror = function () { pdfLibReady = null; fail(new Error('โหลดตัวแก้ไข PDF ไม่สำเร็จ')); };
+      document.head.appendChild(s);
     });
-    var d = new Date(); var stamp = ('0' + d.getDate()).slice(-2) + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + (d.getFullYear() + 543);
-    doc.save('เสนอราคาแจ้งเตือน_' + (st.name || 'เอกสาร') + '_' + stamp + '.pdf');
+    return pdfLibReady;
   }
 
-  function printPages() {
+  // The original PDF itself is opened and only the numbers are added (as vector outlines) on top of
+  // each page; text, fonts, logo, page size and every other detail stay exactly as in the file sent.
+  async function buildPdf() {
+    var P = await loadPdfLib();
+    var doc = await P.PDFDocument.load(st.bytes, { updateMetadata: false });
+    var pages = doc.getPages(), L = layout();
+    function box(pi) {
+      var pg = pages[pi], cb = pg.getCropBox ? pg.getCropBox() : pg.getMediaBox();
+      return { pg: pg, x: cb.x, top: cb.y + cb.height, rot: (pg.getRotation().angle || 0) % 360 };
+    }
+    for (var i = 0; i < pages.length; i++) if (box(i).rot) throw new Error('หน้าที่ ' + (i + 1) + ' ถูกหมุนไว้ ยังไม่รองรับ');
+    L.blanks.forEach(function (b) {
+      var B = box(b.page);
+      B.pg.drawRectangle({ x: B.x + b.x, y: B.top - b.y - b.h, width: b.w, height: b.h, color: P.rgb(1, 1, 1), borderWidth: 0 });
+    });
+    L.marks.forEach(function (m) {
+      var B = box(m.page), k = m.size / UPM, x = m.x - glyphWidth(m.text) * k;
+      for (var i = 0; i < m.text.length; i++) {
+        var ch = GLYPHS[m.text[i]] ? m.text[i] : '0';
+        B.pg.drawSvgPath(GLYPHS[ch][1], { x: B.x + x, y: B.top - m.y, scale: k, color: P.rgb(0, 0, 0), borderWidth: 0 });
+        x += GLYPHS[ch][0] * k;
+      }
+    });
+    return doc.save({ useObjectStreams: false });
+  }
+
+  function fileName() {
+    var d = new Date(); var stamp = ('0' + d.getDate()).slice(-2) + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + (d.getFullYear() + 543);
+    return 'เสนอราคาแจ้งเตือน_' + (st.name || 'เอกสาร') + '_' + stamp + '.pdf';
+  }
+
+  async function savePdf() {
+    if (!st.pages.length) return;
+    try {
+      var bytes = await buildPdf();
+      var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      var a = document.createElement('a'); a.href = url; a.download = fileName();
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+      window.__qnSaved = { name: a.download, bytes: bytes };
+    } catch (e) { console.error('quote-notice', e); alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e)); }
+  }
+
+  async function printPages() {
     if (!st.pages.length) return;
     var w = window.open('', '_blank');
     if (!w) { alert('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป'); return; }
-    var imgs = st.pages.map(function (pg, i) { return '<img src="' + drawPage(i, RENDER_SCALE).toDataURL('image/png') + '">'; }).join('');
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>เสนอราคาแจ้งเตือน</title><style>@page{size:A4;margin:0}html,body{margin:0}img{display:block;width:210mm;height:297mm;page-break-after:always}</style></head><body>' + imgs + '<script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script></body></html>');
-    w.document.close();
+    try {
+      var bytes = await buildPdf();
+      w.location.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));   // the browser's PDF viewer prints it as is
+    } catch (e) { w.close(); alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e)); }
   }
 
   // ---------------------------------------------------------------- page
@@ -413,7 +480,7 @@
     document.documentElement.classList.add('sa-wide');
     window.scrollTo(0, 0);
     render();
-    loadPdfJs().catch(function () {});
+    loadPdfJs().catch(function () {}); loadPdfLib().catch(function () {});
   }
   window.openQuoteNotice = showPage;
 
