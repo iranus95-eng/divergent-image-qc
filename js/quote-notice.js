@@ -22,7 +22,86 @@
   var UPM = 1000;
   var GLYPHS = {"0":[540,"M47 -350Q47 -528 104 -619Q162 -710 270 -710Q378 -710 436 -619Q493 -528 493 -350Q493 -172 436 -81Q378 10 270 10Q162 10 104 -81Q47 -172 47 -350ZM437 -350Q437 -503 394 -583Q350 -663 270 -663Q190 -663 146 -584Q103 -504 103 -350Q103 -197 146 -117Q190 -37 270 -37Q350 -37 394 -117Q437 -197 437 -350Z"],"1":[540,"M138 -50H262V-630L119 -546V-599L284 -700H318V-50H441V0H138Z"],"2":[540,"M70 -58Q145 -114 219 -192Q293 -270 344 -357Q394 -444 394 -520Q394 -585 356 -623Q319 -661 254 -661Q201 -661 154 -637Q107 -613 82 -575L53 -612Q82 -657 136 -684Q190 -710 255 -710Q345 -710 398 -659Q451 -608 451 -523Q451 -402 356 -277Q262 -152 140 -50H487V0H70Z"],"3":[540,"M52 -89 82 -126Q107 -85 156 -62Q205 -39 262 -39Q338 -39 384 -80Q431 -120 431 -185Q431 -258 372 -300Q313 -341 212 -341H194V-393H212Q270 -393 314 -412Q357 -432 380 -467Q404 -502 404 -545Q404 -600 368 -630Q332 -661 270 -661Q214 -661 167 -638Q120 -614 94 -574L64 -611Q93 -657 148 -684Q203 -710 270 -710Q357 -710 408 -667Q460 -624 460 -552Q460 -487 420 -438Q379 -388 310 -369Q394 -355 441 -306Q488 -258 488 -184Q488 -127 460 -83Q432 -39 381 -14Q330 10 263 10Q193 10 136 -16Q80 -43 52 -89Z"],"4":[540,"M365 -129H30V-178L346 -700H421V-177H504V-129H421V0H365ZM365 -177V-641L84 -177Z"],"5":[540,"M52 -89 82 -126Q107 -86 154 -62Q200 -39 256 -39Q336 -39 382 -88Q429 -138 429 -224Q429 -306 386 -355Q343 -404 270 -404Q224 -404 185 -385Q146 -366 124 -334H77L109 -700H464V-651H160L140 -405Q163 -427 202 -440Q241 -452 283 -452Q377 -452 432 -391Q488 -330 488 -226Q488 -118 426 -54Q364 10 258 10Q189 10 134 -16Q79 -43 52 -89Z"],"6":[540,"M51 -248Q51 -356 101 -454Q151 -553 238 -621Q324 -689 428 -710L435 -666Q360 -647 296 -602Q231 -557 186 -495Q141 -433 123 -363Q146 -398 186 -419Q227 -440 283 -440Q348 -440 394 -410Q441 -379 466 -328Q490 -276 490 -214Q490 -150 464 -100Q439 -49 390 -20Q342 10 276 10Q207 10 156 -22Q106 -53 78 -112Q51 -170 51 -248ZM435 -215Q435 -294 391 -342Q347 -391 274 -391Q202 -391 158 -342Q113 -294 113 -215Q113 -136 158 -88Q202 -39 274 -39Q347 -39 391 -88Q435 -136 435 -215Z"],"7":[540,"M423 -651H60V-700H481V-640Q370 -515 312 -358Q254 -200 254 0H197Q201 -121 218 -222Q235 -323 284 -432Q332 -542 423 -651Z"],"8":[540,"M44 -189Q44 -254 75 -302Q106 -350 170 -374Q122 -393 96 -438Q69 -482 69 -537Q69 -617 123 -664Q177 -710 270 -710Q363 -710 417 -664Q471 -617 471 -537Q471 -481 444 -437Q418 -393 371 -374Q434 -350 465 -302Q496 -254 496 -189Q496 -97 436 -44Q376 10 270 10Q164 10 104 -44Q44 -97 44 -189ZM415 -530Q415 -591 378 -626Q340 -661 270 -661Q200 -661 162 -626Q125 -591 125 -530Q125 -468 164 -432Q202 -396 270 -396Q338 -396 376 -432Q415 -468 415 -530ZM440 -196Q440 -268 395 -309Q350 -350 270 -350Q191 -350 146 -309Q100 -268 100 -196Q100 -123 145 -81Q190 -39 270 -39Q350 -39 395 -80Q440 -122 440 -196Z"],"9":[540,"M106 -35Q184 -53 250 -98Q317 -142 361 -204Q405 -266 417 -335Q396 -302 354 -282Q313 -261 262 -261Q200 -261 152 -290Q104 -319 78 -370Q51 -421 51 -486Q51 -551 78 -602Q104 -653 152 -682Q201 -710 265 -710Q372 -710 431 -638Q490 -566 490 -444Q490 -332 442 -236Q394 -139 308 -74Q222 -10 113 10ZM428 -485Q428 -564 384 -612Q339 -661 266 -661Q194 -661 150 -612Q106 -564 106 -485Q106 -406 150 -358Q194 -309 265 -309Q338 -309 383 -358Q428 -406 428 -485Z"],",":[223,"M170 -27Q170 19 146 72Q121 126 82 162L61 138Q84 112 100 76Q117 40 122 6L107 7Q86 7 72 -8Q59 -22 59 -45Q59 -70 74 -86Q89 -101 113 -101Q138 -101 154 -81Q170 -61 170 -27Z"],".":[223,"M62 -41Q62 -64 76 -78Q89 -92 111 -92Q133 -92 147 -78Q161 -63 161 -41Q161 -19 147 -4Q133 10 111 10Q89 10 76 -4Q62 -18 62 -41Z"],"-":[340,"M40 -288H300V-244H40Z"]};
 
-  var st = { name: '', pages: [], rows: [], pdf: null, busy: false };
+  var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';
+  var st = { name: '', pages: [], rows: [], pdf: null, busy: false, id: null, saveState: '', history: null, histErr: '' };
+
+  // ---------------------------------------------------------------- saved work (Supabase: quote_notices)
+  async function token() {
+    try { if (typeof window.getBestDataToken === 'function') { var t = await window.getBestDataToken(); if (t) return t; } } catch (_) {}
+    try { return localStorage.getItem('divergent_web_session_token_v1') || localStorage.getItem('divergent_fallback_session_token') || ''; } catch (_) { return ''; }
+  }
+  async function call(body) {
+    var t = await token();
+    if (!t) throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+    var r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(body) });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+  function toB64(bytes) { var s = ''; for (var i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
+  function fromB64(b64) { var s = atob(b64), a = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }
+  function grandTotal() { return allTables().reduce(function (sum, t) { return sum + tableTotals(t).total; }, 0); }
+  function snapshot() { return { rows: st.rows.map(function (r) { return { page: r.page, y: Math.round(r.y * 10) / 10, qty: r.qtyEdit ? r.qty : null, price: r.price }; }) }; }
+  function applySnapshot(state) {
+    var saved = (state && state.rows) || [];
+    st.rows.forEach(function (r, i) {
+      var m = saved.filter(function (x) { return x.page === r.page && Math.abs(x.y - r.y) < 2; })[0] || saved[i];
+      if (!m) return;
+      r.price = Number(m.price) || 0;
+      if (r.qtyEdit && m.qty != null) r.qty = Number(m.qty) || 0;
+    });
+  }
+  function setSaveState(v) { st.saveState = v; var el = document.getElementById('qnSaveState'); if (el) el.textContent = v; }
+  var saveTimer = 0, saving = null;
+  function scheduleSave() { clearTimeout(saveTimer); setSaveState('กำลังบันทึก…'); saveTimer = setTimeout(saveNow, 1200); }
+  async function saveNow(first) {
+    clearTimeout(saveTimer);
+    if (!st.bytes || !st.pages.length) return;
+    if (saving) { await saving.catch(function () {}); }
+    var body = { action: 'save', id: st.id || undefined, title: st.name, state: snapshot(), total_amount: grandTotal() };
+    if (!st.id) { body.pdf_b64 = toB64(st.bytes); body.file_name = st.name + '.pdf'; }
+    saving = call(body);
+    try {
+      var j = await saving; st.id = j.item.id;
+      var d = new Date(j.item.updated_at || Date.now());
+      setSaveState('บันทึกแล้ว ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }));
+      loadHistory();
+    } catch (e) { console.error('quote-notice save', e); setSaveState('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
+    finally { saving = null; }
+  }
+  async function loadHistory() {
+    try { var j = await call({ action: 'list' }); st.history = j.items || []; st.histErr = ''; }
+    catch (e) { st.history = []; st.histErr = e.message || String(e); }
+    renderHistory();
+  }
+  async function openSaved(id) {
+    if (st.busy) return;
+    try {
+      st.busy = true; render();
+      var j = await call({ action: 'get', id: id });
+      st.busy = false;
+      await openBytes(fromB64(j.item.pdf_b64), j.item.title || (j.item.file_name || '').replace(/\.pdf$/i, ''), j.item.id, j.item.state);
+      setSaveState('เปิดงานที่บันทึกไว้');
+    } catch (e) { st.busy = false; render(); alert('เปิดงานไม่สำเร็จ: ' + (e.message || e)); }
+  }
+  async function deleteSaved(id) {
+    if (!confirm('ลบงานนี้ออกจากรายการ?')) return;
+    try { await call({ action: 'delete', id: id }); if (st.id === id) st.id = null; await loadHistory(); }
+    catch (e) { alert('ลบไม่สำเร็จ: ' + (e.message || e)); }
+  }
+  function renderHistory() {
+    var box = document.getElementById('qnHistory'); if (!box) return;
+    if (st.history == null) { box.innerHTML = '<div class="qn-h-empty">กำลังโหลด…</div>'; return; }
+    if (st.histErr) { box.innerHTML = '<div class="qn-h-empty">โหลดรายการไม่สำเร็จ: ' + esc(st.histErr) + '</div>'; return; }
+    if (!st.history.length) { box.innerHTML = '<div class="qn-h-empty">ยังไม่มีงานที่บันทึกไว้</div>'; return; }
+    box.innerHTML = st.history.map(function (h) {
+      var d = new Date(h.updated_at);
+      return '<div class="qn-h' + (h.id === st.id ? ' on' : '') + '"><div class="qn-h-main" data-open="' + h.id + '"><b>' + esc(h.title) + '</b><small>' +
+        d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) + ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) +
+        (h.updated_by_name ? ' • ' + esc(h.updated_by_name) : '') + '</small></div><span class="qn-h-total">' + (h.total_amount ? money(h.total_amount) : '-') + '</span>' +
+        '<button class="qn-h-del" data-del="' + h.id + '" title="ลบ">🗑</button></div>';
+    }).join('');
+  }
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function money(v) { return (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -183,13 +262,17 @@
   function allTables() { var out = []; st.rows.forEach(function (r) { if (out.indexOf(r.table) < 0) out.push(r.table); }); return out; }
 
   async function openFile(file) {
+    var data = new Uint8Array(await file.arrayBuffer());
+    await openBytes(data, file.name.replace(/\.pdf$/i, ''), null, null);
+  }
+  async function openBytes(data, name, savedId, savedState) {
     st.busy = true; render();
+    var ok = false;
     try {
       var lib = await loadPdfJs();
-      var data = new Uint8Array(await file.arrayBuffer());
       st.bytes = data.slice();          // pdf.js hands its copy to the worker; the original file is kept untouched here
       var pdf = await lib.getDocument({ data: data }).promise;
-      st.pdf = pdf; st.name = file.name.replace(/\.pdf$/i, ''); st.pages = []; st.rows = [];
+      st.pdf = pdf; st.name = name; st.pages = []; st.rows = []; st.id = savedId || null; st.saveState = '';
       for (var n = 1; n <= pdf.numPages; n++) {
         var page = await pdf.getPage(n);
         var vp = page.getViewport({ scale: 1 });
@@ -211,11 +294,14 @@
         });
         st.rows = st.rows.concat(found);
       }
+      if (savedState) applySnapshot(savedState);
       if (!st.rows.length) alert('ไม่พบตารางราคาในไฟล์นี้ (ต้องมีคอลัมน์ จำนวน, ราคาต่อหน่วย และจำนวนเงิน/รวม) กรุณาส่งไฟล์ให้ผู้ดูแลปรับรูปแบบ');
+      ok = true;
     } catch (e) {
       console.error('quote-notice', e);
       alert('เปิดไฟล์ไม่สำเร็จ: ' + (e.message || e));
     } finally { st.busy = false; render(); }
+    if (ok && !savedId && st.rows.length) saveNow();     // a new file goes into the list straight away
   }
 
   // ---------------------------------------------------------------- drawing
@@ -337,6 +423,7 @@
 
   async function savePdf() {
     if (!st.pages.length) return;
+    saveNow();
     try {
       var bytes = await buildPdf();
       var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
@@ -351,6 +438,7 @@
     if (!st.pages.length) return;
     var w = window.open('', '_blank');
     if (!w) { alert('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป'); return; }
+    saveNow();
     try {
       var bytes = await buildPdf();
       w.location.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));   // the browser's PDF viewer prints it as is
@@ -369,6 +457,9 @@
       '.qn-row{border:1px solid #eee7f4;border-radius:10px;padding:9px 10px;margin:8px 0;background:#fcfbfe}.qn-row b{display:block;color:#4d2376;font-size:13px}.qn-row small{color:#776a86}' +
       '.qn-line{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:4px}.qn-sum{border-top:2px solid #e5dced;margin-top:10px;padding-top:8px;font-weight:800}' +
       '.qn-pages{background:#eeeaf2;border-radius:12px;padding:12px;overflow:auto;max-height:calc(100vh - 170px)}.qn-page{display:block;width:100%;max-width:820px;margin:0 auto 12px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.12)}' +
+      '.qn-state{align-self:center;font-size:12px;color:#776a86}.qn-h-head{margin:18px 0 6px;font-weight:800;color:#4d2376;border-top:2px solid #e5dced;padding-top:12px}.qn-h-head small{font-weight:400;color:#776a86}' +
+      '.qn-h{display:flex;align-items:center;gap:8px;border:1px solid #eee7f4;border-radius:10px;padding:8px 10px;margin:6px 0;background:#fff}.qn-h.on{border-color:#7b4bab;background:#f7f1fc}.qn-h-main{flex:1;min-width:0;cursor:pointer}.qn-h-main b{display:block;font-size:13px;color:#3b2252;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qn-h-main small{color:#776a86;font-size:12px}' +
+      '.qn-h-total{font-weight:800;font-size:13px;white-space:nowrap}.qn-h-del{border:0;background:none;cursor:pointer;font-size:15px;opacity:.6}.qn-h-del:hover{opacity:1}.qn-h-empty{color:#776a86;font-size:13px;padding:6px 2px}' +
       '.qn-empty{color:#776a86;text-align:center;padding:60px 10px}@media(max-width:1000px){.qn-grid{grid-template-columns:1fr}}';
     document.head.appendChild(s);
   }
@@ -381,6 +472,8 @@
     var main = document.querySelector('main.main-shell') || document.querySelector('main') || document.body;
     main.appendChild(w);
     w.addEventListener('click', function (e) {
+      var o = e.target.closest('[data-open]'); if (o) { openSaved(+o.getAttribute('data-open')); return; }
+      var dl = e.target.closest('[data-del]'); if (dl) { deleteSaved(+dl.getAttribute('data-del')); return; }
       var b = e.target.closest('[data-qn]'); if (!b) return;
       var a = b.getAttribute('data-qn');
       if (a === 'pick') w.querySelector('#qnFile').click();
@@ -389,7 +482,7 @@
       if (a === 'all') {
         var pv = w.querySelector('#qnAll').value.trim(); if (pv) { var v = num(pv); st.rows.forEach(function (r) { r.price = v; }); }
         var q = w.querySelector('#qnAllQty'); if (q && q.value.trim()) { var n = num(q.value); st.rows.forEach(function (r) { if (r.qtyEdit) r.qty = n; }); }
-        render();
+        render(); scheduleSave();
       }
     });
     w.addEventListener('change', function (e) { if (e.target.id === 'qnFile' && e.target.files[0]) { openFile(e.target.files[0]); e.target.value = ''; } });
@@ -398,7 +491,7 @@
       if (q != null) st.rows[+q].qty = num(e.target.value);
       else if (i != null) st.rows[+i].price = num(e.target.value);
       else return;
-      updateNumbers(); redrawPreview();
+      updateNumbers(); redrawPreview(); scheduleSave();
     });
     w.addEventListener('dragover', function (e) { e.preventDefault(); var d = w.querySelector('.qn-drop'); if (d) d.classList.add('drag'); });
     w.addEventListener('dragleave', function () { var d = w.querySelector('.qn-drop'); if (d) d.classList.remove('drag'); });
@@ -425,7 +518,7 @@
       '<div class="qn-grid"><div class="qn-card">' +
       '<input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
       '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังอ่านไฟล์…' : (has ? '📄 ' + esc(st.name) + '<br><small>กดหรือวางไฟล์ใหม่เพื่อเปลี่ยน</small>' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคา<br><small>หรือลากไฟล์มาวางที่นี่</small>')) + '</div>' +
-      (has ? '<div class="qn-actions"><button class="qn-btn" data-qn="pdf">📄 บันทึก PDF</button><button class="qn-btn soft" data-qn="print">🖨 พิมพ์</button></div>' +
+      (has ? '<div class="qn-actions"><button class="qn-btn" data-qn="pdf">📄 บันทึก PDF</button><button class="qn-btn soft" data-qn="print">🖨 พิมพ์</button><span class="qn-state" id="qnSaveState">' + esc(st.saveState) + '</span></div>' +
         (function () {
           var askQty = st.rows.some(function (r) { return r.qtyEdit; });
           return '<div class="qn-all-box"><b>ใช้ค่าเดียวกันทุกพื้นที่</b>' +
@@ -440,8 +533,10 @@
             '<div class="qn-line"><span>ราคา/หน่วย (บาท)</span><input data-row="' + i + '" inputmode="decimal" value="' + (r.price ? r.price : '') + '" placeholder="0.00"></div>' +
             '<div class="qn-line" data-out="' + i + '"></div></div>';
         }).join('') + '<div class="qn-sum" id="qnSum"></div>' : '') +
+      '<div class="qn-h-head">งานที่ทำแล้ว <small>(บันทึกอัตโนมัติ)</small></div><div id="qnHistory"></div>' +
       '</div><div class="qn-pages" id="qnPages">' + (has ? '' : '<div class="qn-empty">ตัวอย่างเอกสารจะแสดงที่นี่</div>') + '</div></div>';
     if (has) { updateNumbers(); redrawPreview(); }
+    if (st.history == null) loadHistory(); else renderHistory();
   }
 
   // ---------------------------------------------------------------- menu
