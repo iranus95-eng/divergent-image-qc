@@ -54,8 +54,13 @@
   function setSaveState(v) { st.saveState = v; var el = document.getElementById('qnSaveState'); if (el) el.textContent = v; }
   var saveTimer = 0, saving = null;
   function scheduleSave() { clearTimeout(saveTimer); setSaveState('กำลังบันทึก…'); saveTimer = setTimeout(saveNow, 1200); }
+  // Writes any pending edit before another file replaces the current one, so nothing typed is lost
+  async function flushSave() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; await saveNow(); }
+    else if (saving) { await saving.catch(function () {}); }
+  }
   async function saveNow(first) {
-    clearTimeout(saveTimer);
+    clearTimeout(saveTimer); saveTimer = 0;
     if (!st.bytes || !st.pages.length) return;
     if (saving) { await saving.catch(function () {}); }
     var body = { action: 'save', id: st.id || undefined, title: st.name, state: snapshot(), total_amount: grandTotal() };
@@ -76,6 +81,7 @@
   }
   async function openSaved(id) {
     if (st.busy) return;
+    await flushSave();
     try {
       st.busy = true; render();
       var j = await call({ action: 'get', id: id });
@@ -262,6 +268,7 @@
   function allTables() { var out = []; st.rows.forEach(function (r) { if (out.indexOf(r.table) < 0) out.push(r.table); }); return out; }
 
   async function openFile(file) {
+    await flushSave();
     var data = new Uint8Array(await file.arrayBuffer());
     await openBytes(data, file.name.replace(/\.pdf$/i, ''), null, null);
   }
@@ -458,7 +465,7 @@
       '.qn-line{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:4px}.qn-sum{border-top:2px solid #e5dced;margin-top:10px;padding-top:8px;font-weight:800}' +
       '.qn-pages{background:#eeeaf2;border-radius:12px;padding:12px;overflow:auto;max-height:calc(100vh - 170px)}.qn-page{display:block;width:100%;max-width:820px;margin:0 auto 12px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.12)}' +
       '.qn-state{align-self:center;font-size:12px;color:#776a86}.qn-h-head{margin:18px 0 6px;font-weight:800;color:#4d2376;border-top:2px solid #e5dced;padding-top:12px}.qn-h-head small{font-weight:400;color:#776a86}' +
-      '.qn-h{display:flex;align-items:center;gap:8px;border:1px solid #eee7f4;border-radius:10px;padding:8px 10px;margin:6px 0;background:#fff}.qn-h.on{border-color:#7b4bab;background:#f7f1fc}.qn-h-main{flex:1;min-width:0;cursor:pointer}.qn-h-main b{display:block;font-size:13px;color:#3b2252;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qn-h-main small{color:#776a86;font-size:12px}' +
+      '#qnHistory{max-height:230px;overflow:auto}.qn-h{display:flex;align-items:center;gap:8px;border:1px solid #eee7f4;border-radius:10px;padding:8px 10px;margin:6px 0;background:#fff}.qn-h.on{border-color:#7b4bab;background:#f7f1fc}.qn-h-main{flex:1;min-width:0;cursor:pointer}.qn-h-main b{display:block;font-size:13px;color:#3b2252;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qn-h-main small{color:#776a86;font-size:12px}' +
       '.qn-h-total{font-weight:800;font-size:13px;white-space:nowrap}.qn-h-del{border:0;background:none;cursor:pointer;font-size:15px;opacity:.6}.qn-h-del:hover{opacity:1}.qn-h-empty{color:#776a86;font-size:13px;padding:6px 2px}' +
       '.qn-empty{color:#776a86;text-align:center;padding:60px 10px}@media(max-width:1000px){.qn-grid{grid-template-columns:1fr}}';
     document.head.appendChild(s);
@@ -478,6 +485,7 @@
       var a = b.getAttribute('data-qn');
       if (a === 'pick') w.querySelector('#qnFile').click();
       if (a === 'pdf') savePdf();
+      if (a === 'save') { setSaveState('กำลังบันทึก…'); saveNow(); }
       if (a === 'print') printPages();
       if (a === 'all') {
         var pv = w.querySelector('#qnAll').value.trim(); if (pv) { var v = num(pv); st.rows.forEach(function (r) { r.price = v; }); }
@@ -487,6 +495,7 @@
     });
     w.addEventListener('change', function (e) { if (e.target.id === 'qnFile' && e.target.files[0]) { openFile(e.target.files[0]); e.target.value = ''; } });
     w.addEventListener('input', function (e) {
+      if (e.target.id === 'qnName') { st.name = e.target.value.trim() || st.name; scheduleSave(); return; }
       var i = e.target.getAttribute('data-row'), q = e.target.getAttribute('data-qty');
       if (q != null) st.rows[+q].qty = num(e.target.value);
       else if (i != null) st.rows[+i].price = num(e.target.value);
@@ -518,7 +527,9 @@
       '<div class="qn-grid"><div class="qn-card">' +
       '<input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
       '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังอ่านไฟล์…' : (has ? '📄 ' + esc(st.name) + '<br><small>กดหรือวางไฟล์ใหม่เพื่อเปลี่ยน</small>' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคา<br><small>หรือลากไฟล์มาวางที่นี่</small>')) + '</div>' +
-      (has ? '<div class="qn-actions"><button class="qn-btn" data-qn="pdf">📄 บันทึก PDF</button><button class="qn-btn soft" data-qn="print">🖨 พิมพ์</button><span class="qn-state" id="qnSaveState">' + esc(st.saveState) + '</span></div>' +
+      '<div class="qn-h-head" style="margin-top:12px">งานที่ทำแล้ว <small>(บันทึกอัตโนมัติ)</small></div><div id="qnHistory"></div>' +
+      (has ? '<div class="qn-line" style="margin-top:12px"><span>ชื่องาน</span><input id="qnName" style="flex:1;width:auto;text-align:left;border:1px solid #d9cfdf;border-radius:8px;padding:7px 8px;font:inherit" value="' + esc(st.name) + '"></div>' +
+        '<div class="qn-actions"><button class="qn-btn" data-qn="save">💾 บันทึกงาน</button><button class="qn-btn soft" data-qn="pdf">📄 บันทึก PDF</button><button class="qn-btn soft" data-qn="print">🖨 พิมพ์</button><span class="qn-state" id="qnSaveState">' + esc(st.saveState) + '</span></div>' +
         (function () {
           var askQty = st.rows.some(function (r) { return r.qtyEdit; });
           return '<div class="qn-all-box"><b>ใช้ค่าเดียวกันทุกพื้นที่</b>' +
@@ -533,7 +544,6 @@
             '<div class="qn-line"><span>ราคา/หน่วย (บาท)</span><input data-row="' + i + '" inputmode="decimal" value="' + (r.price ? r.price : '') + '" placeholder="0.00"></div>' +
             '<div class="qn-line" data-out="' + i + '"></div></div>';
         }).join('') + '<div class="qn-sum" id="qnSum"></div>' : '') +
-      '<div class="qn-h-head">งานที่ทำแล้ว <small>(บันทึกอัตโนมัติ)</small></div><div id="qnHistory"></div>' +
       '</div><div class="qn-pages" id="qnPages">' + (has ? '' : '<div class="qn-empty">ตัวอย่างเอกสารจะแสดงที่นี่</div>') + '</div></div>';
     if (has) { updateNumbers(); redrawPreview(); }
     if (st.history == null) loadHistory(); else renderHistory();
@@ -581,6 +591,7 @@
 
   function boot() {
     style(); ensureNav();
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && saveTimer) flushSave(); });
     var t = 0;
     new MutationObserver(function () { clearTimeout(t); t = setTimeout(function () { ensureNav(); syncNav(); }, 150); }).observe(document.body, { childList: true, subtree: true });
   }
