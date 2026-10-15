@@ -20,7 +20,7 @@ android {
 
     // One permanent release key (kept in GitHub secrets, never in the repo) so every new
     // version installs over the previous one. Without it the build falls back to a debug key.
-    val releaseKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    val releaseKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
         if (releaseKeystore != null) {
             create("release") {
