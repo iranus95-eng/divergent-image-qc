@@ -1,30 +1,29 @@
 package com.example.locationfinderforinsx
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.FileObserver
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
+import android.os.Looper
 import android.provider.MediaStore
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -35,483 +34,432 @@ import java.util.ArrayDeque
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import kotlin.math.abs
+import java.util.concurrent.Executors
 
-// Public because MainActivity 6.19.6 already reads this preference name.
+// Public because MainActivity already reads this preference name.
 const val LIVE_CAPTURE_PREFS = "live_location_capture"
-private const val LIVE_CAPTURE_CHANNEL_ID = "divergent_live_capture"
-private const val LIVE_CAPTURE_NOTIFICATION_ID = 6404
-private const val SOURCE_DEVICE_LIVE = "DEVICE_LIVE"
-private const val MAX_FIX_AGE_MS = 45_000L
-private const val RECENT_PHOTO_WINDOW_MS = 5 * 60_000L
-private const val LOOP_DELAY_MS = 1_500L
+private const val CHANNEL_ID = "divergent_live_capture"
+private const val NOTIFICATION_ID = 6404
 
-private data class LiveGpsFix(
-    val latitude: Double,
-    val longitude: Double,
-    val accuracy: Float,
-    val timeMs: Long
-)
+/** Coordinates written by INSX for the photo it is sending (exact field values). */
+private const val SOURCE_INSX_FILE = "InsUploadPic.txt"
+/** Fallback: the phone's own position, used only when INSX never wrote a record for the photo. */
+private const val SOURCE_DEVICE_GPS = "DEVICE_LIVE"
 
-private data class LivePhoto(
-    val id: Long,
-    val name: String,
-    val ca: String,
-    val rawDate: String,
-    val mediaTimeMs: Long,
-    val addedTimeMs: Long
-)
+private const val FILE_POLL_MS = 3_000L            // cheap stat() of 1-2 known files
+private const val FILE_SEARCH_RETRY_MS = 30 * 60_000L // full storage search only when the file is unknown
+private const val PHOTO_GRACE_MS = 45_000L          // wait this long for INSX's own record before using GPS
+private const val RECENT_PHOTO_MS = 10 * 60_000L
+private const val FRESH_FIX_MS = 60_000L
+private const val SINGLE_FIX_TIMEOUT_MS = 20_000L
+private const val QUEUE_FILE = "location_queue.json"
 
-private data class LiveUploadRecord(
-    val ca: String,
-    val photoName: String,
-    val rawDate: String,
-    val latitude: Double,
-    val longitude: Double,
-    val accuracy: Float,
-    val fixTimeMs: Long,
-    val mediaTimeMs: Long,
-    val sourceFile: String,
-    val rawParameter: String
-) {
-    val key: String get() = "$ca|${photoName.lowercase(Locale.US)}"
-}
-
+/**
+ * 6.20.0 photo-location capture, light on battery:
+ *  1. Watches InsUploadPic*.txt (FileObserver + a 3 s stat check). INSX rewrites that file for
+ *     every photo it sends, so each change is read at once and its coordinates are kept.
+ *  2. When a new INSx photo appears and INSX has not written its record within 45 s, the phone's
+ *     position is used instead: the last GPS fix if it is fresh (INSX keeps GPS warm), otherwise
+ *     one single fix. GPS is never left running.
+ *  3. Every record goes into a queue saved on the phone and is sent until the server accepts it,
+ *     so nothing is lost when the network or the server is down. The same photo sent again
+ *     replaces the stored coordinates on the server (upsert on CA + photo name).
+ */
 class LiveLocationCaptureService : Service() {
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var loopJob: Job? = null
-    private var locationManager: LocationManager? = null
-    private val gpsHistory = ArrayDeque<LiveGpsFix>()
-    private var lastFileBackfillAt = 0L
+    private lateinit var thread: HandlerThread
+    private lateinit var handler: Handler
+    private val net = Executors.newSingleThreadExecutor()
+    private val observers = mutableListOf<FileObserver>()
+    private var mediaObserver: ContentObserver? = null
 
-    private val locationListener = object : LocationListener {
-        override fun onLocationChanged(location: Location) {
-            val now = System.currentTimeMillis()
-            val fix = LiveGpsFix(
-                latitude = location.latitude,
-                longitude = location.longitude,
-                accuracy = location.accuracy,
-                timeMs = if (location.time > 0) location.time else now
-            )
-            synchronized(gpsHistory) {
-                gpsHistory.addLast(fix)
-                while (gpsHistory.size > 180) gpsHistory.removeFirst()
-                while (gpsHistory.isNotEmpty() && now - gpsHistory.first().timeMs > 10 * 60_000L) {
-                    gpsHistory.removeFirst()
-                }
-            }
-            getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putLong("device_latitude", java.lang.Double.doubleToRawLongBits(fix.latitude))
-                .putLong("device_longitude", java.lang.Double.doubleToRawLongBits(fix.longitude))
-                .putFloat("device_accuracy", fix.accuracy)
-                .putLong("device_time_ms", fix.timeMs)
-                .putString("gps_status", "DEVICE GPS ทำงานอยู่")
-                .putString("gps_debug", "accuracy=${fix.accuracy}m")
-                .apply()
-        }
+    private val knownFiles = mutableMapOf<String, Long>()   // path -> last seen lastModified+length
+    private var lastFileSearch = 0L
+    private val insxSeen = LinkedHashMap<String, Long>()     // photo key -> time INSX record seen
+    private val pendingPhotos = LinkedHashMap<String, PendingPhoto>()
+    @Volatile private var uploading = false
+    private var retryDelayMs = 30_000L
 
-        @Deprecated("Deprecated in Java")
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
-        override fun onProviderEnabled(provider: String) = Unit
-        override fun onProviderDisabled(provider: String) = Unit
-    }
+    private data class PendingPhoto(val ca: String, val name: String, val rawDate: String, val seenAt: Long, var fix: Location?)
+
+    private val prefs by lazy { getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE) }
+    private val insxDone: MutableSet<String> by lazy { prefs.getStringSet("insx_done", emptySet()).orEmpty().toMutableSet() }
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        createChannel()
         startForeground(
-            LIVE_CAPTURE_NOTIFICATION_ID,
-            NotificationCompat.Builder(this, LIVE_CAPTURE_CHANNEL_ID)
+            NOTIFICATION_ID,
+            NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setContentTitle("Divergent Field Tools 6.19.7")
-                .setContentText("กำลังเก็บพิกัดใบแจ้งเตือนแบบ LIVE")
+                .setContentTitle("Divergent Field Tools")
+                .setContentText("กำลังเก็บพิกัดรูป INSx")
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
         )
-
-        getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean("active", true)
-            .putLong("service_started_ms", System.currentTimeMillis())
-            .putString("last_error", "")
-            .apply()
-
-        startDeviceLocationTracking()
-        loopJob = serviceScope.launch { liveLoop() }
+        prefs.edit().putBoolean("active", true).putLong("service_started_ms", now()).putString("last_error", "").apply()
+        thread = HandlerThread("divergent-location").also { it.start() }
+        handler = Handler(thread.looper)
+        handler.post {
+            findInsUploadFiles(force = true)
+            watchMediaStore()
+            handler.post(fileTick)
+            handler.post(photoTick)
+            flushQueue()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Permission can be granted while an already-created service exists.
-        stopDeviceLocationTracking()
-        startDeviceLocationTracking()
+        if (::handler.isInitialized) handler.post { findInsUploadFiles(force = knownFiles.isEmpty()); flushQueue() }
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        stopDeviceLocationTracking()
-        loopJob?.cancel()
-        serviceScope.cancel()
-        getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean("active", false).apply()
+        observers.forEach { runCatching { it.stopWatching() } }
+        observers.clear()
+        mediaObserver?.let { runCatching { contentResolver.unregisterContentObserver(it) } }
+        if (::thread.isInitialized) thread.quitSafely()
+        net.shutdown()
+        prefs.edit().putBoolean("active", false).apply()
         super.onDestroy()
     }
 
-    private fun hasLocationPermission(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        return fine || coarse
-    }
+    // ---------------------------------------------------------------- InsUploadPic watching
 
-    private fun startDeviceLocationTracking() {
-        val prefs = getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE)
-        if (!hasLocationPermission()) {
-            prefs.edit().putString("gps_status", "ยังไม่ได้อนุญาต Location").putString("last_error", "LOCATION_PERMISSION_REQUIRED").apply()
-            return
-        }
-        try {
-            val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            locationManager = manager
-            val providers = buildList {
-                if (runCatching { manager.isProviderEnabled(LocationManager.GPS_PROVIDER) }.getOrDefault(false)) add(LocationManager.GPS_PROVIDER)
-                if (runCatching { manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) }.getOrDefault(false)) add(LocationManager.NETWORK_PROVIDER)
-            }
-            if (providers.isEmpty()) {
-                prefs.edit().putString("gps_status", "GPS/Location ถูกปิดอยู่").putString("last_error", "LOCATION_SERVICE_DISABLED").apply()
-                return
-            }
-            providers.forEach { provider ->
-                manager.requestLocationUpdates(provider, 1_000L, 0f, locationListener)
-                runCatching { manager.getLastKnownLocation(provider) }.getOrNull()?.let { locationListener.onLocationChanged(it) }
-            }
-            prefs.edit().putString("gps_status", "DEVICE GPS ทำงานอยู่").putString("last_error", "").apply()
-        } catch (e: SecurityException) {
-            prefs.edit().putString("gps_status", "Location permission ถูกปฏิเสธ").putString("last_error", "${e.javaClass.simpleName}: ${e.message.orEmpty()}").apply()
-        } catch (e: Exception) {
-            prefs.edit().putString("gps_status", "GPS ERROR").putString("last_error", "${e.javaClass.simpleName}: ${e.message.orEmpty()}").apply()
-        }
-    }
-
-    private fun stopDeviceLocationTracking() {
-        runCatching { locationManager?.removeUpdates(locationListener) }
-        locationManager = null
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    LIVE_CAPTURE_CHANNEL_ID,
-                    "Divergent LIVE Location Capture",
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply { description = "เก็บพิกัดจริงของรูป INSx เพื่อใช้เป็นพิกัดใบแจ้งเตือน" }
-            )
-        }
-    }
-
-    private suspend fun liveLoop() {
-        val prefs = getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE)
-        while (serviceScope.isActive) {
+    private val fileTick = object : Runnable {
+        override fun run() {
             try {
-                if (hasLocationPermission()) {
-                    captureNewPhotos(prefs)
-                    // Safe historical backfill: only from InsUploadPic because it contains
-                    // the actual coordinates captured with each photo. Never backfill an old
-                    // photo using the phone's current location.
-                    val now = System.currentTimeMillis()
-                    if (now - lastFileBackfillAt >= 60_000L) {
-                        lastFileBackfillAt = now
-                        backfillFromInsUploadPic(prefs)
-                    }
-                }
-            } catch (e: Exception) {
-                prefs.edit().putString("last_error", "LIVE loop: ${e.javaClass.simpleName}: ${e.message.orEmpty()}").apply()
-            }
-            delay(LOOP_DELAY_MS)
+                if (knownFiles.isEmpty()) findInsUploadFiles(force = false)
+                for (path in knownFiles.keys.toList()) checkFile(File(path))
+            } catch (e: Exception) { error("file", e) }
+            handler.postDelayed(this, FILE_POLL_MS)
         }
     }
 
-    private fun scanRecentInsxPhotos(): List<LivePhoto> {
-        val result = mutableListOf<LivePhoto>()
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.DATE_TAKEN
-        )
-        val now = System.currentTimeMillis()
+    private fun hasFileAccess(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+
+    /** Uses the remembered location of the file; searches storage only when it is not known yet. */
+    private fun findInsUploadFiles(force: Boolean) {
+        if (!hasFileAccess()) { prefs.edit().putString("gps_status", "ยังไม่ได้อนุญาตเข้าถึงไฟล์ทั้งหมด").apply(); return }
+        prefs.getStringSet("insupload_paths", emptySet()).orEmpty().forEach { p ->
+            if (File(p).isFile && p !in knownFiles) addKnownFile(File(p))
+        }
+        if (knownFiles.isNotEmpty() && !force) return
+        if (!force && now() - lastFileSearch < FILE_SEARCH_RETRY_MS) return
+        lastFileSearch = now()
+        val found = mutableListOf<File>()
+        val nameRe = Regex("""^InsUploadPic.*\.txt$""", RegexOption.IGNORE_CASE)
+        val skip = setOf("Android", "LOST.DIR")
+        val queue = ArrayDeque<Pair<File, Int>>()
+        queue.add(Environment.getExternalStorageDirectory() to 0)
+        while (queue.isNotEmpty()) {
+            val (dir, depth) = queue.removeFirst()
+            val children = runCatching { dir.listFiles()?.toList() }.getOrNull().orEmpty()
+            for (f in children) {
+                if (f.isDirectory) {
+                    if (depth < 6 && !f.name.startsWith(".") && f.name !in skip) queue.add(f to depth + 1)
+                } else if (nameRe.matches(f.name)) found += f
+            }
+        }
+        found.forEach { addKnownFile(it) }
+        prefs.edit().putStringSet("insupload_paths", knownFiles.keys.toSet())
+            .putString("insupload_status", if (found.isEmpty()) "ยังไม่พบไฟล์ InsUploadPic" else "พบ InsUploadPic ${found.size} ไฟล์").apply()
+    }
+
+    private fun addKnownFile(f: File) {
+        val path = f.absolutePath
+        if (path in knownFiles) return
+        knownFiles[path] = 0L
+        val dir = f.parentFile ?: return
+        if (observers.any { it.toString() == dir.absolutePath }) return
+        val mask = FileObserver.CLOSE_WRITE or FileObserver.MOVED_TO or FileObserver.CREATE
+        val obs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            object : FileObserver(dir, mask) {
+                override fun onEvent(event: Int, name: String?) = onDirEvent(dir, name)
+                override fun toString() = dir.absolutePath
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            object : FileObserver(dir.absolutePath, mask) {
+                override fun onEvent(event: Int, name: String?) = onDirEvent(dir, name)
+                override fun toString() = dir.absolutePath
+            }
+        }
+        runCatching { obs.startWatching(); observers += obs }
+    }
+
+    private fun onDirEvent(dir: File, name: String?) {
+        if (name == null || !name.startsWith("InsUploadPic", ignoreCase = true)) return
+        handler.post { val f = File(dir, name); if (f.absolutePath !in knownFiles) addKnownFile(f); checkFile(f) }
+    }
+
+    /** Reads the file only when its time or size changed since the last read. */
+    private fun checkFile(f: File) {
+        if (!f.isFile) return
+        val stamp = f.lastModified() * 31 + f.length()
+        if (knownFiles[f.absolutePath] == stamp) return
+        knownFiles[f.absolutePath] = stamp
+        val text = runCatching { f.readText(Charsets.UTF_8) }.getOrNull() ?: return
+        val records = runCatching { parseInsUploadPicText(SOURCE_INSX_FILE, text) }.getOrDefault(emptyList())
+        if (records.isEmpty()) return
+        for (r in records) {
+            val key = key(r.caNumber, r.photoName)
+            insxSeen[key] = now()
+            pendingPhotos.remove(key)
+            insxDone += key
+            enqueue(
+                JSONObject()
+                    .put("ca_number", r.caNumber)
+                    .put("photo_name", r.photoName)
+                    .put("latitude", r.latitude)
+                    .put("longitude", r.longitude)
+                    .putOpt("photo_datetime", r.photoDateTime)
+                    .putOpt("event_datetime", r.eventDateTime)
+                    .put("source_file", SOURCE_INSX_FILE)
+                    .putOpt("job_ref", r.jobRef)
+                    .putOpt("cycle_code", r.cycleCode)
+                    .putOpt("secondary_ref", r.secondaryRef)
+                    .putOpt("subdistrict", r.subdistrict)
+                    .putOpt("district", r.district)
+                    .putOpt("province", r.province)
+                    .put("raw_parameter", r.rawParameter)
+            )
+            prefs.edit().putString("last_ca", r.caNumber).putString("last_photo", r.photoName)
+                .putString("last_latlon", "${r.latitude}, ${r.longitude}")
+                .putString("last_capture_source", SOURCE_INSX_FILE).putLong("last_capture_ms", now())
+                .putInt("insx_record_count", prefs.getInt("insx_record_count", 0) + 1).apply()
+        }
+        while (insxSeen.size > 3000) insxSeen.remove(insxSeen.keys.first())
+        val compact = if (insxDone.size > 4000) insxDone.toList().takeLast(3000).toMutableSet() else insxDone
+        prefs.edit().putStringSet("insx_done", HashSet(compact)).apply()
+        flushQueue()
+    }
+
+    // ---------------------------------------------------------------- GPS fallback
+
+    private fun watchMediaStore() {
+        val obs = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean, uri: Uri?) {
+                handler.removeCallbacks(scanPhotos)
+                handler.postDelayed(scanPhotos, 1_500L) // several change events arrive per photo
+            }
+        }
+        runCatching {
+            contentResolver.registerContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, obs)
+            mediaObserver = obs
+        }
+    }
+
+    private val scanPhotos = Runnable {
+        try { findNewPhotos() } catch (e: Exception) { error("media", e) }
+    }
+
+    /** Only photos added in the last 10 minutes are read, newest first. */
+    private fun findNewPhotos() {
+        val since = (now() - RECENT_PHOTO_MS) / 1000
         contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            projection,
-            null,
-            null,
+            arrayOf(MediaStore.Images.Media.DISPLAY_NAME),
+            "${MediaStore.Images.Media.DATE_ADDED} >= ? AND ${MediaStore.Images.Media.DISPLAY_NAME} LIKE 'INSx%'",
+            arrayOf(since.toString()),
             "${MediaStore.Images.Media.DATE_ADDED} DESC"
-        )?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-            val addedCol = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
-            val takenCol = cursor.getColumnIndex(MediaStore.Images.Media.DATE_TAKEN)
-            var inspected = 0
-            while (cursor.moveToNext() && inspected < 500) {
-                inspected++
-                val name = cursor.getString(nameCol) ?: continue
-                if (!name.startsWith("INSx", ignoreCase = true)) continue
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val name = c.getString(0) ?: continue
                 val parsed = parseInsxFileName(name) ?: continue
-                val addedMs = if (addedCol >= 0 && !cursor.isNull(addedCol)) cursor.getLong(addedCol) * 1000L else 0L
-                val takenMs = if (takenCol >= 0 && !cursor.isNull(takenCol)) cursor.getLong(takenCol) else 0L
-                val mediaMs = when {
-                    takenMs > 0L -> takenMs
-                    addedMs > 0L -> addedMs
-                    else -> now
-                }
-                val freshnessMs = when {
-                    addedMs > 0L -> now - addedMs
-                    else -> now - mediaMs
-                }
-                if (freshnessMs !in 0..RECENT_PHOTO_WINDOW_MS) continue
-                result += LivePhoto(
-                    id = cursor.getLong(idCol),
-                    name = name,
-                    ca = parsed.ca,
-                    rawDate = parsed.rawDate,
-                    mediaTimeMs = mediaMs,
-                    addedTimeMs = addedMs.takeIf { it > 0L } ?: mediaMs
-                )
+                val key = key(parsed.ca, name)
+                if (key in insxSeen || key in insxDone || key in pendingPhotos || prefs.getStringSet("gps_done", emptySet())!!.contains(key)) continue
+                val p = PendingPhoto(parsed.ca, name, parsed.rawDate, now(), null)
+                pendingPhotos[key] = p
+                takeFix { p.fix = it }  // taken now, used later only if INSX writes nothing
             }
         }
-        return result.distinctBy { it.name.lowercase(Locale.US) }
     }
 
-    private fun nearestFreshFix(photoTimeMs: Long): LiveGpsFix? {
-        val now = System.currentTimeMillis()
-        val candidates = synchronized(gpsHistory) { gpsHistory.toList() }
-        val best = candidates.minByOrNull { abs(it.timeMs - photoTimeMs) }
-        if (best != null && abs(best.timeMs - photoTimeMs) <= MAX_FIX_AGE_MS && now - best.timeMs <= 2 * 60_000L) return best
-
-        // Last-known fix can be used only when it is genuinely fresh.
-        val prefs = getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE)
-        val t = prefs.getLong("device_time_ms", 0L)
-        if (t <= 0L || now - t > MAX_FIX_AGE_MS || abs(t - photoTimeMs) > MAX_FIX_AGE_MS) return null
-        if (!prefs.contains("device_latitude") || !prefs.contains("device_longitude")) return null
-        return LiveGpsFix(
-            latitude = java.lang.Double.longBitsToDouble(prefs.getLong("device_latitude", 0L)),
-            longitude = java.lang.Double.longBitsToDouble(prefs.getLong("device_longitude", 0L)),
-            accuracy = prefs.getFloat("device_accuracy", -1f),
-            timeMs = t
-        )
+    private val photoTick = object : Runnable {
+        override fun run() {
+            try { settlePhotos() } catch (e: Exception) { error("photo", e) }
+            handler.postDelayed(this, 10_000L)
+        }
     }
 
-    private fun captureNewPhotos(prefs: android.content.SharedPreferences) {
-        val sent = prefs.getStringSet("device_live_sent", emptySet()).orEmpty().toMutableSet()
-        var changed = false
-        var uploaded = 0
-        val photos = scanRecentInsxPhotos()
-        for (photo in photos.sortedBy { it.addedTimeMs }) {
-            val key = "${photo.ca}|${photo.name.lowercase(Locale.US)}"
-            if (key in sent) continue
-            val fix = nearestFreshFix(photo.mediaTimeMs) ?: continue
-            if (fix.latitude !in -90.0..90.0 || fix.longitude !in -180.0..180.0 || (fix.latitude == 0.0 && fix.longitude == 0.0)) continue
-
-            val record = LiveUploadRecord(
-                ca = photo.ca,
-                photoName = photo.name,
-                rawDate = photo.rawDate,
-                latitude = fix.latitude,
-                longitude = fix.longitude,
-                accuracy = fix.accuracy,
-                fixTimeMs = fix.timeMs,
-                mediaTimeMs = photo.mediaTimeMs,
-                sourceFile = SOURCE_DEVICE_LIVE,
-                rawParameter = JSONObject()
-                    .put("source", SOURCE_DEVICE_LIVE)
-                    .put("media_id", photo.id)
-                    .put("media_time_ms", photo.mediaTimeMs)
-                    .put("gps_time_ms", fix.timeMs)
-                    .put("accuracy_m", fix.accuracy)
-                    .toString()
+    private fun settlePhotos() {
+        if (pendingPhotos.isEmpty()) return
+        val done = prefs.getStringSet("gps_done", emptySet()).orEmpty().toMutableSet()
+        val iter = pendingPhotos.entries.iterator()
+        while (iter.hasNext()) {
+            val (key, p) = iter.next()
+            if (key in insxSeen || key in insxDone) { iter.remove(); continue }
+            if (now() - p.seenAt < PHOTO_GRACE_MS) continue
+            val fix = p.fix
+            if (fix == null) {
+                if (now() - p.seenAt > 3 * 60_000L) iter.remove() // no position could be taken
+                continue
+            }
+            iter.remove()
+            done += key
+            enqueue(
+                JSONObject()
+                    .put("ca_number", p.ca)
+                    .put("photo_name", p.name)
+                    .put("latitude", fix.latitude)
+                    .put("longitude", fix.longitude)
+                    .put("photo_datetime", serverTime(fix.time))
+                    .put("event_datetime", serverTime(fix.time))
+                    .put("source_file", SOURCE_DEVICE_GPS)
+                    .put("raw_parameter", JSONObject().put("source", SOURCE_DEVICE_GPS).put("accuracy_m", fix.accuracy.toDouble()).put("provider", fix.provider ?: "").toString())
             )
-            appendBackup(record)
-            if (uploadRecords(listOf(record))) {
-                sent += key
-                changed = true
-                uploaded++
-                prefs.edit()
-                    .putString("last_ca", photo.ca)
-                    .putString("last_photo", photo.name)
-                    .putString("last_latlon", "${fix.latitude}, ${fix.longitude}")
-                    .putLong("last_capture_ms", System.currentTimeMillis())
-                    .putString("last_capture_source", SOURCE_DEVICE_LIVE)
-                    .putString("last_error", "")
-                    .apply()
+            prefs.edit().putString("last_ca", p.ca).putString("last_photo", p.name)
+                .putString("last_latlon", "${fix.latitude}, ${fix.longitude}")
+                .putString("last_capture_source", SOURCE_DEVICE_GPS).putLong("last_capture_ms", now())
+                .putInt("gps_record_count", prefs.getInt("gps_record_count", 0) + 1).apply()
+        }
+        val compact = if (done.size > 4000) done.toList().takeLast(3000).toSet() else done
+        prefs.edit().putStringSet("gps_done", compact).apply()
+        flushQueue()
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    /** The freshest position already on the phone, or one single new fix. GPS is never left on. */
+    @SuppressLint("MissingPermission")
+    private fun takeFix(done: (Location) -> Unit) {
+        if (!hasLocationPermission()) { prefs.edit().putString("gps_status", "ยังไม่ได้อนุญาต Location").apply(); return }
+        val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+        if (providers.isEmpty()) { prefs.edit().putString("gps_status", "GPS/Location ถูกปิดอยู่").apply(); return }
+        val fresh = providers.mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
+            .filter { now() - it.time <= FRESH_FIX_MS && it.accuracy <= 100f }
+            .minByOrNull { it.accuracy }
+        if (fresh != null) { done(fresh); return }
+        val provider = if (LocationManager.GPS_PROVIDER in providers) LocationManager.GPS_PROVIDER else providers.first()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val cancel = android.os.CancellationSignal()
+            handler.postDelayed({ cancel.cancel() }, SINGLE_FIX_TIMEOUT_MS)
+            runCatching {
+                lm.getCurrentLocation(provider, cancel, java.util.concurrent.Executor { r -> handler.post(r) }) { loc -> if (loc != null) done(loc) }
             }
-        }
-        if (changed) {
-            // Prevent unbounded SharedPreferences growth while retaining enough history
-            // to avoid duplicate sends across normal daily use.
-            val compact = if (sent.size > 6000) sent.takeLast(5000).toSet() else sent
-            prefs.edit()
-                .putStringSet("device_live_sent", compact)
-                .putInt("device_uploaded_count", prefs.getInt("device_uploaded_count", 0) + uploaded)
-                .putInt("captured_count", prefs.getInt("captured_count", 0) + uploaded)
-                .apply()
-        }
-    }
-
-    private fun appendBackup(record: LiveUploadRecord) {
-        val obj = JSONObject()
-            .put("ca_number", record.ca)
-            .put("photo_name", record.photoName)
-            .put("raw_date", record.rawDate)
-            .put("latitude", record.latitude)
-            .put("longitude", record.longitude)
-            .put("accuracy_m", record.accuracy)
-            .put("gps_time_ms", record.fixTimeMs)
-            .put("media_time_ms", record.mediaTimeMs)
-            .put("source_file", record.sourceFile)
-            .put("saved_at_ms", System.currentTimeMillis())
-        runCatching {
-            File(filesDir, "live_location_backup.jsonl").appendText(obj.toString() + "\n", Charsets.UTF_8)
-        }
-    }
-
-    private fun backfillFromInsUploadPic(prefs: android.content.SharedPreferences) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) return
-        val records = runCatching { applicationContext.scanInsUploadPicFilesAuto() }.getOrDefault(emptyList())
-        if (records.isEmpty()) return
-
-        val sent = prefs.getStringSet("insupload_backfill_sent", emptySet()).orEmpty().toMutableSet()
-        val pending = records.filter {
-            val key = "${it.caNumber}|${it.photoName.lowercase(Locale.US)}|${it.latitude}|${it.longitude}"
-            key !in sent
-        }
-        if (pending.isEmpty()) return
-
-        var imported = 0
-        pending.chunked(250).forEach { chunk ->
-            if (uploadImageWorkRecords(chunk)) {
-                chunk.forEach {
-                    sent += "${it.caNumber}|${it.photoName.lowercase(Locale.US)}|${it.latitude}|${it.longitude}"
-                }
-                imported += chunk.size
+        } else {
+            val listener = object : LocationListener {
+                override fun onLocationChanged(location: Location) { lm.removeUpdates(this); done(location) }
+                @Deprecated("Deprecated in Java") override fun onStatusChanged(p: String?, s: Int, e: Bundle?) = Unit
+                override fun onProviderEnabled(p: String) = Unit
+                override fun onProviderDisabled(p: String) = Unit
             }
+            @Suppress("DEPRECATION")
+            runCatching { lm.requestSingleUpdate(provider, listener, handler.looper) }
+            handler.postDelayed({ runCatching { lm.removeUpdates(listener) } }, SINGLE_FIX_TIMEOUT_MS)
         }
-        if (imported > 0) {
-            val compact = if (sent.size > 12000) sent.takeLast(10000).toSet() else sent
-            prefs.edit()
-                .putStringSet("insupload_backfill_sent", compact)
-                .putInt("insupload_backfill_count", prefs.getInt("insupload_backfill_count", 0) + imported)
-                .putString("last_backfill_status", "InsUploadPic ส่งย้อนหลัง $imported รายการ")
-                .apply()
-        }
+        prefs.edit().putString("gps_status", "DEVICE GPS พร้อมใช้").apply()
     }
 
-    private fun uploadImageWorkRecords(records: List<ImageWorkLocationRecord>): Boolean {
-        if (records.isEmpty()) return true
-        val root = JSONObject().put("records", JSONArray().apply {
-            records.forEach { r ->
-                put(JSONObject().apply {
-                    put("ca_number", r.caNumber)
-                    put("photo_name", r.photoName)
-                    put("latitude", r.latitude)
-                    put("longitude", r.longitude)
-                    r.photoDateTime?.let { put("photo_datetime", it) }
-                    r.eventDateTime?.let { put("event_datetime", it) }
-                    put("source_file", r.sourceFile)
-                    r.jobRef?.let { put("job_ref", it) }
-                    r.cycleCode?.let { put("cycle_code", it) }
-                    r.secondaryRef?.let { put("secondary_ref", it) }
-                    r.subdistrict?.let { put("subdistrict", it) }
-                    r.district?.let { put("district", it) }
-                    r.province?.let { put("province", it) }
-                    put("raw_parameter", r.rawParameter)
-                })
-            }
-        })
-        return postToLocationImport(root)
+    // ---------------------------------------------------------------- queue + upload
+
+    private fun key(ca: String, photoName: String) = "$ca|${photoName.substringBeforeLast('.').lowercase(Locale.US)}"
+
+    /** One entry per photo; a newer record for the same photo replaces the older one. */
+    @Synchronized
+    private fun enqueue(rec: JSONObject) {
+        val q = readQueue()
+        q.put(key(rec.getString("ca_number"), rec.getString("photo_name")), rec)
+        writeQueue(q)
     }
 
-    private fun uploadRecords(records: List<LiveUploadRecord>): Boolean {
-        if (records.isEmpty()) return true
-        // Grouping keeps source_batch_id meaningful for diagnostics. Matching itself is
-        // also possible by exact CA + photo stem even before a real batch is registered.
-        val grouped = records.groupBy { it.rawDate }
-        var allOk = true
-        for ((rawDate, rows) in grouped) {
-            val payload = JSONObject()
-                .put("site_code", "LIVE_CAPTURE")
-                .put("batch_id", "LIVE-$rawDate")
-                .put("records", JSONArray().apply {
-                    rows.forEach { r ->
-                        val event = formatServerTime(r.fixTimeMs)
-                        put(JSONObject()
-                            .put("ca_number", r.ca)
-                            .put("photo_name", r.photoName)
-                            .put("latitude", r.latitude)
-                            .put("longitude", r.longitude)
-                            .put("photo_datetime", event)
-                            .put("event_datetime", event)
-                            .put("source_file", r.sourceFile)
-                            .put("raw_parameter", r.rawParameter)
-                        )
+    @Synchronized private fun readQueue(): JSONObject =
+        runCatching { JSONObject(File(filesDir, QUEUE_FILE).readText()) }.getOrDefault(JSONObject())
+
+    @Synchronized private fun writeQueue(q: JSONObject) {
+        val f = File(filesDir, QUEUE_FILE)
+        val tmp = File(filesDir, "$QUEUE_FILE.tmp")
+        tmp.writeText(q.toString())
+        tmp.renameTo(f)
+        prefs.edit().putInt("queue_size", q.length()).apply()
+    }
+
+    private val retry = Runnable { flushQueue() }
+
+    private fun flushQueue() {
+        if (uploading) return
+        val q = readQueue()
+        if (q.length() == 0) return
+        uploading = true
+        val keys = q.keys().asSequence().take(200).toList()
+        val batch = JSONArray().apply { keys.forEach { put(q.getJSONObject(it)) } }
+        net.execute {
+            val ok = post(JSONObject().put("records", batch))
+            handler.post {
+                uploading = false
+                if (ok) {
+                    synchronized(this) {
+                        val cur = readQueue()
+                        // remove only what was sent and not replaced meanwhile
+                        keys.forEachIndexed { i, k -> if (cur.optJSONObject(k)?.toString() == batch.getJSONObject(i).toString()) cur.remove(k) }
+                        writeQueue(cur)
                     }
-                })
-            if (!postToLocationImport(payload)) allOk = false
+                    retryDelayMs = 30_000L
+                    prefs.edit().putInt("uploaded_count", prefs.getInt("uploaded_count", 0) + keys.size).putString("last_error", "").apply()
+                    if (readQueue().length() > 0) handler.post { flushQueue() }
+                } else {
+                    handler.removeCallbacks(retry)
+                    handler.postDelayed(retry, retryDelayMs)
+                    retryDelayMs = (retryDelayMs * 2).coerceAtMost(10 * 60_000L)
+                }
+            }
         }
-        return allOk
     }
 
-    private fun formatServerTime(ms: Long): String {
-        return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
-            timeZone = TimeZone.getDefault()
-        }.format(Date(ms))
-    }
-
-    private fun postToLocationImport(payload: JSONObject): Boolean {
-        val urlBase = buildConfigValue("SUPABASE_URL")
-        val key = buildConfigValue("SUPABASE_KEY")
-        if (urlBase.isBlank() || key.isBlank()) {
-            getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE).edit()
-                .putString("last_error", "SUPABASE_CONFIG_MISSING").apply()
-            return false
-        }
-        val connection = (URL("$urlBase/functions/v1/image-location-import").openConnection() as HttpURLConnection)
+    private fun post(payload: JSONObject): Boolean {
+        val base = BuildConfig.SUPABASE_URL
+        val apiKey = BuildConfig.SUPABASE_KEY
+        val c = URL("$base/functions/v1/image-location-import").openConnection() as HttpURLConnection
         return try {
-            connection.requestMethod = "POST"
-            connection.connectTimeout = 20_000
-            connection.readTimeout = 30_000
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("apikey", key)
-            connection.setRequestProperty("Authorization", "Bearer $key")
-            connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
-            val code = connection.responseCode
-            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
-                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            c.requestMethod = "POST"
+            c.connectTimeout = 20_000
+            c.readTimeout = 30_000
+            c.doOutput = true
+            c.setRequestProperty("Content-Type", "application/json")
+            c.setRequestProperty("apikey", apiKey)
+            c.setRequestProperty("Authorization", "Bearer $apiKey")
+            c.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val code = c.responseCode
             if (code !in 200..299) {
-                getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE).edit()
-                    .putString("last_error", "LOCATION_IMPORT HTTP $code: ${body.take(160)}").apply()
-                false
+                val body = c.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                prefs.edit().putString("last_error", "LOCATION_IMPORT HTTP $code: ${body.take(160)}").apply()
+                // NO_VALID_RECORDS can never succeed: drop it instead of retrying for ever
+                code == 400 && body.contains("NO_VALID_RECORDS")
             } else true
         } catch (e: Exception) {
-            getSharedPreferences(LIVE_CAPTURE_PREFS, Context.MODE_PRIVATE).edit()
-                .putString("last_error", "LOCATION_IMPORT ${e.javaClass.simpleName}: ${e.message.orEmpty()}").apply()
+            prefs.edit().putString("last_error", "LOCATION_IMPORT ${e.javaClass.simpleName}: ${e.message.orEmpty()}").apply()
             false
-        } finally {
-            connection.disconnect()
-        }
+        } finally { c.disconnect() }
     }
 
-    private fun buildConfigValue(name: String): String = try {
-        val clazz = Class.forName("com.example.locationfinderforinsx.BuildConfig")
-        clazz.getField(name).get(null)?.toString().orEmpty()
-    } catch (_: Exception) { "" }
+    // ---------------------------------------------------------------- helpers
+
+    private fun now() = System.currentTimeMillis()
+    private fun serverTime(ms: Long): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getDefault() }.format(Date(ms))
+    private fun error(where: String, e: Exception) =
+        prefs.edit().putString("last_error", "$where: ${e.javaClass.simpleName}: ${e.message.orEmpty()}").apply()
+
+    private fun createChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "Divergent เก็บพิกัดรูป", NotificationManager.IMPORTANCE_LOW)
+                    .apply { description = "เก็บพิกัดของรูป INSx ทุกรูป" }
+            )
+        }
+    }
 }
 
 fun Context.startLiveLocationCapture(): Boolean {
+    // The service is a location foreground service: Android refuses to start it without the permission.
     val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     if (!fine && !coarse) return false

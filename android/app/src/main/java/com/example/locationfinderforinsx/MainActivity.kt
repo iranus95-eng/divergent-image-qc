@@ -553,7 +553,7 @@ private fun sendImageHealthAlert(
 class MainActivity : ComponentActivity() {
 
     private fun ensureLiveLocationCaptureStarted() {
-        // 6.19.7: restore DEVICE_LIVE capture automatically.
+        // 6.20.0: start photo-location capture (InsUploadPic watcher + GPS fallback).
         // Safe when permission is missing: the helper simply returns false.
         runCatching { applicationContext.startLiveLocationCapture() }
     }
@@ -1439,7 +1439,7 @@ private fun DivergentLoginScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        "Version 6.19.7",
+                        "Version 6.20.0",
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center,
                         color = DivergentMuted,
@@ -1680,7 +1680,7 @@ private fun LegacyDivergentProfileScreen(
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 Text("ตั้งค่าแอป")
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                Text("เกี่ยวกับแอป • Version 6.19.7")
+                Text("เกี่ยวกับแอป • Version 6.20.0")
             }
             Spacer(Modifier.height(18.dp))
             OutlinedButton(
@@ -1855,7 +1855,7 @@ fun SearchScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Divergent Field Tools • V6.19.7",
+                        "Divergent Field Tools • V6.20.0",
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 12.sp
                     )
@@ -2014,7 +2014,7 @@ fun SearchScreen(
             tonalElevation = 6.dp
         ) {
             Text(
-                text = "Divergent Field Tools • V6.19.7",
+                text = "Divergent Field Tools • V6.20.0",
                 color = Color.White,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,

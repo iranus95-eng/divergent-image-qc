@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.locationfinderforinsx"
         minSdk = 26
         targetSdk = 35
-        versionCode = 62107
-        versionName = "6.19.7"
+        versionCode = 62200
+        versionName = "6.20.0"
         buildConfigField("String", "SUPABASE_URL", "\"https://neauzvqroaszvqffahkv.supabase.co\"")
         buildConfigField("String", "SUPABASE_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lYXV6dnFyb2FzenZxZmZhaGt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNDk2OTQsImV4cCI6MjEwMzgyNTY5NH0.TpxNtbgWANFboqKAe8f3akinawuwbvFlohz2OwVV7iw\"")
     }
