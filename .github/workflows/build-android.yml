@@ -46,4 +46,4 @@ jobs:
           V=$(grep -oP 'versionName = "\K[^"]+' android/app/build.gradle.kts)
           TAG="v$V-test-${GITHUB_RUN_NUMBER}"
           cp android/app/build/outputs/apk/release/app-release.apk app-release.apk
-          gh release create "$TAG" app-release.apk --prerelease --target "$GITHUB_SHA" --title "Divergent Field Tools $V (ทดสอบ)" --notes "ทดสอบเก็บพิกัดรูป: อ่าน InsUploadPic ทุกครั้งที่เขียน + GPS สำรอง"
+          gh release create "$TAG" app-release.apk --prerelease --target "$GITHUB_SHA" --title "Divergent Field Tools $V (ทดสอบ)" --notes "ทดสอบเก็บพิกัดรูปด้วย GPS ของแอปเอง ไม่พึ่ง InsUploadPic"

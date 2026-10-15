@@ -553,7 +553,7 @@ private fun sendImageHealthAlert(
 class MainActivity : ComponentActivity() {
 
     private fun ensureLiveLocationCaptureStarted() {
-        // 6.20.0: start photo-location capture (InsUploadPic watcher + GPS fallback).
+        // 6.21.0: start photo-location capture (app GPS for every INSx photo).
         // Safe when permission is missing: the helper simply returns false.
         runCatching { applicationContext.startLiveLocationCapture() }
     }
@@ -1439,7 +1439,7 @@ private fun DivergentLoginScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        "Version 6.20.0",
+                        "Version 6.21.0",
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center,
                         color = DivergentMuted,
@@ -1680,7 +1680,7 @@ private fun LegacyDivergentProfileScreen(
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 Text("ตั้งค่าแอป")
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                Text("เกี่ยวกับแอป • Version 6.20.0")
+                Text("เกี่ยวกับแอป • Version 6.21.0")
             }
             Spacer(Modifier.height(18.dp))
             OutlinedButton(
@@ -1855,7 +1855,7 @@ fun SearchScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Divergent Field Tools • V6.20.0",
+                        "Divergent Field Tools • V6.21.0",
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 12.sp
                     )
@@ -2014,7 +2014,7 @@ fun SearchScreen(
             tonalElevation = 6.dp
         ) {
             Text(
-                text = "Divergent Field Tools • V6.20.0",
+                text = "Divergent Field Tools • V6.21.0",
                 color = Color.White,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -2572,20 +2572,10 @@ fun ImageScannerApp(
     }
 
     LaunchedEffect(hasFileAccess, locationScanNonce) {
-        if (hasFileAccess) {
-            locationScanMessage = "กำลังสแกนรูปและไฟล์ InsUploadPic อัตโนมัติ..."
-            locationRecords = withContext(Dispatchers.IO) {
-                activity.scanInsUploadPicFilesAuto()
-            }
-            locationScanMessage = if (locationRecords.isEmpty()) {
-                "สแกนอัตโนมัติแล้ว • ไม่พบ InsUploadPic หรือไม่พบพิกัดที่อ่านได้"
-            } else {
-                "สแกนอัตโนมัติสำเร็จ • พบข้อมูลพิกัด ${locationRecords.size} รายการ"
-            }
-        } else {
-            locationRecords = emptyList()
-            locationScanMessage = "ระบบใช้ Device GPS / LIVE_CAPTURE อัตโนมัติ"
-        }
+        // 6.21.0: coordinates come from the app's own GPS capture (LiveLocationCaptureService).
+        // The old full-storage InsUploadPic scan is gone: it was slow and the file holds only the last photo.
+        locationRecords = emptyList()
+        locationScanMessage = "พิกัดรูปเก็บอัตโนมัติด้วย GPS ของแอป (Divergent/พิกัดรูป_*.txt)"
     }
 
     val selectedImages =
