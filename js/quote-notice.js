@@ -146,7 +146,8 @@
     0xF717: 0x0E4C, 0xF718: 0x0E38, 0xF719: 0x0E39, 0xF71A: 0x0E3A };
   function thaiText(s) {
     return String(s || '').replace(/[\uE000-\uF8FF]/g, function (c) { var m = PUA[c.charCodeAt(0)]; return m ? String.fromCharCode(m) : ''; })
-      .replace(/\u0E4D\u0E32/g, '\u0E33');   // ํ + า = ำ
+      .replace(/\u0E4D\u0E32/g, '\u0E33')    // ํ + า = ำ
+      .replace(/[\u0E50-\u0E59]/g, function (d) { return String(d.charCodeAt(0) - 0x0E50); });   // Thai digits ๐–๙
   }
 
   // Column headers differ per office. Known variants:
@@ -159,32 +160,72 @@
     vat: /ภาษี|VAT/i,
     total: /ทั้งสิ้น/
   };
-  var SUM = { total: /ทั้งสิ้น/, vat: /ภาษี|VAT/i, amount: /^รวม/ };
+  //  C) รายการที่ | กิจกรรม | จำนวน/ปริมาณงาน (ราย) | ราคากลาง: ต่อหน่วย | รวม | ราคาที่เสนอ: ต่อหน่วย | รวม
+  //     the offered columns are blank; รวม / VAT 7% / รวมทั้งสิ้น rows below are filled in the offered รวม column.
+  var SUM = { total: /ทั้งสิ้น/, vat: /ภาษี|VAT/i, amount: /^\d?\s*รวม|ไม\S{0,2}รวมภาษี/ };
+  function sumKey(str) {
+    if (SUM.total.test(str)) return 'total';
+    if (/ไม\S{0,2}รวมภาษี/.test(str)) return 'amount';
+    if (SUM.vat.test(str)) return 'vat';
+    if (SUM.amount.test(str)) return 'amount';
+    return null;
+  }
+  // layout C: the "ราคาที่เสนอ" (offered price) group header sits next to the reference-price group
+  function offerColumns(near) {
+    var offer = near.filter(function (i) { return /ราคาท\S{0,3}เสนอ/.test(i.str); })[0];
+    if (!offer) return null;
+    var right = function (i) { return center(i) > offer.x - 40; };
+    var unit = near.filter(function (i) { return COL.unit.test(i.str) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
+    var sum = near.filter(function (i) { return /^รวม$/.test(i.str.trim()) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
+    var qty = near.filter(function (i) { return /\(?\s*ราย\s*\)?$/.test(i.str.trim()) && i.str.trim().length <= 7 && center(i) < offer.x; })[0] ||
+      near.filter(function (i) { return /ปริมาณ|เฟส|^จ\S{0,3}นวน$/.test(i.str.trim()) && center(i) < offer.x; }).sort(function (a, b) { return b.x - a.x; })[0];
+    if (!unit || !sum || !qty || center(sum) <= center(unit)) return null;
+    return { qty: qty, price: unit, amount: sum };
+  }
 
+  // Some PDFs split one word or number into touching pieces ("(" "ราย" ")", "66" ",000"): join them back
+  function mergeRuns(items) {
+    var out = [];
+    items.slice().sort(function (a, b) { return Math.abs(a.y - b.y) > 1.5 ? a.y - b.y : a.x - b.x; }).forEach(function (i) {
+      var last = out[out.length - 1];
+      if (last && Math.abs(last.y - i.y) <= 1.5 && i.x - (last.x + last.w) <= 1.5 && i.x >= last.x) {
+        last.str += i.str; last.thai = last.thai || i.thai; last.w = Math.max(last.w, i.x + i.w - last.x); last.h = Math.max(last.h, i.h);
+      } else out.push({ str: i.str, x: i.x, y: i.y, w: i.w, h: i.h, thai: i.thai });
+    });
+    return out;
+  }
   function detectTables(items, pageNo) {
     var tables = [];
     items.filter(function (i) { return RE.price.test(i.str); }).forEach(function (p) {
       if (tables.some(function (t) { return Math.abs(t.y - p.y) < 45; })) return;
       var near = items.filter(function (i) { return Math.abs(i.y - p.y) < 45; });
       function pick(re, not) { return near.filter(function (i) { return re.test(i.str) && !(not && not(i)); }).sort(function (a, b) { return a.y - b.y; })[0]; }
-      var qty = pick(RE.qty);
-      if (!qty) return;
-      var total = pick(COL.total);
-      var amount = pick(COL.amount, function (i) { return i === total; });
-      var vat = pick(COL.vat, function (i) { return i === total || i === amount; });
-      var unit = pick(COL.unit) || p;
-      if (!amount || center(amount) <= center(unit)) return;
-      var cols = { qty: qty, price: unit, amount: amount };
-      if (vat && center(vat) > center(amount)) cols.vat = vat;
-      if (total && center(total) > center(cols.vat || amount)) cols.total = total;
-      var order = ['qty', 'price', 'amount', 'vat', 'total'].filter(function (k) { return cols[k]; });
-      var cx = order.map(function (k) { return center(cols[k]); });
-      var bounds = {};
-      order.forEach(function (key, i) {
-        var L = i ? (cx[i - 1] + cx[i]) / 2 : cx[0] - ((cx[1] - cx[0]) / 2);
-        var R = i < cx.length - 1 ? (cx[i] + cx[i + 1]) / 2 : cx[i] + (cx[i] - cx[i - 1]) / 2;
-        bounds[key] = [L, R];
-      });
+      var cols = offerColumns(near), bounds = {}, order, cx;
+      if (cols) {
+        order = ['qty', 'price', 'amount'];
+        cx = order.map(function (k) { return center(cols[k]); });
+        // columns are not side by side here (the reference price sits between qty and offer): use half widths
+        var half = Math.min(28, (cx[2] - cx[1]) / 2);
+        bounds.qty = [cx[0] - 26, cx[0] + 26]; bounds.price = [cx[1] - half, cx[1] + half]; bounds.amount = [cx[2] - half, cx[2] + Math.max(half, 34)];
+      } else {
+        var qty = pick(RE.qty);
+        if (!qty) return;
+        var total = pick(COL.total);
+        var amount = pick(COL.amount, function (i) { return i === total; });
+        var vat = pick(COL.vat, function (i) { return i === total || i === amount; });
+        var unit = pick(COL.unit) || p;
+        if (!amount || center(amount) <= center(unit)) return;
+        cols = { qty: qty, price: unit, amount: amount };
+        if (vat && center(vat) > center(amount)) cols.vat = vat;
+        if (total && center(total) > center(cols.vat || amount)) cols.total = total;
+        order = ['qty', 'price', 'amount', 'vat', 'total'].filter(function (k) { return cols[k]; });
+        cx = order.map(function (k) { return center(cols[k]); });
+        order.forEach(function (key, i) {
+          var L = i ? (cx[i - 1] + cx[i]) / 2 : cx[0] - ((cx[1] - cx[0]) / 2);
+          var R = i < cx.length - 1 ? (cx[i] + cx[i + 1]) / 2 : cx[i] + (cx[i] - cx[i - 1]) / 2;
+          bounds[key] = [L, R];
+        });
+      }
       // the header ends at the lowest header word sitting in one of our columns ("(ราย)", "(บาท)", "เครื่อง")
       var headerBottom = Math.max.apply(null, order.map(function (k) { return cols[k].y; }).concat(near.filter(function (i) {
         var c = center(i); return i.y >= p.y && i.y < p.y + 40 && c > bounds.qty[0] && c < bounds[order[order.length - 1]][1] && !RE.number.test(i.str);
@@ -204,18 +245,19 @@
       var sums = [];
       body.forEach(function (i) {
         if (center(i) >= amtL || i.x + i.w < t.bounds.qty[0] - 40) return;
-        var key = SUM.total.test(i.str) ? 'total' : SUM.vat.test(i.str) ? 'vat' : SUM.amount.test(i.str) ? 'amount' : null;
+        var key = sumKey(i.str.trim());
         if (key && !sums.some(function (s) { return s.key === key; })) sums.push({ key: key, y: i.y, h: i.h });
       });
       sums.sort(function (a, b) { return a.y - b.y; });
       var end = sums.length ? sums[0].y - 4 : limit;
       function label(y) {
-        return items.filter(function (o) { return Math.abs(o.y - y) < 4 && o.x < t.bounds.qty[0] && !/^\d+$/.test(o.str.trim()); })
-          .sort(function (a, b) { return a.x - b.x; }).map(function (o) { return o.str; }).join(' ');
+        var one = items.filter(function (o) { return Math.abs(o.y - y) < 4 && o.x < t.bounds.qty[0] && !/^\d+$/.test(o.str.trim()); });
+        if (!one.length) one = body.filter(function (o) { return o.y < end && Math.abs(o.y - y) < 26 && o.x > 80 && o.x + o.w <= t.bounds.qty[0] + 4; });
+        return one.sort(function (a, b) { return Math.abs(a.y - b.y) > 2 ? a.y - b.y : a.x - b.x; }).map(function (o) { return o.str; }).join(' ');
       }
       var qtys = body.filter(function (i) { var c = center(i); return i.y < end && RE.number.test(i.str.trim()) && c > t.bounds.qty[0] && c < t.bounds.qty[1]; });
       qtys.forEach(function (i) {
-        rows.push({ page: pageNo, table: t, y: i.y, h: i.h, refStr: i.str.trim(), refW: i.w, qty: num(i.str), qtyEdit: false, label: label(i.y), price: 0 });
+        rows.push({ page: pageNo, table: t, y: i.y, h: i.h, refStr: i.str.trim(), refW: i.thai ? 0 : i.w, qty: num(i.str), qtyEdit: false, label: label(i.y), price: 0 });
       });
       if (!qtys.length) {
         // quantity left blank: one row per item number in the first column ("1", "2" …); quantity is typed too
@@ -291,8 +333,11 @@
         var items = tc.items.filter(function (i) { return i.str && i.str.trim(); }).map(function (i) {
           var t = lib.Util.transform(vp.transform, i.transform);
           var h = Math.hypot(t[2], t[3]);
-          return { str: thaiText(i.str).trim(), x: t[4], y: t[5], w: i.width, h: h };
+          return { str: thaiText(i.str).trim(), x: t[4], y: t[5], w: i.width, h: h, thai: /[\u0E50-\u0E59]/.test(i.str) };
         });
+        items = mergeRuns(items);
+        // fonts with a broken map write every "า" as "ำ" ("รำคำกลำง"): read such a page with า restored
+        if (items.some(function (i) { return /รำคำ|รำยกำร/.test(i.str); })) items.forEach(function (i) { i.str = i.str.replace(/ำ/g, 'า').replace(/จ\s+า/g, 'จำ'); });
         st.pages.push({ w: vp.width, h: vp.height, bg: canvas });
         var found = detectTables(items, n - 1);
         found.forEach(function (r) {
@@ -326,26 +371,32 @@
       var size = refW > 0 ? refW * UPM / u : h * 0.67;
       return Math.min(size, h * 0.9);
     }
-    function put(page, text, cell, y, size) {
+    function put(page, text, cell, y, size, t) {
       var pad = 3, room = cell[1] - cell[0] - pad * 2, w = glyphWidth(text) * size / UPM;
       if (w > room) size = size * room / w;
-      out.marks.push({ page: page, text: text, x: cell[1] - pad, y: y, size: size });
+      out.marks.push({ page: page, text: text, x: cell[1] - pad, y: y, size: size, t: t });
     }
     st.rows.forEach(function (r) {
       if (!(r.price > 0)) return;
       var v = calc(r), b = r.cells || r.table.bounds;
       var size = sizeFor(r.refStr, r.refW, r.h);
       var vals = { price: r.price, amount: v.amount, vat: v.vat, total: v.total };
-      if (r.qtyEdit && r.qty > 0) put(r.page, r.qty.toLocaleString('en-US'), b.qty, r.y, size);
-      r.table.cols.forEach(function (k) { if (k !== 'qty') put(r.page, money(vals[k]), b[k], r.y, size); });
+      if (r.qtyEdit && r.qty > 0) put(r.page, r.qty.toLocaleString('en-US'), b.qty, r.y, size, r.table);
+      r.table.cols.forEach(function (k) { if (k !== 'qty') put(r.page, money(vals[k]), b[k], r.y, size, r.table); });
     });
     allTables().forEach(function (t) {
       if (!t.sums.length || !st.rows.some(function (r) { return r.table === t && r.price > 0; })) return;
       var tot = tableTotals(t), size = sizeFor(t.refStr, t.refW, t.refH || 15);
       t.sums.forEach(function (sm) {
         sm.blank.forEach(function (i) { out.blanks.push({ page: t.page, x: i.x - 0.6, y: i.y - i.h * 0.62, w: i.w + 1.2, h: i.h * 0.62 + 1 }); });
-        put(t.page, money(tot[sm.key]), sm.cell || t.bounds.amount, sm.y, size);
+        put(t.page, money(tot[sm.key]), sm.cell || t.bounds.amount, sm.y, size, t);
       });
+    });
+    // one digit size per table: if a long amount had to shrink to fit its cell, the other numbers follow
+    allTables().forEach(function (t) {
+      var ms = out.marks.filter(function (m) { return m.t === t; });
+      var min = Math.min.apply(null, ms.map(function (m) { return m.size; }));
+      ms.forEach(function (m) { m.size = min; });
     });
     return out;
   }
