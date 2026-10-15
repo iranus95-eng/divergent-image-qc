@@ -284,9 +284,16 @@
 
   // ---------------------------------------------------------------- menu
   function shown(id) { var el = document.getElementById(id); return !!el && getComputedStyle(el).display !== 'none' && !el.hidden; }
+  // For now only administrators see this menu
+  function isAdmin() {
+    var u = window.currentMenuUser || null;
+    if (!u) { try { u = JSON.parse(localStorage.getItem('divergent_web_session_user') || 'null'); } catch (_) { u = null; } }
+    var role = (u && u.role) || (window.qcAuthorizedUser && window.qcAuthorizedUser.user_role) || '';
+    return String(role).toLowerCase() === 'admin';
+  }
   function syncNav() {
     var nav = document.getElementById('navQuoteNotice'); if (!nav) return;
-    var want = (shown('navInvoice') || shown('navBilling') || shown('navReceiptTax')) ? '' : 'none';
+    var want = isAdmin() ? '' : 'none';
     if (nav.style.display !== want) nav.style.display = want;
   }
   function ensureNav() {
@@ -303,6 +310,7 @@
     ['navInvoice', 'navBilling', 'navReceiptTax'].forEach(function (id) { var el = document.getElementById(id); if (el) mo.observe(el, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] }); });
   }
   function showPage() {
+    if (!isAdmin()) { alert('เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
     var w = page();
     document.querySelectorAll('.side-nav .nav-item').forEach(function (x) { x.classList.toggle('active', x.id === 'navQuoteNotice'); });
     document.querySelectorAll('.main-shell [id$="Workspace"]').forEach(function (el) { if (el !== w && !w.contains(el)) el.style.display = 'none'; });
@@ -317,7 +325,7 @@
   function boot() {
     style(); ensureNav();
     var t = 0;
-    new MutationObserver(function () { clearTimeout(t); t = setTimeout(ensureNav, 150); }).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(function () { clearTimeout(t); t = setTimeout(function () { ensureNav(); syncNav(); }, 150); }).observe(document.body, { childList: true, subtree: true });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 })();
