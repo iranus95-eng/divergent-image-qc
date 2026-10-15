@@ -25,11 +25,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Restore permanent signing key
+        id: key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "file=$RUNNER_TEMP/release.jks" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::ANDROID_KEYSTORE_B64 secret is not set: APK is signed with a temporary debug key and will not be published"
+          fi
       - name: Build release APK
         working-directory: android
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          ANDROID_KEYSTORE_FILE: ${{ steps.key.outputs.file }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           set -o pipefail
           gradle :app:assembleRelease --console=plain 2>&1 | tee build.log
@@ -39,7 +52,7 @@ jobs:
         run: |
           grep -E '^e: |error:|What went wrong' -A2 build.log | head -40 | while IFS= read -r line; do echo "::error::$line"; done
       - name: Publish test APK as pre-release
-        if: success() && contains(github.event.head_commit.message, '[publish]')
+        if: success() && steps.key.outputs.file != '' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish]'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -47,3 +60,6 @@ jobs:
           TAG="v$V-test-${GITHUB_RUN_NUMBER}"
           cp android/app/build/outputs/apk/release/app-release.apk app-release.apk
           gh release create "$TAG" app-release.apk --prerelease --target "$GITHUB_SHA" --title "Divergent Field Tools $V (ทดสอบ)" --notes "ทดสอบเก็บพิกัดรูปด้วย GPS ของแอปเอง ไม่พึ่ง InsUploadPic"
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"

@@ -18,10 +18,24 @@ android {
         buildConfigField("String", "SUPABASE_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lYXV6dnFyb2FzenZxZmZhaGt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNDk2OTQsImV4cCI6MjEwMzgyNTY5NH0.TpxNtbgWANFboqKAe8f3akinawuwbvFlohz2OwVV7iw\"")
     }
 
+    // One permanent release key (kept in GitHub secrets, never in the repo) so every new
+    // version installs over the previous one. Without it the build falls back to a debug key.
+    val releaseKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "divergent"
+                keyPassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (releaseKeystore != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
 
