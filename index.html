@@ -1911,7 +1911,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       <div class="invoice-full"><label>เดือนรอบบิล</label><input type="month" id="invBillMonth" value="2024-12" onchange="renderInvoicePreview()"></div>
       <div class="invoice-field" style="margin-top:9px"><div><label>เริ่มรอบบิล</label><input type="date" id="invStartDate" value="2024-12-31" onchange="renderInvoicePreview()"></div><div><label>สิ้นสุดรอบบิล</label><input type="date" id="invEndDate" value="2025-01-30" onchange="renderInvoicePreview()"></div></div>
     </div>
-    <div class="invoice-section"><h3>รายการ</h3><table class="invoice-items"><thead><tr><th>พื้นที่</th><th style="width:92px">จำนวน</th><th style="width:86px">ราคา/หน่วย</th><th style="width:34px"></th></tr></thead><tbody id="invItemInputs"></tbody></table><button class="invoice-small-btn" style="margin-top:8px" onclick="invoiceAddItem()">+ เพิ่มรายการ</button></div>
+    <div class="invoice-section"><h3>รายการ</h3><label for="invItemHeader" style="display:block;font-size:13px;color:#6b5d7a;margin-bottom:4px">ข้อความหัวรายการ (เว้นว่าง = ใช้ข้อความอัตโนมัติ)</label><textarea id="invItemHeader" rows="2" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:7px 8px;border:1px solid #b9a7cc;border-radius:7px;font:inherit;resize:vertical"></textarea><table class="invoice-items"><thead><tr><th>รายการ (เลือกหรือพิมพ์เอง)</th><th style="width:92px">จำนวน</th><th style="width:86px">ราคา/หน่วย</th><th style="width:34px"></th></tr></thead><tbody id="invItemInputs"></tbody></table><button class="invoice-small-btn" style="margin-top:8px" onclick="invoiceAddItem()">+ เพิ่มรายการ</button></div>
     <div class="invoice-section"><h3>สรุปยอดอัตโนมัติ</h3><div id="invFormTotals"></div></div>
     <div class="invoice-actions"><button class="invoice-small-btn" onclick="printInvoiceA4()">🖨 พิมพ์</button><button class="inv-pdf" onclick="downloadInvoicePdf()" title="บันทึก PDF">📄 PDF</button><button class="inv-line" onclick="shareInvoiceToLine()">💬 LINE</button></div>
    </div>
@@ -6425,8 +6425,8 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
     <div class="money-report-note">ปุ่ม “ส่ง LINE” จะเปิดตัวเลือกเพื่อน/กลุ่มใน LINE โดยตรง พร้อมระบบวินิจฉัยหากส่งไม่สำเร็จ • ผู้ส่งไม่ต้องบันทึกไฟล์ลงเครื่องก่อน • ลิงก์รายงานมีอายุ 1 ชั่วโมง</div>
   </div>
 </div>
-<script src="./js/invoice-master-dropdowns.js?v=20260907-1"></script>
-<script src="./js/app-v2.js?v=20261006-2"></script>
+<script src="./js/invoice-master-dropdowns.js?v=20261016-1"></script>
+<script src="./js/app-v2.js?v=20261016-1"></script>
 <script src="./js/doc-archive.js?v=20261007-1"></script>
 <script src="./js/quote-notice.js?v=20261015-7"></script>
 <script src="./js/doc-excel-style.js?v=20261007-2"></script>
