@@ -8,7 +8,7 @@ assert.match(html,/<body data-app-version="2" data-app-status="production">/);
 assert.match(html,/app-v2\.css/);
 assert.match(html,/js\/app-v2\.js/);
 assert.doesNotMatch(html,/legacy-staff-payroll-api|ui-v2-preview/);
-assert.match(html,/id="payrollBody"[\s\S]*?colspan="10"/);
+assert.match(html,/id="payrollBody"[\s\S]*?colspan="16"/);
 assert.match(html,/<th>หักเบิกล่วงหน้า<\/th>/);
 assert.match(html,/claimMoney\(x\.advance_deduction\)/);
 assert.match(html,/function\s+payrollChildRows\s*\(/);
