@@ -176,6 +176,17 @@
     if (!offer) return null;
     var right = function (i) { return center(i) > offer.x - 40; };
     var unit = near.filter(function (i) { return COL.unit.test(i.str) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
+    if (!unit) {
+      // narrow column: "ต่อ" on one line and "หน่วย" wrapped onto the next line (e.g. กฟส.สังขะ)
+      var per = near.filter(function (i) { return /^ต\S{0,2}อ$/.test(i.str.trim()) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
+      if (per) {
+        var under = near.filter(function (i) {
+          return /^ห\S{0,2}น\S{0,2}วย$/.test(i.str.trim()) && i.y > per.y && i.y - per.y < 30 && Math.abs(center(i) - center(per)) < 25;
+        })[0];
+        var x0 = under ? Math.min(per.x, under.x) : per.x, x1 = under ? Math.max(per.x + per.w, under.x + under.w) : per.x + per.w;
+        unit = { str: 'ต่อหน่วย', x: x0, w: x1 - x0, y: under ? under.y : per.y, h: per.h };
+      }
+    }
     var sum = near.filter(function (i) { return /^รวม$/.test(i.str.trim()) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
     var qty = near.filter(function (i) { return /\(?\s*ราย\s*\)?$/.test(i.str.trim()) && i.str.trim().length <= 7 && center(i) < offer.x; })[0] ||
       near.filter(function (i) { return /ปริมาณ|เฟส|^จ\S{0,3}นวน$/.test(i.str.trim()) && center(i) < offer.x; }).sort(function (a, b) { return b.x - a.x; })[0];
