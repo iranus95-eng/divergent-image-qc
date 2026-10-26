@@ -539,7 +539,7 @@
     saveNow();
     try {
       var bytes = await buildPdf();
-      w.location.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));   // the browser's PDF viewer prints it as is
+      dqShowPdf(w, new Blob([bytes], { type: 'application/pdf' }), fileName());   // the browser's PDF viewer prints it as is
     } catch (e) { w.close(); alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e)); }
   }
 
