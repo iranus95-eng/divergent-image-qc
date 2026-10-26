@@ -155,7 +155,7 @@
   'use strict';
   if(document.querySelector('script[data-billing-invoice-v1]'))return;
   const s=document.createElement('script');
-  s.src='./js/billing-invoice.js?v=20260915-0523';
+  s.src='./js/billing-invoice.js?v=20261027-1';
   s.async=false;
   s.setAttribute('data-billing-invoice-v1','1');
   document.head.appendChild(s);

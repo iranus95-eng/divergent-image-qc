@@ -19,7 +19,7 @@ function boot(){
   loadOnce('data-receipt-header-align','./js/receipt-header-align.js?v=20260916-1238');
   loadOnce('data-receipt-company-tax-label','./js/receipt-company-tax-label.js?v=20260916-1137');
   loadOnce('data-customer-import','./js/customer-import.js?v=20260917-1040');
-  loadOnce('data-paper-order','./js/paper-order.js?v=20260917-1745');
+  loadOnce('data-paper-order','./js/paper-order.js?v=20261027-1');
   loadOnce('data-paper-order-next-cycle','./js/paper-order-next-cycle.js?v=20260917-1945');
   // Shell A (2026-10-04): home-menu-order.js retired — it re-sorted menus on 8 timers.
   loadOnce('data-expense-report-v2','./js/expense-report-v2.js?v=20260926-1421');
