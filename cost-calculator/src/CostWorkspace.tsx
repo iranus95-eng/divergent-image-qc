@@ -12,9 +12,10 @@ import {
   getStatus,
   hasRecoverableDraft,
   recoverDraft,
-  hasPending,
+  hasUnsaved,
   importData,
   initialize,
+  saveAll,
   subscribe,
 } from './cloud';
 
@@ -29,6 +30,7 @@ export default function CostWorkspace() {
   const [importing, setImporting] = useState(false);
   const popup = useRef<Window | null>(null);
   const status = useSyncExternalStore(subscribe, getStatus);
+  const unsaved = useSyncExternalStore(subscribe, hasUnsaved);
   useEffect(() => {
     let active = true;
     initialize()
@@ -98,9 +100,9 @@ export default function CostWorkspace() {
   };
   const goHome = () => {
     if (
-      hasPending() &&
+      hasUnsaved() &&
       !window.confirm(
-        'ยังมีข้อมูลที่บันทึกไม่สำเร็จ ต้องการกลับเมนูหลักหรือไม่?',
+        'ยังมีการแก้ไขที่ไม่ได้บันทึก ต้องการออกโดยไม่บันทึกหรือไม่? กดยกเลิกเพื่อกลับไปบันทึก',
       )
     )
       return;
@@ -124,12 +126,13 @@ export default function CostWorkspace() {
           </button>
         </div>
       </header>
-      <div className="noPrint dvBar">
+      <div className={'noPrint dvBar' + (unsaved ? ' dvBarUnsaved' : '')}>
         <div className="dvBarRow">
           <p
             role="status"
             className={
-              'dvStatus ' + (status.startsWith('ยัง') ? 'dvStatusWarn' : '')
+              'dvStatus ' +
+              (unsaved || status.startsWith('ยัง') ? 'dvStatusWarn' : '')
             }
           >
             {status}
@@ -137,12 +140,13 @@ export default function CostWorkspace() {
           {ready && (
             <div className="dvActions">
               <button
-                className="dvBtn"
+                className="dvBtn dvSave"
+                disabled={!unsaved && !status.startsWith('ยัง')}
                 onClick={() => {
-                  void flush().catch(() => {});
+                  void saveAll().catch(() => {});
                 }}
               >
-                บันทึกข้อมูลกลาง / ลองใหม่
+                บันทึก
               </button>
               <button
                 className="dvBtn"
