@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, cloudStorage, flush, setUnsaved } from './cloud';
+import { printAs } from './fileName';
 import {
   Calculator,
   Save,
@@ -770,7 +771,8 @@ function App() {
   const printSite = siteLabel
     ? 'ไซด์งาน' + siteLabel + ' ครั้งที่ 1/2569'
     : 'Executive Profit & Bid Center';
-  const printReport = () => window.print();
+  const printReport = () =>
+    printAs('คำนวนต้นทุนระบบงาน_' + (menuLabel || 'Executive Profit & Bid Center'));
   const Original = () => (
     <>
       <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">

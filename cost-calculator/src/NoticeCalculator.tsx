@@ -2,6 +2,7 @@ import { cloudStorage, flush, setUnsaved, storageKeys } from './cloud';
 import { useEffect, useRef, useState } from 'react';
 import { Printer, Download, Eye } from 'lucide-react';
 import NoticeReport from './NoticeReport';
+import { datedFileName } from './fileName';
 
 const KEY = 'epc:electricity-notice:v1';
 const ALLOCATION_JOBS = 200000;
@@ -357,11 +358,7 @@ export default function NoticeCalculator({
     let printFrame: HTMLIFrameElement | null = null;
     try {
       await document.fonts.ready;
-      const filename =
-        'รายงานใบแจ้งเตือน-' +
-        siteName +
-        '-' +
-        new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+      const filename = datedFileName('รายงานใบแจ้งเตือน_' + siteName);
       if (mode === 'pdf') {
         const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
           import('html2canvas'),
