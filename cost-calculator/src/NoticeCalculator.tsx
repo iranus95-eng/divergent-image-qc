@@ -1,4 +1,4 @@
-import { cloudStorage, storageKeys } from './cloud';
+import { cloudStorage, flush, setUnsaved, storageKeys } from './cloud';
 import { useEffect, useRef, useState } from 'react';
 import { Printer, Download, Eye } from 'lucide-react';
 import NoticeReport from './NoticeReport';
@@ -189,7 +189,7 @@ export default function NoticeCalculator({
         };
         for (const field of SHARED_COST_KEYS)
           corrected[field] = defaults[field];
-        cloudStorage.setItem(key, JSON.stringify(corrected));
+        cloudStorage.setItem(key, JSON.stringify(corrected), true);
       }
       const saved = JSON.parse(cloudStorage.getItem(storageKey) || 'null');
       if (saved?.bidSource !== sourceTag(bid)) {
@@ -200,6 +200,7 @@ export default function NoticeCalculator({
             bidSource: sourceTag(bid),
             sharedTotalsRevision: SHARED_TOTALS_REVISION,
           }),
+          true,
         );
       }
     } catch {
@@ -451,8 +452,8 @@ export default function NoticeCalculator({
     }
   };
 
-  const save = () => {
-    if (invalid) return;
+  const save = (): boolean => {
+    if (invalid) return false;
     try {
       cloudStorage.setItem(
         storageKey,
@@ -468,10 +469,19 @@ export default function NoticeCalculator({
       onDirtyChange(false);
       setMessage('ส่งข้อมูลใบแจ้งเตือนไปบันทึกแล้ว — ตรวจสถานะฐานข้อมูลด้านบน');
       setStorageError(false);
+      void flush().catch(() => {});
+      return true;
     } catch {
       setStorageError(true);
+      return false;
     }
   };
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => {
+    setUnsaved('notice', dirty ? () => saveRef.current() : null);
+    return () => setUnsaved('notice', null);
+  }, [dirty]);
   return (
     <div className="max-w-6xl mx-auto mt-6 space-y-6">
       <header className="noticeHeader">
@@ -569,7 +579,7 @@ export default function NoticeCalculator({
           <button
             type="button"
             disabled={invalid}
-            onClick={save}
+            onClick={() => save()}
             className="rounded-lg bg-sky-700 text-white px-4 py-2 disabled:opacity-50"
           >
             บันทึกการเปลี่ยนแปลง
@@ -944,7 +954,7 @@ export default function NoticeCalculator({
         <button
           type="button"
           disabled={invalid}
-          onClick={save}
+          onClick={() => save()}
           className="bg-sky-700 text-white rounded-xl px-5 py-3 disabled:opacity-50"
         >
           บันทึกข้อมูลใบแจ้งเตือน

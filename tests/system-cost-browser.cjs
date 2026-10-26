@@ -132,16 +132,26 @@ const bids = [
     await page.getByRole('button', { name: 'โชคชัย' }).click();
     assert.equal(await page.getByRole('button', { name: /สตึก/ }).count(), 0);
     await page.getByRole('button', { name: /ปราสาท.*ยกเลิก/ }).waitFor();
+    const laborInput = page.getByLabel('ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)', {
+      exact: true,
+    });
+    const topSave = page.getByRole('button', { name: 'บันทึก', exact: true });
+    // Every edit raises the unsaved warning until บันทึก is pressed.
+    await laborInput.fill('3.51');
+    await page.locator('.dvBarUnsaved').waitFor();
+    await topSave.click();
     await page
-      .getByLabel('ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)', { exact: true })
-      .fill('3.51');
-    await page
-      .getByLabel('ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)', { exact: true })
-      .fill('3.5');
+      .getByRole('status')
+      .filter({ hasText: 'บันทึกข้อมูลในฐานข้อมูลกลางแล้ว' })
+      .waitFor();
+    assert.equal(await page.locator('.dvBarUnsaved').count(), 0);
+    assert.equal(await topSave.isDisabled(), true);
+    assert.equal(
+      rows.get('epc:electricity-notice:v1:site:bid-8').value.labor,
+      3.51,
+    );
+    await laborInput.fill('3.5');
     await page.getByRole('button', { name: 'บันทึกการเปลี่ยนแปลง' }).click();
-    await page
-      .getByRole('button', { name: 'บันทึกข้อมูลกลาง / ลองใหม่' })
-      .click();
     await page
       .getByRole('status')
       .filter({ hasText: 'บันทึกข้อมูลในฐานข้อมูลกลางแล้ว' })
@@ -192,9 +202,6 @@ const bids = [
     });
     await labor.fill('3.75');
     await second.getByRole('button', { name: 'บันทึกการเปลี่ยนแปลง' }).click();
-    await second
-      .getByRole('button', { name: 'บันทึกข้อมูลกลาง / ลองใหม่' })
-      .click();
     await second
       .getByRole('status')
       .filter({ hasText: 'ข้อมูลถูกแก้ไขจากอีกหน้าจอ' })

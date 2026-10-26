@@ -139,20 +139,55 @@ export const cloudStorage = {
     const row = records.get(key);
     return row?.value == null ? null : JSON.stringify(row.value);
   },
-  setItem(key: string, value: string) {
+  // Edits wait for the บันทึก button; only system writes (auto) save on their own.
+  setItem(key: string, value: string, auto = false) {
     if (cloudStorage.getItem(key) === value) return;
     const parsed: unknown = JSON.parse(value);
     const previous = records.get(key);
     records.set(key, { key, value: parsed, revision: previous?.revision || 0 });
     pending.set(key, value);
     persistPending();
-    notify('มีข้อมูลกำลังรอบันทึกลงฐานข้อมูลกลาง');
+    if (!auto) {
+      notify(UNSAVED);
+      return;
+    }
     clearTimeout(timer);
     timer = setTimeout(() => {
       void flush().catch(() => {});
     }, 600);
   },
 };
+
+const UNSAVED = 'มีการแก้ไขที่ยังไม่ได้บันทึก กดปุ่มบันทึก';
+// Forms that keep their edits in memory register how to save them here.
+const savers = new Map<string, () => boolean | Promise<boolean>>();
+export function setUnsaved(
+  id: string,
+  saver: (() => boolean | Promise<boolean>) | null,
+) {
+  const had = savers.has(id);
+  if (saver) savers.set(id, saver);
+  else savers.delete(id);
+  if (had !== Boolean(saver))
+    notify(
+      hasUnsaved()
+        ? UNSAVED
+        : running
+          ? status
+          : 'บันทึกข้อมูลในฐานข้อมูลกลางแล้ว',
+    );
+}
+export const hasUnsaved = () => pending.size > 0 || savers.size > 0;
+export async function saveAll() {
+  for (const [id, saver] of [...savers]) {
+    if (!(await saver())) {
+      notify('ยังบันทึกไม่สำเร็จ: ตรวจข้อมูลที่กรอกในหน้านี้');
+      return;
+    }
+    savers.delete(id);
+  }
+  await flush();
+}
 
 export async function flush(): Promise<void> {
   clearTimeout(timer);
@@ -178,7 +213,7 @@ export async function flush(): Promise<void> {
         if (latest === value) pending.delete(key);
         persistPending();
       }
-      notify('บันทึกข้อมูลในฐานข้อมูลกลางแล้ว');
+      notify(savers.size ? UNSAVED : 'บันทึกข้อมูลในฐานข้อมูลกลางแล้ว');
     } catch (e) {
       failure = e instanceof Error ? e.message : String(e);
       notify('ยังบันทึกไม่สำเร็จ: ' + failure);
@@ -289,7 +324,7 @@ export const api = {
 };
 
 window.addEventListener('beforeunload', (event) => {
-  if (pending.size) {
+  if (hasUnsaved()) {
     event.preventDefault();
     event.returnValue = '';
   }

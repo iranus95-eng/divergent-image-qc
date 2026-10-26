@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { api, cloudStorage } from './cloud';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { api, cloudStorage, flush, setUnsaved } from './cloud';
 import {
   Calculator,
   Save,
@@ -486,8 +486,10 @@ function App() {
   useEffect(() => {
     load();
   }, []);
+  // Store edits only; the first render just shows what is already saved.
+  const edited = useRef(false);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!edited.current) return;
     siteConfigs.forEach((s) => {
       const rows = operatingBySite[s.key];
       if (rows)
@@ -495,7 +497,7 @@ function App() {
     });
   }, [operatingBySite]);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!edited.current) return;
     siteConfigs.forEach((s) => {
       const rows = monthlyBuysBySite[s.key];
       if (rows)
@@ -506,13 +508,16 @@ function App() {
     });
   }, [monthlyBuysBySite]);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!edited.current) return;
     siteConfigs.forEach((s) => {
       const rows = equipmentBySite[s.key];
       if (rows)
         cloudStorage.setItem('site-equipment-' + s.key, JSON.stringify(rows));
     });
   }, [equipmentBySite]);
+  useEffect(() => {
+    edited.current = true;
+  }, []);
   const calcConfig =
     siteConfigs.find((s) => s.key === calcSite) ?? siteConfigs[0];
   useEffect(() => {
@@ -642,13 +647,18 @@ function App() {
       'site-equipment-' + calcSite,
       JSON.stringify(snapshot.equipment),
     );
+    void flush().catch(() => {});
     setBidMessage('บันทึกชุดคำนวณ' + calcConfig.name + 'ไว้แล้ว');
   };
-  const saveScenario = async () => {
+  const scenarioForm = JSON.stringify({ name, areas, rate, costs });
+  const [savedForm, setSavedForm] = useState(scenarioForm);
+  const scenarioDirty = scenarioForm !== savedForm;
+  const saveScenario = async (): Promise<boolean> => {
     if (!name.trim()) {
       setMessage('กรุณาตั้งชื่อชุดคำนวณ');
-      return;
+      return false;
     }
+    const form = scenarioForm;
     setBusy(true);
     setMessage('');
     try {
@@ -670,13 +680,25 @@ function App() {
         setEditingId(r.data.id);
         setMessage('บันทึกชุดคำนวณแล้ว');
       }
+      setSavedForm(form);
       await load();
+      return true;
     } catch {
       setMessage(editingId ? 'อัปเดตไม่สำเร็จ' : 'บันทึกไม่สำเร็จ');
+      return false;
     } finally {
       setBusy(false);
     }
   };
+  const saveScenarioRef = useRef(saveScenario);
+  saveScenarioRef.current = saveScenario;
+  useEffect(() => {
+    setUnsaved(
+      'scenario',
+      scenarioDirty ? () => saveScenarioRef.current() : null,
+    );
+    return () => setUnsaved('scenario', null);
+  }, [scenarioDirty]);
   const remove = async (id: string) => {
     if (!confirm('ลบชุดคำนวณนี้หรือไม่?')) return;
     try {
@@ -688,11 +710,26 @@ function App() {
     }
   };
   const openScenario = (s: Scenario) => {
+    if (
+      scenarioDirty &&
+      !window.confirm(
+        'ชุดคำนวณที่กำลังแก้ยังไม่ได้บันทึก ต้องการเปิดชุดอื่นโดยไม่บันทึกหรือไม่?',
+      )
+    )
+      return;
     setEditingId(s.id);
     setName(s.name);
     setAreas(s.areas);
     setRate(s.rate);
     setCosts(s.costs);
+    setSavedForm(
+      JSON.stringify({
+        name: s.name,
+        areas: s.areas,
+        rate: s.rate,
+        costs: s.costs,
+      }),
+    );
     setMenu('original');
     setMessage('กำลังแก้ไขชุด: ' + s.name);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2342,9 +2379,7 @@ function App() {
       <header className="dvHero noPrint">
         <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap justify-between gap-4">
           <div>
-            <div className="dvKicker">
-              DIVERGENT CORPORATION
-            </div>
+            <div className="dvKicker">DIVERGENT CORPORATION</div>
             <h1 className="text-2xl font-bold mt-1">
               Executive Profit & Bid Center
             </h1>
