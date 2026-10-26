@@ -100,7 +100,7 @@
     if (m) out.project_no = m[1];
     // document no. "ฉ.๓ พธ.(พ.)๐๓๐/๒๕๖๙" → zone ฉ.3
     m = F.match(/เลขที่\s*(ฉ\.\s*\d\s*\S+?\/\d{4})/);
-    if (m) out.doc_no = m[1].replace(/\s+/g, ' ');
+    if (m) out.doc_no = m[1].replace(/\s+/g, ' ').replace(/^ฉ\. /, 'ฉ.');
     m = (out.doc_no || '').match(/ฉ\.\s*(\d)/) || F.match(/(?:กฟฉ|ฉ)\.\s*(\d)(?!\d)/);
     if (m) out.zone = 'ฉ.' + m[1];
     if (/เฉพาะเจาะจง/.test(F)) out.method = 'เฉพาะเจาะจง';
@@ -336,6 +336,7 @@
       '.nb-t{border-collapse:separate;border-spacing:0;font-size:13px;min-width:1500px;width:100%}.nb-t th{position:sticky;top:0;background:#4b2378;color:#fff;padding:7px 6px;font-weight:700;white-space:nowrap;z-index:1}' +
       '.nb-t td{border-bottom:1px solid #eee7f4;padding:2px 4px;white-space:nowrap}.nb-t tr:nth-child(even) td{background:#fcfbfe}.nb-t td.n{text-align:right;color:#3b2252}' +
       '.nb-t input{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;font:inherit;width:100%;box-sizing:border-box}.nb-t input:focus{border-color:#7b4bab;background:#fff;outline:0}.nb-t input.r{text-align:right}' +
+      '.nb-t td{min-width:70px}.nb-t td:nth-child(1),.nb-t td:nth-child(2){min-width:40px}.nb-t td:nth-child(3){min-width:120px}.nb-t td:nth-child(4),.nb-t td:nth-child(5){min-width:110px}.nb-t td:nth-child(14),.nb-t td:nth-child(15){min-width:95px}.nb-t td:nth-child(17){min-width:180px}.nb-t td:last-child{min-width:30px}' +
       '.nb-t input.nb-bad{border-color:#d33;background:#fff0f0}.nb-t tr[data-state=saving] td:first-child{box-shadow:inset 3px 0 #e0a24a}.nb-t tr[data-state=err] td:first-child{box-shadow:inset 3px 0 #d33}.nb-t tr[data-state=ok] td:first-child{box-shadow:inset 3px 0 #3a9a5b}' +
       '.nb-t tfoot td{position:sticky;bottom:0;background:#f2ebfa;font-weight:800;padding:7px 6px}.nb-del{border:0;background:none;cursor:pointer;opacity:.5}.nb-del:hover{opacity:1}.nb-empty{color:#776a86;padding:30px;text-align:center}' +
       '.nb-tag{display:inline-block;border-radius:6px;padding:1px 6px;font-size:11px;background:#efe6f8;color:#5a2787;margin-left:4px}';
@@ -410,6 +411,7 @@
   }
   function cell(r, k, cls) {
     var v = r[k]; if (k === 'bid_date' || k === 'announce_date') v = thaiDate(v);
+    if (k === 'budget' && v != null) v = fmt(v, 2);
     return '<td><input class="' + (cls || '') + '" data-id="' + r.id + '" data-k="' + k + '" value="' + esc(v == null ? '' : v) + '"></td>';
   }
   function renderTable() {
@@ -423,7 +425,7 @@
         var d = derived(r);
         return '<tr data-row="' + r.id + '"><td class="n">' + (i + 1) + '</td>' + cell(r, 'zone') + cell(r, 'site') + cell(r, 'project_no') + cell(r, 'budget', 'r') +
           '<td class="n" data-d="bm">' + fmt(d.budgetMonth, 2) + '</td>' +
-          '<td><input class="r" data-id="' + r.id + '" data-k="qty" value="' + esc(r.qty == null ? '' : r.qty) + '" placeholder="' + (d.est ? fmt(d.qty) : '') + '" title="ว่าง = คำนวณจากวงเงิน ÷ 1.07 ÷ ราคากลาง"></td>' +
+          '<td><input class="r" data-id="' + r.id + '" data-k="qty" value="' + esc(r.qty == null ? '' : fmt(r.qty)) + '" placeholder="' + (d.est ? fmt(d.qty) : '') + '" title="ว่าง = คำนวณจากวงเงิน ÷ 1.07 ÷ ราคากลาง"></td>' +
           '<td class="n" data-d="qm">' + fmt(d.qtyMonth, 0) + '</td>' + cell(r, 'mid_price', 'r') + cell(r, 'price_prev', 'r') + cell(r, 'price_bid', 'r') +
           '<td class="n" data-d="val">' + fmt(d.value, 2) + '</td>' + cell(r, 'bid_date') + cell(r, 'bid_time') + cell(r, 'method') + cell(r, 'status') + cell(r, 'note') +
           '<td><button class="nb-del" data-nb="del" data-i="' + r.id + '" title="ลบแถว">🗑</button></td></tr>';
