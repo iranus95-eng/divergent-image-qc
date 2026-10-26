@@ -92,7 +92,7 @@
       </section>`;
     }).join('');
 
-    return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเบิกค่าใช้จ่าย</title><style>
+    return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${dqFileName('รายงานเบิกค่าใช้จ่าย')}</title><style>
       @page{size:210mm 297mm;margin:9mm 10mm 10mm}
       *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       html,body{margin:0;padding:0;background:#fff;color:#202124;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',Tahoma,sans-serif;font-size:14pt;line-height:1.18}

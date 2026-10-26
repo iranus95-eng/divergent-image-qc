@@ -102,7 +102,7 @@
       const wb=XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb,ws,'เงินเดือน');
       const month=sourceMonth(rows).replace('-','');
-      XLSX.writeFile(wb,`Payroll_${month}.xlsx`,{compression:true});
+      XLSX.writeFile(wb,dqFileName(`Payroll_${month}`,'xlsx'),{compression:true});
     }catch(e){
       console.error('payroll excel export',e);
       alert('สร้างไฟล์ Excel ไม่สำเร็จ: '+String(e?.message||e));

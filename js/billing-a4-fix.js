@@ -194,7 +194,6 @@ function generateThreeCopyPdf(root){
   const pagesHTML=pages.map(p=>p.outerHTML).join('');
   const token='billingPdf_'+Date.now()+'_'+Math.random().toString(36).slice(2);
   let finished=false;
-  let pdfUrl='';
 
   const cleanup=function(){
     if(finished)return;
@@ -205,9 +204,7 @@ function generateThreeCopyPdf(root){
   const onMessage=function(event){
     if(event.source!==frame.contentWindow||!event.data||event.data.token!==token)return;
     if(event.data.type==='billing-pdf-ready'&&event.data.blob){
-      pdfUrl=URL.createObjectURL(event.data.blob);
-      try{viewer.location.replace(pdfUrl);}catch(_){viewer.location.href=pdfUrl;}
-      setTimeout(function(){if(pdfUrl)URL.revokeObjectURL(pdfUrl)},120000);
+      dqShowPdf(viewer,event.data.blob,dqFileName('ใบแจ้งหนี้-ใบวางบิล_'+((root.querySelector('[name="docNo"]')||{}).value||''),'pdf'));
       cleanup();
       return;
     }
