@@ -343,12 +343,14 @@
       '.nb-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 12px;margin:8px 0}.nb-form label{display:flex;flex-direction:column;font-size:12px;color:#5f5070;gap:3px}' +
       '.nb-form input,.nb-form select{border:1px solid #d9cfdf;border-radius:8px;padding:6px 8px;font:inherit;font-size:14px}.nb-form .miss input{border-color:#e0a24a;background:#fff8ec}' +
       '.nb-wrap{overflow:auto;max-height:calc(100vh - 230px);border:1px solid #e5dced;border-radius:12px}' +
-      '.nb-t{border-collapse:separate;border-spacing:0;font-size:13px;min-width:1500px;width:100%}.nb-t th{position:sticky;top:0;background:#4b2378;color:#fff;padding:7px 6px;font-weight:700;white-space:nowrap;z-index:1}' +
-      '.nb-t td{border-bottom:1px solid #eee7f4;padding:2px 4px;white-space:nowrap}.nb-t tr:nth-child(even) td{background:#fcfbfe}.nb-t td.n{text-align:right;color:#3b2252}' +
-      '.nb-t input{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;font:inherit;width:100%;box-sizing:border-box}.nb-t input:focus{border-color:#7b4bab;background:#fff;outline:0}.nb-t input.r{text-align:right}' +
-      '.nb-t td{min-width:70px}.nb-t td:nth-child(1),.nb-t td:nth-child(2){min-width:40px}.nb-t td:nth-child(3){min-width:120px}.nb-t td:nth-child(4),.nb-t td:nth-child(5){min-width:110px}.nb-t td:nth-child(14),.nb-t td:nth-child(15){min-width:95px}.nb-t td:nth-child(17){min-width:180px}.nb-t td:last-child{min-width:30px}' +
-      '.nb-t input.nb-bad{border-color:#d33;background:#fff0f0}.nb-t tr[data-state=saving] td:first-child{box-shadow:inset 3px 0 #e0a24a}.nb-t tr[data-state=err] td:first-child{box-shadow:inset 3px 0 #d33}.nb-t tr[data-state=ok] td:first-child{box-shadow:inset 3px 0 #3a9a5b}' +
-      '.nb-t tfoot td{position:sticky;bottom:0;background:#f2ebfa;font-weight:800;padding:7px 6px}.nb-del{border:0;background:none;cursor:pointer;opacity:.5}.nb-del:hover{opacity:1}.nb-empty{color:#776a86;padding:30px;text-align:center}' +
+      '#noticeBidsWorkspace .nb-t{border-collapse:separate;border-spacing:0;font-size:13px;table-layout:fixed!important}' +
+      '#noticeBidsWorkspace .nb-t th{position:sticky;top:0;background:#4b2378!important;color:#fff!important;padding:7px 4px!important;font-weight:700;font-size:12.5px!important;white-space:normal;line-height:1.25;text-align:center;z-index:2}' +
+      '#noticeBidsWorkspace .nb-t td{border-bottom:1px solid #eee7f4;padding:3px 3px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}#noticeBidsWorkspace .nb-t tr:nth-child(even) td{background:#fcfbfe}#noticeBidsWorkspace .nb-t td.n{text-align:right;color:#3b2252;padding-right:6px!important}' +
+      '#noticeBidsWorkspace .nb-t td input{display:block;width:100%!important;min-width:0!important;max-width:none!important;height:30px!important;min-height:0!important;margin:0!important;box-sizing:border-box!important;padding:3px 6px!important;font-size:13px!important;line-height:1.2!important;border:1px solid transparent!important;border-radius:6px!important;background:transparent!important;box-shadow:none!important}' +
+      '#noticeBidsWorkspace .nb-t td input:hover{border-color:#e5dced!important}#noticeBidsWorkspace .nb-t td input:focus{border-color:#7b4bab!important;background:#fff!important;box-shadow:0 0 0 2px #eadcf3!important}#noticeBidsWorkspace .nb-t td input.r{text-align:right}' +
+      '#noticeBidsWorkspace .nb-t td input.nb-bad{border-color:#d33!important;background:#fff0f0!important}.nb-t tr[data-state=saving] td:first-child{box-shadow:inset 3px 0 #e0a24a}.nb-t tr[data-state=err] td:first-child{box-shadow:inset 3px 0 #d33}.nb-t tr[data-state=ok] td:first-child{box-shadow:inset 3px 0 #3a9a5b}' +
+      '#noticeBidsWorkspace .nb-t tfoot td{position:sticky;bottom:0;background:#f2ebfa;font-weight:800;padding:7px 6px!important}' +
+      '#noticeBidsWorkspace .nb-del{border:0!important;background:none!important;cursor:pointer;opacity:.55;padding:2px!important;width:30px;height:30px;min-width:0!important;box-shadow:none!important;font-size:15px}.nb-del:hover{opacity:1}.nb-empty{color:#776a86;padding:30px;text-align:center}' +
       '.nb-tag{display:inline-block;border-radius:6px;padding:1px 6px;font-size:11px;background:#efe6f8;color:#5a2787;margin-left:4px}';
     document.head.appendChild(s);
   }
@@ -424,12 +426,15 @@
     if (k === 'budget' && v != null) v = fmt(v, 2);
     return '<td><input class="' + (cls || '') + '" data-id="' + r.id + '" data-k="' + k + '" value="' + esc(v == null ? '' : v) + '"></td>';
   }
+  // fixed column widths so numbers are never cut, whatever the app theme does to inputs; the table scrolls sideways
+  var COLW = [44, 58, 130, 122, 118, 104, 104, 78, 74, 74, 74, 118, 100, 104, 100, 92, 200, 44];
   function renderTable() {
     var box = document.getElementById('nbTable'); if (!box) return;
     if (st.rows == null) { box.innerHTML = '<div class="nb-empty">กำลังโหลด…</div>'; return; }
     if (st.err) { box.innerHTML = '<div class="nb-empty">โหลดตารางไม่สำเร็จ: ' + esc(st.err) + ' <button class="nb-btn soft" data-nb="reload">ลองใหม่</button></div>'; return; }
     var rows = visibleRows();
-    box.innerHTML = '<div class="nb-wrap"><table class="nb-t"><thead><tr><th>ลำดับ</th><th>เขต</th><th>ไซด์งาน</th><th>เลขที่โครงการ</th><th>วงเงิน</th><th>วงเงิน/เดือน</th><th>จำนวนราย/ปี</th><th>ราย/เดือน</th>' +
+    var tw = COLW.reduce(function (a, b) { return a + b; }, 0);
+    box.innerHTML = '<div class="nb-wrap"><table class="nb-t t-actions-no" style="width:' + tw + 'px;min-width:' + tw + 'px"><colgroup>' + COLW.map(function (w) { return '<col style="width:' + w + 'px">'; }).join('') + '</colgroup><thead><tr><th>ลำดับ</th><th>เขต</th><th>ไซด์งาน</th><th>เลขที่โครงการ</th><th>วงเงิน</th><th>วงเงิน/เดือน</th><th>จำนวนราย/ปี</th><th>ราย/เดือน</th>' +
       '<th>ราคากลาง</th><th>ราคาปี69</th><th>ราคาปี70</th><th>มูลค่าที่ราคาปี70</th><th>วันที่</th><th>เวลา</th><th>วิธี</th><th>สถานะ</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (r, i) {
         var d = derived(r);
