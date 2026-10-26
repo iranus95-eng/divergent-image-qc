@@ -173,7 +173,7 @@
   }
   async function readPdf(file) {
     var lib = await loadPdfJs();
-    var pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    var pdf = await lib.getDocument({ data: file.bytes }).promise;
     var items = [];
     for (var n = 1; n <= Math.min(pdf.numPages, 6); n++) {
       var page = await pdf.getPage(n), vp = page.getViewport({ scale: 1 }), tc = await page.getTextContent();
@@ -184,8 +184,18 @@
     }
     return extract(items, file.name);
   }
-  async function openFiles(files) {
-    files = [].filter.call(files, function (f) { return /pdf$/i.test(f.type || f.name); });
+  // The bytes are copied the moment the files are picked or dropped, before the page is redrawn and the
+  // file input is cleared (like เสนอราคาแจ้งเตือน), so nothing can reach pdf.js empty.
+  async function openFiles(list) {
+    list = [].filter.call(list || [], function (f) { return /pdf$/i.test(f.type || f.name); });
+    if (!list.length) return;
+    var files = await Promise.all(list.map(function (f) {
+      return f.arrayBuffer().then(function (b) { return { name: f.name, bytes: new Uint8Array(b) }; }, function (e) { return { name: f.name, bytes: new Uint8Array(0), err: e }; });
+    }));
+    var empty = files.filter(function (f) { return !f.bytes.length; });
+    if (empty.length) alert('ไฟล์ ' + empty.map(function (f) { return f.name; }).join(', ') + ' ว่างเปล่า (0 ไบต์) อ่านไม่ได้\n' +
+      'มักเกิดจากไฟล์ยังดาวน์โหลดไม่เสร็จ หรือไฟล์อยู่บน OneDrive แต่ยังไม่ได้ดาวน์โหลดลงเครื่อง\nให้เปิดไฟล์ในเครื่องหนึ่งครั้ง หรือดาวน์โหลดจาก e-GP ใหม่ แล้ววางอีกครั้ง');
+    files = files.filter(function (f) { return f.bytes.length; });
     if (!files.length) return;
     st.busy = 'กำลังอ่านไฟล์ ' + files.length + ' ไฟล์…'; render();
     var docs = [];
@@ -361,7 +371,7 @@
     });
     w.addEventListener('change', function (e) {
       var t = e.target;
-      if (t.id === 'nbFile') { openFiles(t.files); t.value = ''; return; }
+      if (t.id === 'nbFile') { openFiles(t.files).finally(function () { t.value = ''; }); return; }
       if (t.id === 'nbZone') { st.zone = t.value; render(); return; }
       var pi = t.getAttribute('data-p');
       if (pi != null) {
