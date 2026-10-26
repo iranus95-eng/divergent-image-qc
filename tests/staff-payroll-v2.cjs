@@ -16,7 +16,7 @@ const db={from(table){return {select(){return this},eq(){return this},async mayb
     {id:role,is_active:true,expires_at:'2099-01-01'}};
 }}},async rpc(name,args){calls.push([name,args]);return {data:name==='staff_payroll_report_rows'?rows:0}}};
 let source=readFileSync(path.join(root,'supabase/functions/staff-payroll-report-api/index.ts'),'utf8');
-source=source.replace(/^import .*\n/,'').replace('export function payrollSummary','function payrollSummary');
+source=source.replace(/^import .*\r?\n/,'').replace('export function payrollSummary','function payrollSummary');
 vm.runInNewContext(stripTypeScriptTypes(source),{createClient:()=>db,Deno:{env:{get:()=>''},serve:fn=>handler=fn},
   Response,Request,fetch:()=>{throw Error('unexpected external request')},Intl,Date,console:{error(){}}});
 const req=(body,token)=>new Request('https://example.test',{method:'POST',headers:token?{Authorization:'Bearer '+token}:{},body:JSON.stringify(body)});

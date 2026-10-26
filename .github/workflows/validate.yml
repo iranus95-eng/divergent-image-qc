@@ -42,4 +42,13 @@ jobs:
           node tests/quote-notice-layouts.cjs
           node --check js/notice-bids.js
           node tests/notice-bids-extract.cjs
+          node tests/system-cost-api.cjs
+          node --check js/system-cost.js
+      - name: Validate migrated calculator
+        run: |
+          npm install --global pnpm@11.25.0
+          cd cost-calculator
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm exec tsc --noEmit
+          pnpm run build
 

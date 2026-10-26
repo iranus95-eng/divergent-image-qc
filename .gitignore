@@ -1,2 +1,5 @@
 supabase/.temp/
 
+
+cost-calculator/node_modules/
+cost-calculator/.cache/
