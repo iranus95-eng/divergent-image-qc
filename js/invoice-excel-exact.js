@@ -224,7 +224,7 @@ function printExact(){
   const p=byId(PAPER_ID);if(!p)return;
   const w=window.open('','_blank');
   if(!w){alert('เบราว์เซอร์บล็อกหน้าต่างพิมพ์');return}
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>ใบตั้งหนี้</title><style>@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0;background:#fff}${EXACT_CSS}</style></head><body>${p.outerHTML}</body></html>`);
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${dqFileName('ใบตั้งหนี้_'+(byId('invNo')?.value||''))}</title><style>@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0;background:#fff}${EXACT_CSS}</style></head><body>${p.outerHTML}</body></html>`);
   w.document.close();
   const go=()=>{w.focus();w.print()};try{w.document.fonts.ready.then(()=>setTimeout(go,300))}catch(_){setTimeout(go,600)}
 }

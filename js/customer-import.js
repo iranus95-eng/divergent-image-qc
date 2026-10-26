@@ -87,7 +87,7 @@ function makeCsv(rows){return '\ufeff'+EXPECTED.join(',')+'\r\n'+rows.map(r=>EXP
 function downloadConvertedCsv(){
   if(!convertedCsv||!convertedRows.length)return;
   const blob=new Blob([convertedCsv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=convertedFile||'customers_supabase.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  a.href=url;a.download=dqFileName(convertedFile?convertedFile.replace(/\.csv$/i,''):'customers_supabase','csv');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
 function style(){if(document.getElementById('customer-import-style-v2'))return;const s=document.createElement('style');s.id='customer-import-style-v2';s.textContent=`

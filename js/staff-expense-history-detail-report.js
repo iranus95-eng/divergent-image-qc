@@ -43,7 +43,7 @@ function openPrint(d,monthKey){
   const people=[...pm.values()].sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name,'th'));
   const peopleHtml=people.length?`<h2>สรุปยอดเบิกรายบุคคล</h2><table class="summary"><thead><tr><th style="width:8%">#</th><th>พนักงาน</th><th style="width:14%">จำนวนรายการ</th><th style="width:14%">รอบที่เบิก</th><th class="num" style="width:22%">ยอดเบิกรวม (บาท)</th></tr></thead><tbody>${people.map((p,i)=>`<tr><td class="c">${i+1}</td><td><b>${esc(p.name)}</b></td><td class="c">${p.count}</td><td class="c">${p.r.size}</td><td class="num"><b>${money(p.total)}</b></td></tr>`).join('')}</tbody><tfoot><tr class="total"><td colspan="4">รวม ${people.length} คน</td><td class="num">${money(people.reduce((a,p)=>a+p.total,0))}</td></tr></tfoot></table>`:'';
   const summary=rounds.map((c,i)=>`<tr><td class="c">${i+1}</td><td>${esc(c.label)}</td><td>${esc(c.date||'-')}</td><td class="c">${c.imported?'-':c.items.length}</td><td class="num">${money(c.total)}</td></tr>`).join('');
-  const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานค่าใช้จ่ายสตาฟ ${esc(m.label)}</title><style>@page{size:A4 portrait;margin:10mm 9mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,Tahoma,sans-serif;color:#222;font-size:12px;margin:0}
+  const html=`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${esc(dqFileName('รายงานค่าใช้จ่ายสตาฟ_'+m.label))}</title><style>@page{size:A4 portrait;margin:10mm 9mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,Tahoma,sans-serif;color:#222;font-size:12px;margin:0}
   .brand{font-size:11px;font-weight:800;color:#5b2a86;letter-spacing:.3px}h1{font-size:22px;margin:2px 0 4px}.headnote{color:#666;margin:0 0 12px}
   table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:6px 7px;vertical-align:top}th{background:#5b2a86;color:#fff;text-align:left}.num{text-align:right;white-space:nowrap}.c{text-align:center}
   .summary{margin-bottom:14px}.summary th{background:#f2eef8;color:#3d2466}
@@ -55,7 +55,7 @@ function openPrint(d,monthKey){
   <h2>รายละเอียดทุกรอบ</h2>
   <table class="detail"><thead><tr><th style="width:6%">#</th><th style="width:13%">วันที่</th><th style="width:20%">ผู้เบิก</th><th>รายละเอียดค่าใช้จ่าย</th><th class="num" style="width:18%">จำนวนเงิน (บาท)</th></tr></thead><tbody>${body.join('')}</tbody>
   <tfoot><tr class="total"><td colspan="4">รวมทั้งเดือน ${esc(m.label)}</td><td class="num">${money(m.total_amount)}</td></tr></tfoot></table></body></html>`;
-  const name=`Divergent_Expense_${String(m.key||'month').replace(/[^0-9-]/g,'')}.pdf`;
+  const name=dqFileName(`Divergent_Expense_${String(m.key||'month').replace(/[^0-9-]/g,'')}`,'pdf');
   if(window.DivergentPdf)return window.DivergentPdf.fromHtml(html,{padding:'38px 34px'}).then(b=>window.DivergentPdf.download(b,name)).catch(e=>{console.error(e);alert('สร้าง PDF ไม่สำเร็จ: '+(e.message||e));});
   const w=window.open('','_blank');if(!w){alert('เบราว์เซอร์ปิดกั้นหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up');return;}w.document.open();w.document.write(html.replace('</body>','<script>window.onload=()=>window.print()<\/script></body>'));w.document.close();
 }

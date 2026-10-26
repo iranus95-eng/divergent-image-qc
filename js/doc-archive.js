@@ -554,10 +554,9 @@
       }
       rtCopies.forEach(function (k) { k.remove(); });
       if (a4) a4.remove();
-      var url = URL.createObjectURL(pdf.output('blob'));
-      if (out) { try { out.location.replace(url); } catch (_) { out.location.href = url; } }
-      else { var a = document.createElement('a'); a.href = url; a.download = (d.doc_no || 'document') + '.pdf'; document.body.appendChild(a); a.click(); a.remove(); }
-      setTimeout(function () { URL.revokeObjectURL(url); }, 120000);
+      var blob = pdf.output('blob'), name = dqFileName((TYPE_LABEL[d.doc_type] || 'เอกสาร') + '_' + (d.doc_no || ''), 'pdf');
+      if (out) dqShowPdf(out, blob, name);
+      else { var url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 120000); }
     } catch (e) {
       if (out) out.close();
       alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e));
