@@ -6,6 +6,41 @@ const root = path.join(__dirname, '..');
 const origin = 'https://divergent-image-qc.vercel.app';
 const api =
   'https://neauzvqroaszvqffahkv.functions.supabase.co/system-cost-api';
+const bidsApi =
+  'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';
+// Synthetic ตารางประมูลแจ้งเตือน rows: only offices with a budget and ราคากลาง become sites.
+const bids = [
+  {
+    id: 8,
+    seq: 8,
+    zone: 'ฉ.3',
+    site: 'โชคชัย',
+    budget: '616320.00',
+    mid_price: '8.0000',
+    price_bid: '4.6500',
+    status: null,
+  },
+  {
+    id: 5,
+    seq: 5,
+    zone: 'ฉ.3',
+    site: 'สตึก',
+    budget: null,
+    mid_price: '8.0000',
+    price_bid: null,
+    status: null,
+  },
+  {
+    id: 11,
+    seq: 11,
+    zone: 'ฉ.3',
+    site: 'ปราสาท',
+    budget: '1027200.00',
+    mid_price: '8.0000',
+    price_bid: null,
+    status: 'ยกเลิก',
+  },
+];
 
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'msedge' });
@@ -48,6 +83,12 @@ const api =
         body: fs.readFileSync(file),
       });
     });
+    await ctx.route(bidsApi, (route) =>
+      route.fulfill({
+        status: auth ? 200 : 401,
+        json: auth ? { ok: true, items: bids } : { error: 'SESSION_REQUIRED' },
+      }),
+    );
     await ctx.route(api, async (route) => {
       const body = route.request().postDataJSON();
       if (fail)
@@ -89,6 +130,8 @@ const api =
     await page.goto(origin + '/system-cost/');
     await page.getByRole('button', { name: /ใบแจ้งเตือนค่าไฟฟ้า/ }).click();
     await page.getByRole('button', { name: 'โชคชัย' }).click();
+    assert.equal(await page.getByRole('button', { name: /สตึก/ }).count(), 0);
+    await page.getByRole('button', { name: /ปราสาท.*ยกเลิก/ }).waitFor();
     await page
       .getByLabel('ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)', { exact: true })
       .fill('3.51');
@@ -103,8 +146,10 @@ const api =
       .getByRole('status')
       .filter({ hasText: 'บันทึกข้อมูลในฐานข้อมูลกลางแล้ว' })
       .waitFor();
-    const key = 'epc:electricity-notice:v1:site:chok-chai';
+    const key = 'epc:electricity-notice:v1:site:bid-8';
     assert.equal(rows.get(key).value.jobs, 6420);
+    assert.equal(rows.get(key).value.budget, 616320);
+    assert.equal(rows.get(key).value.auction, 4.65);
     assert.equal(rows.get(key).value.labor, 3.5);
 
     const ctxB = await context(true, true);
@@ -114,7 +159,7 @@ const api =
     assert.match(await second.locator('body').innerText(), /โชคชัย/);
     assert.equal(
       await second.evaluate(() =>
-        localStorage.getItem('epc:electricity-notice:v1:site:chok-chai'),
+        localStorage.getItem('epc:electricity-notice:v1:site:bid-8'),
       ),
       null,
     );

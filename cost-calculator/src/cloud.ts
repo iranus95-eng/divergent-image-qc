@@ -52,12 +52,15 @@ export async function recoverDraft() {
   window.localStorage.removeItem(RECOVERY_KEY);
 }
 
-async function call(body: unknown) {
+const BIDS_ENDPOINT =
+  'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';
+
+async function call(body: unknown, endpoint = ENDPOINT) {
   const token =
     window.localStorage.getItem('divergent_web_session_token_v1') ||
     window.localStorage.getItem('divergent_fallback_session_token');
   if (!token) throw new Error('กรุณาเข้าสู่ระบบผู้ดูแลที่เมนูหลักก่อน');
-  const response = await fetch(ENDPOINT, {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -76,6 +79,35 @@ async function call(body: unknown) {
     throw new Error('ติดต่อฐานข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง');
   }
   return data;
+}
+
+export type NoticeBid = {
+  id: number;
+  seq: number | null;
+  zone: string | null;
+  site: string;
+  budget: number | null;
+  mid_price: number | null;
+  price_bid: number | null;
+  status: string | null;
+};
+
+// Sites and budgets come from เมนูตารางประมูลแจ้งเตือน (public.notice_bids).
+export async function loadNoticeBids(fiscalYear = 2570): Promise<NoticeBid[]> {
+  const { items } = await call(
+    { action: 'list', fiscal_year: fiscalYear },
+    BIDS_ENDPOINT,
+  );
+  return (items as Record<string, unknown>[]).map((row) => ({
+    id: Number(row.id),
+    seq: row.seq == null ? null : Number(row.seq),
+    zone: (row.zone as string) || null,
+    site: String(row.site || ''),
+    budget: row.budget == null ? null : Number(row.budget),
+    mid_price: row.mid_price == null ? null : Number(row.mid_price),
+    price_bid: row.price_bid == null ? null : Number(row.price_bid),
+    status: (row.status as string) || null,
+  }));
 }
 
 export function initialize() {

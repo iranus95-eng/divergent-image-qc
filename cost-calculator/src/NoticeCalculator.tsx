@@ -4,7 +4,6 @@ import { Printer, Download, Eye } from 'lucide-react';
 import NoticeReport from './NoticeReport';
 
 const KEY = 'epc:electricity-notice:v1';
-const COUNT_SOURCE = 'sheet70-counts-v1';
 const ALLOCATION_JOBS = 200000;
 const SHARED_TOTALS_REVISION = 'confirmed-totals-2026-10-16-v1';
 const SHARED_COST_KEYS: (keyof Values)[] = [
@@ -88,12 +87,22 @@ const groups: { title: string; fields: Field[] }[] = [
     ],
   },
 ];
+// Budget, ราคากลาง and the bid price follow the ตารางประมูลแจ้งเตือน row;
+// edits are kept until that row changes.
+export type BidSource = {
+  bidId: number;
+  budget: number;
+  price: number;
+  auction: number;
+};
+const sourceTag = (bid: BidSource) =>
+  ['notice-bids', bid.bidId, bid.budget, bid.price, bid.auction].join(':');
 const fmt = (n: number) =>
   n.toLocaleString('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-function load(storageKey: string, initialJobs?: number): Values {
+function load(storageKey: string, bid?: BidSource): Values {
   try {
     const saved = JSON.parse(cloudStorage.getItem(storageKey) || 'null');
     const result = { ...defaults };
@@ -111,15 +120,24 @@ function load(storageKey: string, initialJobs?: number): Values {
       for (const key of SHARED_COST_KEYS) result[key] = defaults[key];
     }
     if (saved && saved.auction === undefined) result.auction = result.price;
-    if (initialJobs !== undefined && saved?.monthlyCountSource !== COUNT_SOURCE)
-      result.jobs = initialJobs;
-    if (saved?.budget === undefined)
-      result.budget = result.jobs * result.price * 12;
+    if (bid && saved?.bidSource !== sourceTag(bid)) {
+      result.budget = bid.budget;
+      result.price = bid.price;
+      result.auction = bid.auction;
+    }
     result.jobs = result.price > 0 ? result.budget / result.price / 12 : 0;
     return result;
   } catch {
-    const jobs = initialJobs ?? defaults.jobs;
-    return { ...defaults, jobs, budget: jobs * defaults.price * 12 };
+    const result = {
+      ...defaults,
+      ...(bid && {
+        budget: bid.budget,
+        price: bid.price,
+        auction: bid.auction,
+      }),
+    };
+    result.jobs = result.price > 0 ? result.budget / result.price / 12 : 0;
+    return result;
   }
 }
 
@@ -127,17 +145,15 @@ export default function NoticeCalculator({
   onDirtyChange,
   siteId,
   siteName,
-  initialJobs,
-  sourceCell,
+  bid,
 }: {
   onDirtyChange: (dirty: boolean) => void;
   siteId: string;
   siteName: string;
-  initialJobs: number;
-  sourceCell: string;
+  bid: BidSource;
 }) {
   const storageKey = KEY + ':site:' + siteId;
-  const [values, setValues] = useState(() => load(storageKey, initialJobs));
+  const [values, setValues] = useState(() => load(storageKey, bid));
   const [hasLegacy] = useState(() => {
     try {
       return cloudStorage.getItem(KEY) !== null;
@@ -176,14 +192,12 @@ export default function NoticeCalculator({
         cloudStorage.setItem(key, JSON.stringify(corrected));
       }
       const saved = JSON.parse(cloudStorage.getItem(storageKey) || 'null');
-      if (saved?.monthlyCountSource !== COUNT_SOURCE) {
+      if (saved?.bidSource !== sourceTag(bid)) {
         cloudStorage.setItem(
           storageKey,
           JSON.stringify({
-            ...load(storageKey, initialJobs),
-            jobs: initialJobs,
-            budget: initialJobs * load(storageKey, initialJobs).price * 12,
-            monthlyCountSource: COUNT_SOURCE,
+            ...load(storageKey, bid),
+            bidSource: sourceTag(bid),
             sharedTotalsRevision: SHARED_TOTALS_REVISION,
           }),
         );
@@ -191,7 +205,7 @@ export default function NoticeCalculator({
     } catch {
       setStorageError(true);
     }
-  }, [storageKey, initialJobs]);
+  }, [storageKey, bid]);
   useEffect(() => {
     onDirtyChange(dirty);
   }, [dirty, onDirtyChange]);
@@ -444,7 +458,7 @@ export default function NoticeCalculator({
         storageKey,
         JSON.stringify({
           ...values,
-          monthlyCountSource: COUNT_SOURCE,
+          bidSource: sourceTag(bid),
           sharedTotalsRevision: SHARED_TOTALS_REVISION,
         }),
       );
@@ -497,10 +511,9 @@ export default function NoticeCalculator({
           </p>
         )}
         <p className="text-sm text-slate-500 mt-2">
-          บันทึกข้อมูลแยกเฉพาะไซด์ {siteName} • จำนวนรายอ้างอิงชีท 70 ช่อง{' '}
-          {sourceCell}: {initialJobs.toLocaleString('th-TH')} ราย/เดือน
-          ใช้เป็นฐานงบประมาณเริ่มต้น
-          และคำนวณจำนวนรายใหม่ตามงบประมาณกับราคากลางที่กรอก
+          บันทึกข้อมูลแยกเฉพาะไซด์ {siteName} • งบประมาณ {fmt(bid.budget)} บาท
+          และราคากลาง {bid.price} บาท/ราย จากตารางประมูลแจ้งเตือน
+          คำนวณจำนวนรายจากงบประมาณกับราคากลาง
         </p>
         {hasLegacy && (
           <button
@@ -518,14 +531,16 @@ export default function NoticeCalculator({
               const imported = load(KEY);
               setValues({
                 ...imported,
-                jobs: initialJobs,
-                budget: initialJobs * imported.price * 12,
+                budget: bid.budget,
+                price: bid.price,
+                auction: bid.auction,
+                jobs: bid.budget / bid.price / 12,
               });
               setDraft({});
               setDirty(true);
               setNeedsCalculation(true);
               setMessage(
-                'นำเข้าต้นทุนและราคาเดิมแล้ว โดยใช้จำนวนรายจากชีท 70 กรุณาคำนวณและบันทึกลงไซด์ ' +
+                'นำเข้าต้นทุนเดิมแล้ว โดยใช้งบประมาณจากตารางประมูลแจ้งเตือน กรุณาคำนวณและบันทึกลงไซด์ ' +
                   siteName,
               );
             }}
