@@ -93,12 +93,12 @@ export default function ProjectGateway() {
           hidden={project !== 'reading'}
           style={project !== 'reading' ? { display: 'none' } : undefined}
         >
-          <div className="noPrint bg-slate-950 text-white border-b border-slate-700 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="noPrint dvSubBar">
             <span className="font-semibold">จดหน่วยแจ้งค่าไฟฟ้า</span>
             <button
               type="button"
               onClick={() => setProject('chooser')}
-              className="flex items-center gap-2 rounded-lg border border-slate-500 px-3 py-2 text-sm hover:bg-slate-800"
+              className="dvBtn"
             >
               <ArrowLeft size={16} />
               กลับไปเลือกโปรเจกต์
