@@ -40,4 +40,6 @@ jobs:
           node tests/v2-unified.cjs
           node tests/staff-payroll-v2.cjs
           node tests/quote-notice-layouts.cjs
+          node --check js/notice-bids.js
+          node tests/notice-bids-extract.cjs
 
