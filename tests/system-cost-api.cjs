@@ -38,5 +38,9 @@ const request = (body, auth = true) => new Request('https://example.test', { met
   assert.equal((await handler(request({ action: 'save', key: 'scenario:fixture', value: {}, revision: 1 }))).status, 200);
   conflict = true;
   assert.equal((await handler(request({ action: 'save', key: 'scenario:fixture', value: {}, revision: 1 }))).status, 409);
-  console.log('PASS: cost API anonymous/staff/expired-session denial, authorized list/save, invalid keys and revision conflict');
+  const cors = async origin => (await handler(new Request('https://example.test', { method: 'OPTIONS', headers: { Origin: origin } }))).headers.get('Access-Control-Allow-Origin');
+  assert.equal(await cors('https://divergent-image-qc.vercel.app'), 'https://divergent-image-qc.vercel.app');
+  assert.equal(await cors('https://divergent-image-qc-git-claude-system-cost-theme-iranus95-4366.vercel.app'), 'https://divergent-image-qc-git-claude-system-cost-theme-iranus95-4366.vercel.app');
+  assert.equal(await cors('https://evil.example'), 'https://divergent-image-qc.vercel.app');
+  console.log('PASS: cost API CORS origins, anonymous/staff/expired-session denial, authorized list/save, invalid keys and revision conflict');
 })().catch(error => { console.error(error); process.exitCode = 1; });

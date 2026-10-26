@@ -1,11 +1,21 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.95.3';
 
+const PRODUCTION = 'https://divergent-image-qc.vercel.app';
+// Production plus this Vercel team's preview deployments; every request still needs an admin session.
+const allowOrigin = (origin: string | null) =>
+  origin &&
+  (origin === PRODUCTION ||
+    /^https:\/\/divergent-image-qc-[a-z0-9-]+-iranus95-4366\.vercel\.app$/.test(
+      origin,
+    ))
+    ? origin
+    : PRODUCTION;
 const headers = {
-  'Access-Control-Allow-Origin': 'https://divergent-image-qc.vercel.app',
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'no-store',
+  Vary: 'Origin',
 };
 const db = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -54,6 +64,15 @@ const validKey = (key: unknown): key is string =>
   );
 
 Deno.serve(async (req) => {
+  const response = await handle(req);
+  response.headers.set(
+    'Access-Control-Allow-Origin',
+    allowOrigin(req.headers.get('Origin')),
+  );
+  return response;
+});
+
+async function handle(req: Request) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers });
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   try {
@@ -102,4 +121,4 @@ Deno.serve(async (req) => {
     if (status === 500) console.error('system-cost-api request failed');
     return json({ error: status === 500 ? 'SERVER_ERROR' : message }, status);
   }
-});
+}
