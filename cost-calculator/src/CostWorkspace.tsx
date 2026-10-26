@@ -107,31 +107,37 @@ export default function CostWorkspace() {
     window.location.assign('/');
   };
   return (
-    <>
-      <header className="noPrint bg-slate-950 text-white px-4 py-4">
-        <div className="max-w-7xl mx-auto flex flex-wrap gap-3 items-center justify-between">
-          <h1 className="text-xl font-bold">คำนวนต้นทุนระบบงาน</h1>
-          <button
-            type="button"
-            className="rounded border border-slate-500 px-3 py-2"
-            onClick={goHome}
-          >
+    <div className="dv">
+      <header className="noPrint dvTop">
+        <div className="dvTopRow">
+          <div className="dvBrand">
+            <span className="dvLogo" aria-hidden="true">
+              D
+            </span>
+            <span>
+              <b>คำนวนต้นทุนระบบงาน</b>
+              <small>Divergent Image Rescue</small>
+            </span>
+          </div>
+          <button type="button" className="dvBtn" onClick={goHome}>
             ⌂ เมนูหลัก
           </button>
         </div>
-        <div className="max-w-7xl mx-auto mt-3 flex flex-wrap gap-3 items-center text-sm">
+      </header>
+      <div className="noPrint dvBar">
+        <div className="dvBarRow">
           <p
             role="status"
             className={
-              status.startsWith('ยัง') ? 'text-amber-300' : 'text-sky-200'
+              'dvStatus ' + (status.startsWith('ยัง') ? 'dvStatusWarn' : '')
             }
           >
             {status}
           </p>
           {ready && (
-            <>
+            <div className="dvActions">
               <button
-                className="border rounded px-3 py-1"
+                className="dvBtn"
                 onClick={() => {
                   void flush().catch(() => {});
                 }}
@@ -139,31 +145,31 @@ export default function CostWorkspace() {
                 บันทึกข้อมูลกลาง / ลองใหม่
               </button>
               <button
-                className="border rounded px-3 py-1"
+                className="dvBtn"
                 disabled={importing}
                 onClick={openImport}
               >
                 นำเข้าข้อมูลจากเว็บเดิม
               </button>
-              <button className="border rounded px-3 py-1" onClick={exportData}>
+              <button className="dvBtn" onClick={exportData}>
                 ดาวน์โหลดสำรองข้อมูล
               </button>
               <button
-                className="border rounded px-3 py-1"
+                className="dvBtn"
                 onClick={() => {
                   void reload();
                 }}
               >
                 โหลดข้อมูลใหม่
               </button>
-            </>
+            </div>
           )}
         </div>
         {ready && recovery && (
-          <div className="max-w-7xl mx-auto mt-3 text-amber-200">
+          <div className="dvBarRow dvNotice">
             พบข้อมูลร่างที่ยังบันทึกไม่สำเร็จจากครั้งก่อน{' '}
             <button
-              className="border rounded px-3 py-1"
+              className="dvBtn"
               onClick={() => {
                 if (
                   window.confirm(
@@ -184,14 +190,11 @@ export default function CostWorkspace() {
           </div>
         )}
         {migration && (
-          <p
-            className="max-w-7xl mx-auto mt-3 text-sm text-amber-200"
-            role="status"
-          >
+          <p className="dvBarRow dvNotice" role="status">
             {migration}
           </p>
         )}
-      </header>
+      </div>
       {error ? (
         <main className="max-w-3xl mx-auto p-8">
           <p role="alert">{error}</p>
@@ -206,6 +209,6 @@ export default function CostWorkspace() {
       ) : (
         <p className="p-8">กำลังตรวจสอบสิทธิ์และโหลดข้อมูล…</p>
       )}
-    </>
+    </div>
   );
 }

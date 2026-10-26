@@ -7,7 +7,6 @@ import {
   RefreshCw,
   TrendingUp,
   TrendingDown,
-  Database,
   FileText,
   Gavel,
   Workflow,
@@ -2340,21 +2339,18 @@ function App() {
           ข้อมูล ณ วันที่พิมพ์รายงาน
         </div>
       </div>
-      <header className="bg-slate-950 text-white noPrint">
+      <header className="dvHero noPrint">
         <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap justify-between gap-4">
           <div>
-            <div className="text-xs tracking-[.2em] text-sky-300">
+            <div className="dvKicker">
               DIVERGENT CORPORATION
             </div>
             <h1 className="text-2xl font-bold mt-1">
               Executive Profit & Bid Center
             </h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500">
               ศูนย์วิเคราะห์ต้นทุน การเสนอราคา และความเสี่ยง
             </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-emerald-300">
-            <Database size={15} /> Separate Database
           </div>
         </div>
       </header>
