@@ -190,7 +190,16 @@
     var sum = near.filter(function (i) { return /^รวม$/.test(i.str.trim()) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
     var qty = near.filter(function (i) { return /\(?\s*ราย\s*\)?$/.test(i.str.trim()) && i.str.trim().length <= 7 && center(i) < offer.x; })[0] ||
       near.filter(function (i) { return /ปริมาณ|เฟส|^จ\S{0,3}นวน$/.test(i.str.trim()) && center(i) < offer.x; }).sort(function (a, b) { return b.x - a.x; })[0];
-    if (!unit || !sum || !qty || center(sum) <= center(unit)) return null;
+    if (!qty) return null;
+    if (!unit && !sum) {
+      // layout D: no headings under "ราคาที่เสนอ" (e.g. กฟส.พุทไธสง) although the cell is divided in two like the
+      // reference group: the left half is ต่อหน่วย and the right half รวม; snapCells finds the real cell lines
+      var refUnit = near.filter(function (i) { return COL.unit.test(i.str) && center(i) < offer.x; })[0];
+      if (!refUnit) return null;
+      var y = refUnit.y, h = refUnit.h;
+      return { qty: qty, price: { x: offer.x, w: offer.w / 2, y: y, h: h }, amount: { x: offer.x + offer.w / 2, w: offer.w / 2, y: y, h: h } };
+    }
+    if (!unit || !sum || center(sum) <= center(unit)) return null;
     return { qty: qty, price: unit, amount: sum };
   }
 
@@ -205,11 +214,13 @@
     });
     return out;
   }
+  var HEAD = 60;
   function detectTables(items, pageNo) {
     var tables = [];
     items.filter(function (i) { return RE.price.test(i.str); }).forEach(function (p) {
-      if (tables.some(function (t) { return Math.abs(t.y - p.y) < 45; })) return;
-      var near = items.filter(function (i) { return Math.abs(i.y - p.y) < 45; });
+      if (tables.some(function (t) { return p.y - t.y > -45 && p.y - t.y < HEAD; })) return;
+      // header rows can be tall: sub headings may sit up to HEAD points under the "ราคา" line (e.g. กฟส.ศีขรภูมิ)
+      var near = items.filter(function (i) { return i.y - p.y > -45 && i.y - p.y < HEAD; });
       function pick(re, not) { return near.filter(function (i) { return re.test(i.str) && !(not && not(i)); }).sort(function (a, b) { return a.y - b.y; })[0]; }
       var cols = offerColumns(near), bounds = {}, order, cx;
       if (cols) {
@@ -238,8 +249,14 @@
         });
       }
       // the header ends at the lowest header word sitting in one of our columns ("(ราย)", "(บาท)", "เครื่อง")
-      var headerBottom = Math.max.apply(null, order.map(function (k) { return cols[k].y; }).concat(near.filter(function (i) {
-        var c = center(i); return i.y >= p.y && i.y < p.y + 40 && c > bounds.qty[0] && c < bounds[order[order.length - 1]][1] && !RE.number.test(i.str);
+      var headTop = Math.max.apply(null, order.map(function (k) { return cols[k].y; }));
+      // a heading word never sits on or below the first quantity of the table
+      var firstQty = Math.min.apply(null, items.filter(function (i) {
+        var c = center(i); return i.y > headTop + 2 && RE.number.test(i.str.trim()) && c > bounds.qty[0] && c < bounds.qty[1];
+      }).map(function (i) { return i.y; }).concat([Infinity]));
+      var headerBottom = Math.max.apply(null, [headTop].concat(near.filter(function (i) {
+        // values already printed in the row ("8.-", "576,000.-") are not headings
+        var c = center(i); return i.y >= p.y && i.y < Math.min(p.y + HEAD, firstQty - 2) && c > bounds.qty[0] && c < bounds[order[order.length - 1]][1] && !/^[\d,.\-–]+$/.test(i.str.trim());
       }).map(function (i) { return i.y; })));
       var title = items.filter(function (i) { return i.y < p.y - 5 && i.y > p.y - 70 && i.x < cx[0] && /การไฟฟ้า|การไฟฟา|พื้นที่/.test(i.str); })
         .sort(function (a, b) { return b.y - a.y; })[0];
@@ -259,6 +276,18 @@
         var key = sumKey(i.str.trim());
         if (key && !sums.some(function (s) { return s.key === key; })) sums.push({ key: key, y: i.y, h: i.h });
       });
+      // the sum before VAT may be a row without any words, only the reference amount (e.g. กฟส.ศีขรภูมิ)
+      var vatSum = sums.filter(function (s) { return s.key === 'vat'; })[0];
+      if (vatSum && !sums.some(function (s) { return s.key === 'amount'; })) {
+        var isNum = function (i) { return RE.number.test(i.str.trim().replace(/\.?-$/, '')); };
+        var itemLines = body.filter(function (i) { var c = center(i); return isNum(i) && c > t.bounds.qty[0] && c < t.bounds.qty[1]; }).map(function (i) { return i.y; });
+        var bare = body.filter(function (i) {
+          if (!isNum(i) || i.y >= vatSum.y - 4 || center(i) >= amtL || center(i) <= t.bounds.qty[1]) return false;
+          if (itemLines.some(function (y) { return i.y <= y + 4; })) return false;
+          return !body.some(function (o) { return o !== i && Math.abs(o.y - i.y) < 4 && !isNum(o); });
+        }).sort(function (a, b) { return b.y - a.y; })[0];
+        if (bare) sums.push({ key: 'amount', y: bare.y, h: bare.h });
+      }
       sums.sort(function (a, b) { return a.y - b.y; });
       var end = sums.length ? sums[0].y - 4 : limit;
       function label(y) {
