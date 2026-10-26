@@ -1,3 +1,4 @@
+import { datedFileName } from './fileName';
 const ENDPOINT =
   'https://neauzvqroaszvqffahkv.functions.supabase.co/system-cost-api';
 const PENDING_KEY = 'system-cost:pending:v1';
@@ -248,7 +249,7 @@ export function exportData() {
   );
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'system-cost-backup.json';
+  link.download = datedFileName('สำรองข้อมูลคำนวนต้นทุนระบบงาน') + '.json';
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
