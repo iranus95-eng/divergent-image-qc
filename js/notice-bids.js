@@ -346,6 +346,8 @@
       '.nb-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}' +
       '.nb-site{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e5dced;border-radius:10px;background:#fff;padding:10px 12px;font:inherit;font-weight:700;color:#3b2252;cursor:pointer}' +
       '.nb-site:hover{border-color:#7b4bab;background:#faf6fd}.nb-site .no{min-width:26px;color:#8a7a9a;font-weight:600;font-size:12px}.nb-site .go{margin-left:auto;color:#a08cb6}' +
+      '.nb-site .nm{display:flex;flex-direction:column;gap:2px}.nb-site small{font-weight:600;font-size:12px;color:#6b5d7a}.nb-site.today{border-color:#3a9a5b;background:#f2fbf5}.nb-site.today small{color:#2d7a47}' +
+      '.nb-site.past{opacity:.6}' +
       '.nb-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
       '.nb-detail{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:16px}.nb-detail h3{margin:6px 0 2px;color:#4b2378;font-size:20px}' +
       '.nb-detail[data-state=saving]{box-shadow:inset 4px 0 #e0a24a}.nb-detail[data-state=err]{box-shadow:inset 4px 0 #d33}.nb-detail[data-state=ok]{box-shadow:inset 4px 0 #3a9a5b}' +
@@ -402,6 +404,16 @@
       return !q || nameKey(r.site).indexOf(q) >= 0 || String(r.project_no || '').indexOf(st.q.trim()) >= 0;
     }).sort(function (a, b) { return (a.seq || 1e9) - (b.seq || 1e9) || a.id - b.id; });
   }
+  // the site list: auctions from today on first (soonest first), then sites without a date, then auctions already past
+  function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
+  function byAuction(rows) {
+    var today = todayIso();
+    var group = function (r) { return !r.bid_date ? 1 : (String(r.bid_date).slice(0, 10) >= today ? 0 : 2); };
+    return rows.slice().sort(function (a, b) {
+      return group(a) - group(b) || String(a.bid_date || '').localeCompare(String(b.bid_date || '')) ||
+        String(a.bid_time || '').localeCompare(String(b.bid_time || '')) || (a.seq || 1e9) - (b.seq || 1e9) || a.id - b.id;
+    });
+  }
   function pendingHtml() {
     if (!st.pending.length) return '';
     var opts = function (sel) {
@@ -432,9 +444,12 @@
     var open = st.open != null ? (st.rows || []).filter(function (x) { return x.id === st.open; })[0] : null;
     if (open) { box.innerHTML = detailHtml(open); return; }
     st.open = null;
-    var rows = visibleRows();
+    var rows = byAuction(visibleRows()), today = todayIso();
     box.innerHTML = rows.length ? '<div class="nb-list">' + rows.map(function (r, i) {
-      return '<button class="nb-site" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span><span>' + esc(r.site || '(ไม่มีชื่อไซด์)') + '</span><span class="go">›</span></button>';
+      var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
+      var when = day ? (day === today ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (day < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
+      return '<button class="nb-site' + (day && day < today ? ' past' : '') + (day === today ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
+        '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
   }
   function field(r, k, label, cls) {
