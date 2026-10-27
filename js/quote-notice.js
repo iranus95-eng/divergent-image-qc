@@ -6,6 +6,8 @@
  *  - Tables are found from their column headers (ราคา/หน่วย, จำนวนเงิน, ภาษีมูลค่าเพิ่ม, รวมเป็นเงินทั้งสิ้น)
  *    and every quantity under "จำนวน" becomes a row: amount = qty × unit price, VAT 7%, total.
  *  - Only the unit price is typed; everything else is calculated.
+ *  - The menu lists the saved jobs by site with the auction day/time from ตารางประมูลแจ้งเตือน (upcoming first, past last);
+ *    clicking one opens it. A new job is named after the site read from the PDF.
  */
 (function () {
   'use strict';
@@ -23,17 +25,18 @@
   var GLYPHS = {"0":[540,"M47 -350Q47 -528 104 -619Q162 -710 270 -710Q378 -710 436 -619Q493 -528 493 -350Q493 -172 436 -81Q378 10 270 10Q162 10 104 -81Q47 -172 47 -350ZM437 -350Q437 -503 394 -583Q350 -663 270 -663Q190 -663 146 -584Q103 -504 103 -350Q103 -197 146 -117Q190 -37 270 -37Q350 -37 394 -117Q437 -197 437 -350Z"],"1":[540,"M138 -50H262V-630L119 -546V-599L284 -700H318V-50H441V0H138Z"],"2":[540,"M70 -58Q145 -114 219 -192Q293 -270 344 -357Q394 -444 394 -520Q394 -585 356 -623Q319 -661 254 -661Q201 -661 154 -637Q107 -613 82 -575L53 -612Q82 -657 136 -684Q190 -710 255 -710Q345 -710 398 -659Q451 -608 451 -523Q451 -402 356 -277Q262 -152 140 -50H487V0H70Z"],"3":[540,"M52 -89 82 -126Q107 -85 156 -62Q205 -39 262 -39Q338 -39 384 -80Q431 -120 431 -185Q431 -258 372 -300Q313 -341 212 -341H194V-393H212Q270 -393 314 -412Q357 -432 380 -467Q404 -502 404 -545Q404 -600 368 -630Q332 -661 270 -661Q214 -661 167 -638Q120 -614 94 -574L64 -611Q93 -657 148 -684Q203 -710 270 -710Q357 -710 408 -667Q460 -624 460 -552Q460 -487 420 -438Q379 -388 310 -369Q394 -355 441 -306Q488 -258 488 -184Q488 -127 460 -83Q432 -39 381 -14Q330 10 263 10Q193 10 136 -16Q80 -43 52 -89Z"],"4":[540,"M365 -129H30V-178L346 -700H421V-177H504V-129H421V0H365ZM365 -177V-641L84 -177Z"],"5":[540,"M52 -89 82 -126Q107 -86 154 -62Q200 -39 256 -39Q336 -39 382 -88Q429 -138 429 -224Q429 -306 386 -355Q343 -404 270 -404Q224 -404 185 -385Q146 -366 124 -334H77L109 -700H464V-651H160L140 -405Q163 -427 202 -440Q241 -452 283 -452Q377 -452 432 -391Q488 -330 488 -226Q488 -118 426 -54Q364 10 258 10Q189 10 134 -16Q79 -43 52 -89Z"],"6":[540,"M51 -248Q51 -356 101 -454Q151 -553 238 -621Q324 -689 428 -710L435 -666Q360 -647 296 -602Q231 -557 186 -495Q141 -433 123 -363Q146 -398 186 -419Q227 -440 283 -440Q348 -440 394 -410Q441 -379 466 -328Q490 -276 490 -214Q490 -150 464 -100Q439 -49 390 -20Q342 10 276 10Q207 10 156 -22Q106 -53 78 -112Q51 -170 51 -248ZM435 -215Q435 -294 391 -342Q347 -391 274 -391Q202 -391 158 -342Q113 -294 113 -215Q113 -136 158 -88Q202 -39 274 -39Q347 -39 391 -88Q435 -136 435 -215Z"],"7":[540,"M423 -651H60V-700H481V-640Q370 -515 312 -358Q254 -200 254 0H197Q201 -121 218 -222Q235 -323 284 -432Q332 -542 423 -651Z"],"8":[540,"M44 -189Q44 -254 75 -302Q106 -350 170 -374Q122 -393 96 -438Q69 -482 69 -537Q69 -617 123 -664Q177 -710 270 -710Q363 -710 417 -664Q471 -617 471 -537Q471 -481 444 -437Q418 -393 371 -374Q434 -350 465 -302Q496 -254 496 -189Q496 -97 436 -44Q376 10 270 10Q164 10 104 -44Q44 -97 44 -189ZM415 -530Q415 -591 378 -626Q340 -661 270 -661Q200 -661 162 -626Q125 -591 125 -530Q125 -468 164 -432Q202 -396 270 -396Q338 -396 376 -432Q415 -468 415 -530ZM440 -196Q440 -268 395 -309Q350 -350 270 -350Q191 -350 146 -309Q100 -268 100 -196Q100 -123 145 -81Q190 -39 270 -39Q350 -39 395 -80Q440 -122 440 -196Z"],"9":[540,"M106 -35Q184 -53 250 -98Q317 -142 361 -204Q405 -266 417 -335Q396 -302 354 -282Q313 -261 262 -261Q200 -261 152 -290Q104 -319 78 -370Q51 -421 51 -486Q51 -551 78 -602Q104 -653 152 -682Q201 -710 265 -710Q372 -710 431 -638Q490 -566 490 -444Q490 -332 442 -236Q394 -139 308 -74Q222 -10 113 10ZM428 -485Q428 -564 384 -612Q339 -661 266 -661Q194 -661 150 -612Q106 -564 106 -485Q106 -406 150 -358Q194 -309 265 -309Q338 -309 383 -358Q428 -406 428 -485Z"],",":[223,"M170 -27Q170 19 146 72Q121 126 82 162L61 138Q84 112 100 76Q117 40 122 6L107 7Q86 7 72 -8Q59 -22 59 -45Q59 -70 74 -86Q89 -101 113 -101Q138 -101 154 -81Q170 -61 170 -27Z"],".":[223,"M62 -41Q62 -64 76 -78Q89 -92 111 -92Q133 -92 147 -78Q161 -63 161 -41Q161 -19 147 -4Q133 10 111 10Q89 10 76 -4Q62 -18 62 -41Z"],"-":[340,"M40 -288H300V-244H40Z"]};
 
   var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';
-  var st = { name: '', pages: [], rows: [], pdf: null, busy: false, id: null, saveState: '', history: null, histErr: '' };
+  var BIDS_API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';   // auction day/time of each site (ตารางประมูลแจ้งเตือน)
+  var st = { name: '', pages: [], rows: [], pdf: null, busy: false, id: null, saveState: '', history: null, histErr: '', bids: null };
 
   // ---------------------------------------------------------------- saved work (Supabase: quote_notices)
   async function token() {
     try { if (typeof window.getBestDataToken === 'function') { var t = await window.getBestDataToken(); if (t) return t; } } catch (_) {}
     try { return localStorage.getItem('divergent_web_session_token_v1') || localStorage.getItem('divergent_fallback_session_token') || ''; } catch (_) { return ''; }
   }
-  async function call(body) {
+  async function call(body, url) {
     var t = await token();
     if (!t) throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
-    var r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(body) });
+    var r = await fetch(url || API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(body) });
     var j = await r.json().catch(function () { return {}; });
     if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
     return j;
@@ -75,8 +78,10 @@
     finally { saving = null; }
   }
   async function loadHistory() {
+    var bids = st.bids ? null : call({ action: 'list' }, BIDS_API).then(function (j) { st.bids = j.items || []; }, function (e) { console.warn('quote-notice bids', e); st.bids = []; });
     try { var j = await call({ action: 'list' }); st.history = j.items || []; st.histErr = ''; }
     catch (e) { st.history = []; st.histErr = e.message || String(e); }
+    if (bids) await bids;
     renderHistory();
   }
   async function openSaved(id) {
@@ -92,22 +97,39 @@
   }
   async function deleteSaved(id) {
     if (!confirm('ลบงานนี้ออกจากรายการ?')) return;
-    try { await call({ action: 'delete', id: id }); if (st.id === id) st.id = null; await loadHistory(); }
+    try { await call({ action: 'delete', id: id }); if (st.id === id) closeJob(); await loadHistory(); }
     catch (e) { alert('ลบไม่สำเร็จ: ' + (e.message || e)); }
   }
+  // The menu lists the saved jobs by site name with the site's auction day/time from ตารางประมูลแจ้งเตือน:
+  // auctions from today on first (soonest first), then jobs without a date, then auctions already past
+  function nameKey(v) { return String(v || '').replace(/[ัิ-ฺ็-๎\s.]/g, '').replace(/^(กฟส|กฟจ|กฟอ)/, ''); }
+  function bidFor(title) {
+    var k = nameKey(title);
+    return (st.bids || []).filter(function (b) { var bk = nameKey(b.site); return bk && k.indexOf(bk) >= 0; })
+      .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0] || null;   // "นครราชสีมา 2" before "นครราชสีมา"
+  }
+  function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
+  function thaiDate(iso) { var p = String(iso).slice(0, 10).split('-'); return Number(p[2]) + '/' + Number(p[1]) + '/' + (Number(p[0]) + 543); }
   function renderHistory() {
     var box = document.getElementById('qnHistory'); if (!box) return;
     if (st.history == null) { box.innerHTML = '<div class="qn-h-empty">กำลังโหลด…</div>'; return; }
     if (st.histErr) { box.innerHTML = '<div class="qn-h-empty">โหลดรายการไม่สำเร็จ: ' + esc(st.histErr) + '</div>'; return; }
     if (!st.history.length) { box.innerHTML = '<div class="qn-h-empty">ยังไม่มีงานที่บันทึกไว้</div>'; return; }
-    box.innerHTML = st.history.map(function (h) {
-      var d = new Date(h.updated_at);
-      return '<div class="qn-h' + (h.id === st.id ? ' on' : '') + '"><div class="qn-h-main" data-open="' + h.id + '"><b>' + esc(h.title) + '</b><small>' +
-        d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) + ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) +
-        (h.updated_by_name ? ' • ' + esc(h.updated_by_name) : '') + '</small></div><span class="qn-h-total">' + (h.total_amount ? money(h.total_amount) : '-') + '</span>' +
-        '<button class="qn-h-del" data-del="' + h.id + '" title="ลบ">🗑</button></div>';
-    }).join('');
+    var today = todayIso();
+    var list = st.history.map(function (h) {
+      var b = bidFor(h.title), day = b && b.bid_date ? String(b.bid_date).slice(0, 10) : '';
+      return { h: h, b: b, day: day, group: !day ? 1 : (day >= today ? 0 : 2) };
+    }).sort(function (x, y) {
+      return x.group - y.group || x.day.localeCompare(y.day) || String(x.b && x.b.bid_time || '').localeCompare(String(y.b && y.b.bid_time || '')) ||
+        String(x.h.title).localeCompare(String(y.h.title), 'th');
+    });
+    box.innerHTML = '<div class="qn-list">' + list.map(function (x, i) {
+      var when = x.day ? (x.day === today ? '<b>วันนี้</b> ' : '') + thaiDate(x.day) + (x.b.bid_time ? ' · ' + esc(x.b.bid_time) + ' น.' : '') + (x.day < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
+      return '<button class="qn-site' + (x.day && x.day < today ? ' past' : '') + (x.day === today ? ' today' : '') + '" data-open="' + x.h.id + '"><span class="no">' + (i + 1) + '</span>' +
+        '<span class="nm">' + esc(x.b ? x.b.site : x.h.title) + '<small>' + when + '</small></span><span class="go">›</span></button>';
+    }).join('') + '</div><div class="qn-count">รวม ' + list.length + ' ไซด์</div>';
   }
+  function closeJob() { st.pages = []; st.rows = []; st.pdf = null; st.bytes = null; st.id = null; st.name = ''; st.saveState = ''; }
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function money(v) { return (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -318,6 +340,11 @@
     return rows;
   }
 
+  // "การไฟฟ้าส่วนภูมิภาคสาขาพุทไธสง" (tone marks may be missing) → "พุทไธสง"
+  function officeSite(text) {
+    var m = String(text || '').match(/การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(?:สาขา|จังหวัด|อำเภอ)\s*([ก-๎]+(?:\s?\d(?!\d))?)/);
+    return m ? m[1].replace(/(และ|ขอ|มี|จะ|ปร)$/, '').trim() : '';
+  }
   // Header text only gives column centres: move each cell edge onto the real table line drawn on the
   // page, so numbers sit inside their cell exactly like typed in the original form.
   function snapCells(y, h, keys, table, canvas) {
@@ -361,6 +388,7 @@
       var lib = await loadPdfJs();
       st.bytes = data.slice();          // pdf.js hands its copy to the worker; the original file is kept untouched here
       var pdf = await lib.getDocument({ data: data }).promise;
+      var text = '';
       st.pdf = pdf; st.name = name; st.pages = []; st.rows = []; st.id = savedId || null; st.saveState = '';
       for (var n = 1; n <= pdf.numPages; n++) {
         var page = await pdf.getPage(n);
@@ -376,6 +404,7 @@
           return { str: thaiText(i.str).trim(), x: t[4], y: t[5], w: i.width, h: h, thai: /[\u0E50-\u0E59]/.test(i.str) };
         });
         items = mergeRuns(items);
+        text += ' ' + items.map(function (i) { return i.str; }).join(' ');
         // fonts with a broken map write every "า" as "ำ" ("รำคำกลำง"): read such a page with า restored
         if (items.some(function (i) { return /รำคำ|รำยกำร/.test(i.str); })) items.forEach(function (i) { i.str = i.str.replace(/ำ/g, 'า').replace(/จ\s+า/g, 'จำ'); });
         st.pages.push({ w: vp.width, h: vp.height, bg: canvas });
@@ -387,6 +416,7 @@
         st.rows = st.rows.concat(found);
       }
       if (savedState) applySnapshot(savedState);
+      if (!savedId) st.name = officeSite(text) || name;      // a new job is named after its site, so the list shows the site
       if (!st.rows.length) alert('ไม่พบตารางราคาในไฟล์นี้ (ต้องมีคอลัมน์ จำนวน, ราคาต่อหน่วย และจำนวนเงิน/รวม) กรุณาส่งไฟล์ให้ผู้ดูแลปรับรูปแบบ');
       ok = true;
     } catch (e) {
@@ -558,6 +588,10 @@
       '.qn-state{align-self:center;font-size:12px;color:#776a86}.qn-h-head{margin:18px 0 6px;font-weight:800;color:#4d2376;border-top:2px solid #e5dced;padding-top:12px}.qn-h-head small{font-weight:400;color:#776a86}' +
       '#qnHistory{max-height:230px;overflow:auto}.qn-h{display:flex;align-items:center;gap:8px;border:1px solid #eee7f4;border-radius:10px;padding:8px 10px;margin:6px 0;background:#fff}.qn-h.on{border-color:#7b4bab;background:#f7f1fc}.qn-h-main{flex:1;min-width:0;cursor:pointer}.qn-h-main b{display:block;font-size:13px;color:#3b2252;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qn-h-main small{color:#776a86;font-size:12px}' +
       '.qn-h-total{font-weight:800;font-size:13px;white-space:nowrap}.qn-h-del{border:0;background:none;cursor:pointer;font-size:15px;opacity:.6}.qn-h-del:hover{opacity:1}.qn-h-empty{color:#776a86;font-size:13px;padding:6px 2px}' +
+      '.qn-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.qn-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
+      '.qn-site{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e5dced;border-radius:10px;background:#fff;padding:10px 12px;font:inherit;font-weight:700;color:#3b2252;cursor:pointer}' +
+      '.qn-site:hover{border-color:#7b4bab;background:#faf6fd}.qn-site .no{min-width:26px;color:#8a7a9a;font-weight:600;font-size:12px}.qn-site .go{margin-left:auto;color:#a08cb6}' +
+      '.qn-site .nm{display:flex;flex-direction:column;gap:2px}.qn-site small{font-weight:600;font-size:12px;color:#6b5d7a}.qn-site.today{border-color:#3a9a5b;background:#f2fbf5}.qn-site.today small{color:#2d7a47}.qn-site.past{opacity:.6}' +
       '.qn-empty{color:#776a86;text-align:center;padding:60px 10px}@media(max-width:1000px){.qn-grid{grid-template-columns:1fr}}';
     document.head.appendChild(s);
   }
@@ -575,6 +609,8 @@
       var b = e.target.closest('[data-qn]'); if (!b) return;
       var a = b.getAttribute('data-qn');
       if (a === 'pick') w.querySelector('#qnFile').click();
+      if (a === 'back') { flushSave().then(function () { closeJob(); render(); loadHistory(); window.scrollTo(0, 0); }); }
+      if (a === 'delete' && st.id) deleteSaved(st.id).then(render);
       if (a === 'pdf') savePdf();
       if (a === 'save') { setSaveState('กำลังบันทึก…'); saveNow(); }
       if (a === 'print') printPages();
@@ -613,14 +649,24 @@
 
   function render() {
     var w = page(); var has = st.pages.length > 0;
+    // no job open: the list of sites; clicking one opens its quotation
+    if (!has) {
+      w.innerHTML =
+        '<div class="qn-head"><div><h2>เสนอราคาแจ้งเตือน</h2><p>กดชื่อไซด์เพื่อเปิดใบเสนอราคา หรือนำไฟล์ใบเสนอราคาของการไฟฟ้าเข้ามาเป็นงานใหม่</p></div></div>' +
+        '<div class="qn-card" style="margin-bottom:14px"><input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
+        '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังอ่านไฟล์…' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคา (งานใหม่)<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div></div>' +
+        '<div id="qnHistory"></div>';
+      if (st.history == null) loadHistory(); else renderHistory();
+      return;
+    }
     w.innerHTML =
       '<div class="qn-head"><div><h2>เสนอราคาแจ้งเตือน</h2><p>นำไฟล์ใบเสนอราคาของการไฟฟ้าเข้ามา กรอกราคาต่อหน่วย ระบบคำนวณช่องที่เหลือและพิมพ์ออกเป็น PDF หน้าตาเดิม</p></div></div>' +
+      '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="back">← กลับไปรายชื่อไซด์</button></div>' +
       '<div class="qn-grid"><div class="qn-card">' +
       '<input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
       '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังอ่านไฟล์…' : (has ? '📄 ' + esc(st.name) + '<br><small>กดหรือวางไฟล์ใหม่เพื่อเปลี่ยน</small>' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคา<br><small>หรือลากไฟล์มาวางที่นี่</small>')) + '</div>' +
-      '<div class="qn-h-head" style="margin-top:12px">งานที่ทำแล้ว <small>(บันทึกอัตโนมัติ)</small></div><div id="qnHistory"></div>' +
       (has ? '<div class="qn-line" style="margin-top:12px"><span>ชื่องาน</span><input id="qnName" style="flex:1;width:auto;text-align:left;border:1px solid #d9cfdf;border-radius:8px;padding:7px 8px;font:inherit" value="' + esc(st.name) + '"></div>' +
-        '<div class="qn-actions"><button class="qn-btn" data-qn="save">💾 บันทึกงาน</button><button class="qn-btn soft" data-qn="pdf">📄 บันทึก PDF</button><button class="qn-btn soft" data-qn="print">🖨 พิมพ์</button><span class="qn-state" id="qnSaveState">' + esc(st.saveState) + '</span></div>' +
+        '<div class="qn-actions"><button class="qn-btn" data-qn="save">💾 บันทึกงาน</button><button class="qn-btn soft" data-qn="pdf">📄 บันทึก PDF</button><button class="qn-btn soft" data-qn="print">🖨 พิมพ์</button><button class="qn-btn soft" data-qn="delete"' + (st.id ? '' : ' disabled') + '>🗑 ลบงาน</button><span class="qn-state" id="qnSaveState">' + esc(st.saveState) + '</span></div>' +
         (function () {
           var askQty = st.rows.some(function (r) { return r.qtyEdit; });
           return '<div class="qn-all-box"><b>ใช้ค่าเดียวกันทุกพื้นที่</b>' +
@@ -636,8 +682,7 @@
             '<div class="qn-line" data-out="' + i + '"></div></div>';
         }).join('') + '<div class="qn-sum" id="qnSum"></div>' : '') +
       '</div><div class="qn-pages" id="qnPages">' + (has ? '' : '<div class="qn-empty">ตัวอย่างเอกสารจะแสดงที่นี่</div>') + '</div></div>';
-    if (has) { updateNumbers(); redrawPreview(); }
-    if (st.history == null) loadHistory(); else renderHistory();
+    updateNumbers(); redrawPreview();
   }
 
   // ---------------------------------------------------------------- menu
@@ -675,6 +720,7 @@
     w.style.display = 'block';
     document.documentElement.classList.add('sa-wide');
     window.scrollTo(0, 0);
+    st.history = null; st.bids = null;
     render();
     loadPdfJs().catch(function () {}); loadPdfLib().catch(function () {});
   }
