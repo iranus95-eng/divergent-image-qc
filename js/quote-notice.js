@@ -77,8 +77,9 @@
     } catch (e) { console.error('quote-notice save', e); setSaveState('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
     finally { saving = null; }
   }
+  // the site list always comes fresh from ตารางประมูลแจ้งเตือน, so sites added, deleted or renamed there show up here
   async function loadHistory() {
-    var bids = st.bids ? null : call({ action: 'list' }, BIDS_API).then(function (j) { st.bids = j.items || []; }, function (e) { console.warn('quote-notice bids', e); st.bids = []; });
+    var bids = call({ action: 'list' }, BIDS_API).then(function (j) { st.bids = j.items || []; }, function (e) { console.warn('quote-notice bids', e); st.bids = []; });
     try { var j = await call({ action: 'list' }); st.history = j.items || []; st.histErr = ''; }
     catch (e) { st.history = []; st.histErr = e.message || String(e); }
     if (bids) await bids;
@@ -103,31 +104,43 @@
   // The menu lists the saved jobs by site name with the site's auction day/time from ตารางประมูลแจ้งเตือน:
   // auctions from today on first (soonest first), then jobs without a date, then auctions already past
   function nameKey(v) { return String(v || '').replace(/[ัิ-ฺ็-๎\s.]/g, '').replace(/^(กฟส|กฟจ|กฟอ)/, ''); }
+  // the bid row a saved job belongs to: same site name, else the longest site name inside the title (older jobs named after the file)
   function bidFor(title) {
     var k = nameKey(title);
-    return (st.bids || []).filter(function (b) { var bk = nameKey(b.site); return bk && k.indexOf(bk) >= 0; })
-      .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0] || null;   // "นครราชสีมา 2" before "นครราชสีมา"
+    return (st.bids || []).filter(function (b) { return nameKey(b.site) === k; })[0] ||
+      (st.bids || []).filter(function (b) { var bk = nameKey(b.site); return bk && k.indexOf(bk) >= 0; })
+        .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0] || null;   // "นครราชสีมา 2" before "นครราชสีมา"
   }
   function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
   function thaiDate(iso) { var p = String(iso).slice(0, 10).split('-'); return Number(p[2]) + '/' + Number(p[1]) + '/' + (Number(p[0]) + 543); }
+  // Every site of ตารางประมูลแจ้งเตือน, auctions from today on first (soonest first), then sites without a date, then past auctions.
+  // A site opens its saved quotation; a site without one asks for its PDF. Jobs whose site is no longer in the table are listed below.
   function renderHistory() {
     var box = document.getElementById('qnHistory'); if (!box) return;
-    if (st.history == null) { box.innerHTML = '<div class="qn-h-empty">กำลังโหลด…</div>'; return; }
+    if (st.history == null || st.bids == null) { box.innerHTML = '<div class="qn-h-empty">กำลังโหลด…</div>'; return; }
     if (st.histErr) { box.innerHTML = '<div class="qn-h-empty">โหลดรายการไม่สำเร็จ: ' + esc(st.histErr) + '</div>'; return; }
-    if (!st.history.length) { box.innerHTML = '<div class="qn-h-empty">ยังไม่มีงานที่บันทึกไว้</div>'; return; }
-    var today = todayIso();
-    var list = st.history.map(function (h) {
-      var b = bidFor(h.title), day = b && b.bid_date ? String(b.bid_date).slice(0, 10) : '';
-      return { h: h, b: b, day: day, group: !day ? 1 : (day >= today ? 0 : 2) };
-    }).sort(function (x, y) {
-      return x.group - y.group || x.day.localeCompare(y.day) || String(x.b && x.b.bid_time || '').localeCompare(String(y.b && y.b.bid_time || '')) ||
-        String(x.h.title).localeCompare(String(y.h.title), 'th');
+    var today = todayIso(), jobs = {}, orphans = [];
+    st.history.forEach(function (h) { var b = bidFor(h.title); if (b) (jobs[b.id] = jobs[b.id] || []).push(h); else orphans.push(h); });   // newest first, as listed
+    var dayOf = function (b) { return b.bid_date ? String(b.bid_date).slice(0, 10) : ''; };
+    var group = function (b) { var d = dayOf(b); return !d ? 1 : (d >= today ? 0 : 2); };
+    var list = st.bids.slice().sort(function (x, y) {
+      return group(x) - group(y) || dayOf(x).localeCompare(dayOf(y)) || String(x.bid_time || '').localeCompare(String(y.bid_time || '')) ||
+        (x.seq || 1e9) - (y.seq || 1e9) || x.id - y.id;
     });
-    box.innerHTML = '<div class="qn-list">' + list.map(function (x, i) {
-      var when = x.day ? (x.day === today ? '<b>วันนี้</b> ' : '') + thaiDate(x.day) + (x.b.bid_time ? ' · ' + esc(x.b.bid_time) + ' น.' : '') + (x.day < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
-      return '<button class="qn-site' + (x.day && x.day < today ? ' past' : '') + (x.day === today ? ' today' : '') + '" data-open="' + x.h.id + '"><span class="no">' + (i + 1) + '</span>' +
-        '<span class="nm">' + esc(x.b ? x.b.site : x.h.title) + '<small>' + when + '</small></span><span class="go">›</span></button>';
-    }).join('') + '</div><div class="qn-count">รวม ' + list.length + ' ไซด์</div>';
+    var card = function (i, cls, attr, name, sub) {
+      return '<button class="qn-site' + cls + '" ' + attr + '><span class="no">' + i + '</span><span class="nm">' + esc(name) + '<small>' + sub + '</small></span><span class="go">›</span></button>';
+    };
+    var html = list.length ? '<div class="qn-list">' + list.map(function (b, i) {
+      var d = dayOf(b), js = jobs[b.id] || [];
+      var when = d ? (d === today ? '<b>วันนี้</b> ' : '') + thaiDate(d) + (b.bid_time ? ' · ' + esc(b.bid_time) + ' น.' : '') + (d < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
+      var state = js.length ? '<span class="qn-tag ok">มีใบเสนอราคา' + (js.length > 1 ? ' ' + js.length + ' งาน' : '') + (js[0].total_amount ? ' · ' + money(js[0].total_amount) : '') + '</span>' : '<span class="qn-tag">ยังไม่มีใบเสนอราคา</span>';
+      return card(i + 1, (d && d < today ? ' past' : '') + (d === today ? ' today' : ''), js.length ? 'data-open="' + js[0].id + '"' : 'data-new="' + b.id + '"',
+        b.site || '(ไม่มีชื่อไซด์)', when + '<br>' + state);
+    }).join('') + '</div><div class="qn-count">รวม ' + list.length + ' ไซด์ (จากตารางประมูลแจ้งเตือน)</div>'
+      : '<div class="qn-h-empty">ยังไม่มีไซด์ในตารางประมูลแจ้งเตือน</div>';
+    if (orphans.length) html += '<div class="qn-h-head">งานที่ไม่มีไซด์ในตารางประมูล <small>(ไซด์ถูกลบหรือชื่องานไม่ตรงกับชื่อไซด์)</small></div><div class="qn-list">' +
+      orphans.map(function (h, i) { return card(i + 1, '', 'data-open="' + h.id + '"', h.title, h.total_amount ? money(h.total_amount) : 'ยังไม่กรอกราคา'); }).join('') + '</div>';
+    box.innerHTML = html;
   }
   function closeJob() { st.pages = []; st.rows = []; st.pdf = null; st.bytes = null; st.id = null; st.name = ''; st.saveState = ''; }
 
@@ -379,9 +392,10 @@
   async function openFile(file) {
     await flushSave();
     var data = new Uint8Array(await file.arrayBuffer());
-    await openBytes(data, file.name.replace(/\.pdf$/i, ''), null, null);
+    var site = st.forSite; st.forSite = '';
+    await openBytes(data, file.name.replace(/\.pdf$/i, ''), null, null, site);
   }
-  async function openBytes(data, name, savedId, savedState) {
+  async function openBytes(data, name, savedId, savedState, site) {
     st.busy = true; render();
     var ok = false;
     try {
@@ -416,7 +430,7 @@
         st.rows = st.rows.concat(found);
       }
       if (savedState) applySnapshot(savedState);
-      if (!savedId) st.name = officeSite(text) || name;      // a new job is named after its site, so the list shows the site
+      if (!savedId) st.name = site || officeSite(text) || name;      // a new job is named after its site, so it sits under that site in the list
       if (!st.rows.length) alert('ไม่พบตารางราคาในไฟล์นี้ (ต้องมีคอลัมน์ จำนวน, ราคาต่อหน่วย และจำนวนเงิน/รวม) กรุณาส่งไฟล์ให้ผู้ดูแลปรับรูปแบบ');
       ok = true;
     } catch (e) {
@@ -591,7 +605,7 @@
       '.qn-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.qn-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
       '.qn-site{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e5dced;border-radius:10px;background:#fff;padding:10px 12px;font:inherit;font-weight:700;color:#3b2252;cursor:pointer}' +
       '.qn-site:hover{border-color:#7b4bab;background:#faf6fd}.qn-site .no{min-width:26px;color:#8a7a9a;font-weight:600;font-size:12px}.qn-site .go{margin-left:auto;color:#a08cb6}' +
-      '.qn-site .nm{display:flex;flex-direction:column;gap:2px}.qn-site small{font-weight:600;font-size:12px;color:#6b5d7a}.qn-site.today{border-color:#3a9a5b;background:#f2fbf5}.qn-site.today small{color:#2d7a47}.qn-site.past{opacity:.6}' +
+      '.qn-site .nm{display:flex;flex-direction:column;gap:2px}.qn-site small{font-weight:600;font-size:12px;color:#6b5d7a}.qn-site.today{border-color:#3a9a5b;background:#f2fbf5}.qn-site.today small{color:#2d7a47}.qn-site.past{opacity:.6}.qn-tag{display:inline-block;margin-top:3px;border-radius:6px;padding:1px 6px;font-size:11px;background:#f1edf5;color:#776a86}.qn-tag.ok{background:#e9f7ee;color:#2d7a47}' +
       '.qn-empty{color:#776a86;text-align:center;padding:60px 10px}@media(max-width:1000px){.qn-grid{grid-template-columns:1fr}}';
     document.head.appendChild(s);
   }
@@ -605,10 +619,15 @@
     main.appendChild(w);
     w.addEventListener('click', function (e) {
       var o = e.target.closest('[data-open]'); if (o) { openSaved(+o.getAttribute('data-open')); return; }
+      var nw = e.target.closest('[data-new]');
+      if (nw) {   // a site without a quotation yet: its PDF becomes the site's job
+        var bid = (st.bids || []).filter(function (x) { return x.id === +nw.getAttribute('data-new'); })[0];
+        st.forSite = bid ? bid.site : ''; w.querySelector('#qnFile').click(); return;
+      }
       var dl = e.target.closest('[data-del]'); if (dl) { deleteSaved(+dl.getAttribute('data-del')); return; }
       var b = e.target.closest('[data-qn]'); if (!b) return;
       var a = b.getAttribute('data-qn');
-      if (a === 'pick') w.querySelector('#qnFile').click();
+      if (a === 'pick') { st.forSite = ''; w.querySelector('#qnFile').click(); }
       if (a === 'back') { flushSave().then(function () { closeJob(); render(); loadHistory(); window.scrollTo(0, 0); }); }
       if (a === 'delete' && st.id) deleteSaved(st.id).then(render);
       if (a === 'pdf') savePdf();
@@ -631,7 +650,7 @@
     });
     w.addEventListener('dragover', function (e) { e.preventDefault(); var d = w.querySelector('.qn-drop'); if (d) d.classList.add('drag'); });
     w.addEventListener('dragleave', function () { var d = w.querySelector('.qn-drop'); if (d) d.classList.remove('drag'); });
-    w.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer.files[0]; if (f && /pdf$/i.test(f.type || f.name)) openFile(f); });
+    w.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer.files[0]; if (f && /pdf$/i.test(f.type || f.name)) { st.forSite = ''; openFile(f); } });
     return w;
   }
 
@@ -652,7 +671,7 @@
     // no job open: the list of sites; clicking one opens its quotation
     if (!has) {
       w.innerHTML =
-        '<div class="qn-head"><div><h2>เสนอราคาแจ้งเตือน</h2><p>กดชื่อไซด์เพื่อเปิดใบเสนอราคา หรือนำไฟล์ใบเสนอราคาของการไฟฟ้าเข้ามาเป็นงานใหม่</p></div></div>' +
+        '<div class="qn-head"><div><h2>เสนอราคาแจ้งเตือน</h2><p>รายชื่อไซด์มาจากตารางประมูลแจ้งเตือน • กดไซด์ที่มีใบเสนอราคาเพื่อเปิด หรือกดไซด์ที่ยังไม่มีเพื่อเลือกไฟล์ PDF ของไซด์นั้น</p></div></div>' +
         '<div class="qn-card" style="margin-bottom:14px"><input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
         '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังอ่านไฟล์…' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคา (งานใหม่)<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div></div>' +
         '<div id="qnHistory"></div>';

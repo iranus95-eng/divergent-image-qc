@@ -15,6 +15,7 @@
   var PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   var XLSX_SRC = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
   var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';
+  var QUOTE_API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';   // เสนอราคาแจ้งเตือน jobs are named after these sites
   var VAT = 0.07;
   var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', open: null };   // open: id of the site whose details are shown
 
@@ -23,10 +24,10 @@
     try { if (typeof window.getBestDataToken === 'function') { var t = await window.getBestDataToken(); if (t) return t; } } catch (_) {}
     try { return localStorage.getItem('divergent_web_session_token_v1') || localStorage.getItem('divergent_fallback_session_token') || ''; } catch (_) { return ''; }
   }
-  async function call(body) {
+  async function call(body, url) {
     var t = await token();
     if (!t) throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
-    var r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(body) });
+    var r = await fetch(url || API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(body) });
     var j = await r.json().catch(function () { return {}; });
     if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
     return j;
@@ -248,8 +249,19 @@
     var j = await call(body);
     return j.item;
   }
+  // another row of the table with the same site or project number (a site is saved once a year)
+  function duplicateOf(site, projectNo, exceptId) {
+    var k = nameKey(site), pn = String(projectNo || '').trim();
+    return (st.rows || []).filter(function (x) {
+      return x.id !== exceptId && ((k && nameKey(x.site) === k) || (pn && String(x.project_no || '').trim() === pn));
+    })[0] || null;
+  }
+  function dupText(d) { return '"' + (d.zone ? d.zone + ' ' : '') + (d.site || '') + '"' + (d.project_no ? ' (เลขที่โครงการ ' + d.project_no + ')' : ''); }
   async function confirmPending(i) {
     var r = st.pending[i]; if (!r) return;
+    var dup = duplicateOf(r.site, r.project_no, r.target || 0);
+    if (dup && !r.target && !confirm('ไซด์นี้มีอยู่ในตารางแล้ว: ' + dupText(dup) + '\nถ้าจะอัปเดตแถวเดิม ให้กดยกเลิก แล้วเลือก "แทนแถว" ในช่องบันทึกลง\n\nต้องการเพิ่มเป็นแถวใหม่ซ้ำอีกแถวหรือไม่?')) return;
+    if (dup && r.target && !confirm('ข้อมูลนี้ซ้ำกับอีกแถวในตาราง: ' + dupText(dup) + '\nต้องการบันทึกต่อหรือไม่?')) return;
     var base = r.target ? (st.rows || []).filter(function (x) { return x.id === r.target; })[0] : null;
     var row = { id: r.target || undefined, files: r.files };
     // values read from the PDFs replace the row's; what the PDFs did not give stays as typed
@@ -281,6 +293,14 @@
         if (key === 'price_bid' || key === 'price_prev') { row.status = v; v = null; } else { flash(id, key, 'ต้องเป็นตัวเลข'); return; }
       } else v = Number(v.replace(/,/g, ''));
     } else if (v === '') v = null;
+    if ((key === 'site' || key === 'project_no') && v) {
+      var dup = duplicateOf(key === 'site' ? v : null, key === 'project_no' ? v : null, id);
+      if (dup && !confirm((key === 'site' ? 'ชื่อไซด์' : 'เลขที่โครงการ') + ' "' + v + '" มีอยู่แล้วในแถว ' + dupText(dup) + '\nต้องการบันทึกซ้ำหรือไม่?')) {
+        var el = page().querySelector('[data-id="' + id + '"][data-k="' + key + '"]'); if (el) el.value = row[key] == null ? '' : row[key];
+        return;
+      }
+    }
+    if (key === 'site' && row.site && !row._renamedFrom) row._renamedFrom = row.site;   // kept until the save goes through (edits are batched)
     row[key] = v;
     updateDerived(row);
     clearTimeout(cellTimers[id]);
@@ -290,8 +310,20 @@
         var item = await saveRow(row);
         Object.keys(item).forEach(function (k) { if (k === 'updated_at' || k === 'id') row[k] = item[k]; });
         setRowState(id, 'ok');
+        var from = row._renamedFrom; delete row._renamedFrom;
+        if (from && row.site && nameKey(from) !== nameKey(row.site)) renameQuotes(from, row.site);
       } catch (e) { setRowState(id, 'err'); console.error('notice-bids save', e); alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
     }, 700);
+  }
+  // a renamed site takes its เสนอราคาแจ้งเตือน jobs along (they are matched by name); everything else of the job is kept
+  async function renameQuotes(from, to) {
+    try {
+      var jobs = ((await call({ action: 'list' }, QUOTE_API)).items || []).filter(function (h) { return nameKey(h.title) === nameKey(from); });
+      for (var i = 0; i < jobs.length; i++) {
+        var it = (await call({ action: 'get', id: jobs[i].id }, QUOTE_API)).item;
+        await call({ action: 'save', id: it.id, title: to, state: it.state || {}, total_amount: it.total_amount }, QUOTE_API);
+      }
+    } catch (e) { console.error('notice-bids rename quotes', e); alert('เปลี่ยนชื่อไซด์แล้ว แต่ปรับชื่องานในเมนูเสนอราคาแจ้งเตือนไม่สำเร็จ: ' + (e.message || e)); }
   }
   function flash(id, key, msg) { var el = page().querySelector('[data-id="' + id + '"][data-k="' + key + '"]'); if (el) { el.classList.add('nb-bad'); el.title = msg; } }
   function setRowState(id, s) { var tr = page().querySelector('[data-row="' + id + '"]'); if (tr) tr.setAttribute('data-state', s); }
@@ -305,6 +337,8 @@
     var h = tr.querySelector('[data-d="name"]'); if (h) h.textContent = row.site || '(ไม่มีชื่อไซด์)';
   }
   async function addRow() {
+    var blank = duplicateOf('ไซด์ใหม่', null, 0);
+    if (blank) { alert('มีแถว "ไซด์ใหม่" ที่ยังไม่ได้ตั้งชื่ออยู่แล้ว เปิดแถวนั้นให้กรอกต่อ'); st.open = blank.id; render(); return; }
     try { var item = await saveRow({ zone: st.zone || null, site: 'ไซด์ใหม่' }); upsertLocal(item); st.open = item.id; render(); }
     catch (e) { alert('เพิ่มแถวไม่สำเร็จ: ' + (e.message || e)); }
   }
@@ -347,13 +381,14 @@
       '.nb-site{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e5dced;border-radius:10px;background:#fff;padding:10px 12px;font:inherit;font-weight:700;color:#3b2252;cursor:pointer}' +
       '.nb-site:hover{border-color:#7b4bab;background:#faf6fd}.nb-site .no{min-width:26px;color:#8a7a9a;font-weight:600;font-size:12px}.nb-site .go{margin-left:auto;color:#a08cb6}' +
       '.nb-site .nm{display:flex;flex-direction:column;gap:2px}.nb-site small{font-weight:600;font-size:12px;color:#6b5d7a}.nb-site.today{border-color:#3a9a5b;background:#f2fbf5}.nb-site.today small{color:#2d7a47}' +
-      '.nb-site.past{opacity:.6}' +
+      '.nb-site.past{opacity:.6}.nb-item{position:relative}.nb-item .nb-site{padding-right:44px}.nb-item .nb-site .go{display:none}' +
+      '.nb-x{position:absolute;top:50%;right:8px;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:15px;opacity:.45;padding:6px;border-radius:8px}.nb-x:hover{opacity:1;background:#fbecec}' +
       '.nb-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
       '.nb-detail{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:16px}.nb-detail h3{margin:6px 0 2px;color:#4b2378;font-size:20px}' +
       '.nb-detail[data-state=saving]{box-shadow:inset 4px 0 #e0a24a}.nb-detail[data-state=err]{box-shadow:inset 4px 0 #d33}.nb-detail[data-state=ok]{box-shadow:inset 4px 0 #3a9a5b}' +
       '.nb-detail .nb-form input.r{text-align:right}.nb-detail .nb-form input.nb-bad{border-color:#d33;background:#fff0f0}' +
       '.nb-ro{border:1px solid #eee7f4;border-radius:8px;padding:6px 8px;background:#f8f5fb;min-height:20px;text-align:right;font-size:14px;color:#3b2252}' +
-      '.nb-empty{color:#776a86;padding:30px;text-align:center}' +
+      '.nb-empty{color:#776a86;padding:30px;text-align:center}.nb-warn{margin-top:8px;border:1px solid #f0c36d;background:#fff8e6;color:#8a5b00;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700}' +
       '.nb-tag{display:inline-block;border-radius:6px;padding:1px 6px;font-size:11px;background:#efe6f8;color:#5a2787;margin-left:4px}';
     document.head.appendChild(s);
   }
@@ -383,7 +418,7 @@
       var pi = t.getAttribute('data-p');
       if (pi != null) {
         var r = st.pending[+pi], k = t.getAttribute('data-k'), v = t.value.trim();
-        if (k === 'target') r.target = +v;
+        if (k === 'target') { r.target = +v; render(); return; }
         else if (k === 'bid_date' || k === 'announce_date') r[k] = parseThaiDate(v) || null;
         else if (NUMS[k]) r[k] = v === '' ? null : Number(v.replace(/,/g, '')) || null;
         else r[k] = v || null;
@@ -425,8 +460,11 @@
     return st.pending.map(function (r, i) {
       var miss = [];
       if (!r.has_announce) miss.push('ประกาศ'); if (!r.has_tor) miss.push('TOR');
+      var dup = duplicateOf(r.site, r.project_no, 0);
       return '<div class="nb-pend"><h4>ข้อมูลจาก PDF: ' + esc(r.office || r.site || 'ไม่ทราบสาขา') + '</h4><small>' + esc(r.files.join(' • ')) +
-        (miss.length ? ' — ยังไม่มีไฟล์' + miss.join('/') + ' (ช่องที่ขาดกรอกเองได้)' : '') + '</small><div class="nb-form">' +
+        (miss.length ? ' — ยังไม่มีไฟล์' + miss.join('/') + ' (ช่องที่ขาดกรอกเองได้)' : '') + '</small>' +
+        (dup ? '<div class="nb-warn">⚠ ไซด์นี้มีอยู่ในตารางแล้ว: ' + esc(dupText(dup)) + ' — ' + (r.target ? 'จะบันทึกทับแถวที่เลือกในช่อง "บันทึกลง"' : 'ถ้าเพิ่มเป็นแถวใหม่จะซ้ำกัน') + '</div>' : '') +
+        '<div class="nb-form">' +
         F.map(function (f) {
           var v = r[f[0]]; if (f[0] === 'bid_date' || f[0] === 'announce_date') v = thaiDate(v);
           var empty = v == null || v === '';
@@ -448,8 +486,9 @@
     box.innerHTML = rows.length ? '<div class="nb-list">' + rows.map(function (r, i) {
       var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
       var when = day ? (day === today ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (day < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
-      return '<button class="nb-site' + (day && day < today ? ' past' : '') + (day === today ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
-        '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>';
+      return '<div class="nb-item"><button class="nb-site' + (day && day < today ? ' past' : '') + (day === today ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
+        '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' +
+        '<button class="nb-x" data-nb="del" data-i="' + r.id + '" title="ลบไซด์นี้" aria-label="ลบ ' + esc(r.site || '') + '">🗑</button></div>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
   }
   function field(r, k, label, cls) {
