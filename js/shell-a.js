@@ -17,7 +17,8 @@
     ['finance', 'การเงิน'],
     ['docs', 'เอกสาร'],
     ['system', 'ระบบ'],
-    ['other', 'อื่น ๆ']
+    ['other', 'อื่น ๆ'],
+    ['admin', 'เฉพาะผู้ดูแลระบบ']      // menus only admins can see, kept together at the very bottom
   ];
   // legacy nav id, group, label, description, icon
   var MENU = [
@@ -31,14 +32,14 @@
     ['navStaffPayroll', 'finance', 'เงินเดือนสตาฟ', 'ฐานเงินเดือนและประกันสังคม', 'staff'],
     ['navEmployeeAdvance', 'finance', 'พนักงานเบิกเงินล่วงหน้า', 'คำขอและการอนุมัติ', 'advance'],
     ['navStaffExpense', 'finance', 'ค่าใช้จ่าย', 'รอบเบิกวันที่ 3 / 7 / รอบพิเศษ', 'expense'],
-    ['navPnL', 'finance', 'กำไร–ขาดทุนรายเดือน', 'รายงานสำหรับผู้บริหาร', 'pl'],
-    ['navSystemCost', 'finance', 'คำนวนต้นทุนระบบงาน', 'คำนวณต้นทุนและกำไรงานจดหน่วย / ใบแจ้งเตือน', 'pl'],
+    ['navPnL', 'admin', 'กำไร–ขาดทุนรายเดือน', 'รายงานสำหรับผู้บริหาร', 'pl'],
+    ['navSystemCost', 'admin', 'คำนวนต้นทุนระบบงาน', 'คำนวณต้นทุนและกำไรงานจดหน่วย / ใบแจ้งเตือน', 'pl'],
     ['navInvoice', 'docs', 'จัดทำใบตั้งหนี้', 'ใบแจ้งหนี้จากต้นฉบับบริษัท', 'invoice'],
     ['navBilling', 'docs', 'ใบแจ้งหนี้-ใบวางบิล', 'ต้นฉบับและสำเนาพร้อมกัน', 'bill'],
     ['navReceiptTax', 'docs', 'ใบเสร็จรับเงิน-ใบกำกับภาษี', 'ใบเสร็จและใบกำกับภาษี', 'receipt'],
     ['navDocArchive', 'docs', 'เอกสารย้อนหลัง', 'ค้นหา ดู และพิมพ์เอกสารที่บันทึกไว้', 'archive'],
-    ['navQuoteNotice', 'docs', 'เสนอราคาแจ้งเตือน', 'กรอกราคาต่อหน่วยบนไฟล์ใบเสนอราคา', 'invoice'],
-    ['navNoticeBids', 'docs', 'ตารางประมูลแจ้งเตือน', 'ดึงข้อมูลจาก PDF ประกาศและ TOR', 'pl'],
+    ['navQuoteNotice', 'admin', 'เสนอราคาแจ้งเตือน', 'กรอกราคาต่อหน่วยบนไฟล์ใบเสนอราคา', 'invoice'],
+    ['navNoticeBids', 'admin', 'ตารางประมูลแจ้งเตือน', 'ดึงข้อมูลจาก PDF ประกาศและ TOR', 'pl'],
     ['navPaperOrder', 'docs', 'สรุปและสั่งกระดาษ', 'สรุปการใช้และสั่งรอบถัดไป', 'paper'],
     ['navUsers', 'system', 'จัดการผู้ใช้งาน', 'บัญชี บทบาท สิทธิ์ และวันหมดอายุ', 'users'],
     ['navCustomerImport', 'system', 'นำเข้าข้อมูลลูกค้า', 'นำเข้า Excel เข้าฐานลูกค้า', 'import']
