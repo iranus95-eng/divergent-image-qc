@@ -15,6 +15,7 @@
   var PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   var XLSX_SRC = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
   var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';
+  var QUOTE_API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';   // เสนอราคาแจ้งเตือน jobs are named after these sites
   var VAT = 0.07;
   var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', open: null };   // open: id of the site whose details are shown
 
@@ -23,10 +24,10 @@
     try { if (typeof window.getBestDataToken === 'function') { var t = await window.getBestDataToken(); if (t) return t; } } catch (_) {}
     try { return localStorage.getItem('divergent_web_session_token_v1') || localStorage.getItem('divergent_fallback_session_token') || ''; } catch (_) { return ''; }
   }
-  async function call(body) {
+  async function call(body, url) {
     var t = await token();
     if (!t) throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
-    var r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(body) });
+    var r = await fetch(url || API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify(body) });
     var j = await r.json().catch(function () { return {}; });
     if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
     return j;
@@ -299,6 +300,7 @@
         return;
       }
     }
+    if (key === 'site' && row.site && !row._renamedFrom) row._renamedFrom = row.site;   // kept until the save goes through (edits are batched)
     row[key] = v;
     updateDerived(row);
     clearTimeout(cellTimers[id]);
@@ -308,8 +310,20 @@
         var item = await saveRow(row);
         Object.keys(item).forEach(function (k) { if (k === 'updated_at' || k === 'id') row[k] = item[k]; });
         setRowState(id, 'ok');
+        var from = row._renamedFrom; delete row._renamedFrom;
+        if (from && row.site && nameKey(from) !== nameKey(row.site)) renameQuotes(from, row.site);
       } catch (e) { setRowState(id, 'err'); console.error('notice-bids save', e); alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
     }, 700);
+  }
+  // a renamed site takes its เสนอราคาแจ้งเตือน jobs along (they are matched by name); everything else of the job is kept
+  async function renameQuotes(from, to) {
+    try {
+      var jobs = ((await call({ action: 'list' }, QUOTE_API)).items || []).filter(function (h) { return nameKey(h.title) === nameKey(from); });
+      for (var i = 0; i < jobs.length; i++) {
+        var it = (await call({ action: 'get', id: jobs[i].id }, QUOTE_API)).item;
+        await call({ action: 'save', id: it.id, title: to, state: it.state || {}, total_amount: it.total_amount }, QUOTE_API);
+      }
+    } catch (e) { console.error('notice-bids rename quotes', e); alert('เปลี่ยนชื่อไซด์แล้ว แต่ปรับชื่องานในเมนูเสนอราคาแจ้งเตือนไม่สำเร็จ: ' + (e.message || e)); }
   }
   function flash(id, key, msg) { var el = page().querySelector('[data-id="' + id + '"][data-k="' + key + '"]'); if (el) { el.classList.add('nb-bad'); el.title = msg; } }
   function setRowState(id, s) { var tr = page().querySelector('[data-row="' + id + '"]'); if (tr) tr.setAttribute('data-state', s); }
