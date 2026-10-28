@@ -630,8 +630,14 @@
       var dl = e.target.closest('[data-del]'); if (dl) { deleteSaved(+dl.getAttribute('data-del')); return; }
       var b = e.target.closest('[data-qn]'); if (!b) return;
       var a = b.getAttribute('data-qn');
-      if (a === 'pick') { st.forSite = ''; w.querySelector('#qnFile').click(); }
-      if (a === 'back') { flushSave().then(function () { closeJob(); render(); loadHistory(); window.scrollTo(0, 0); }); }
+      if (a === 'pick') { st.forSite = st.fromBids ? st.fromBids.site || '' : ''; w.querySelector('#qnFile').click(); }
+      if (a === 'back') {
+        flushSave().then(function () {
+          closeJob();
+          if (st.fromBids && typeof window.openNoticeBids === 'function') { st.fromBids = null; window.openNoticeBids(); return; }
+          render(); loadHistory(); window.scrollTo(0, 0);
+        });
+      }
       if (a === 'delete' && st.id) deleteSaved(st.id).then(render);
       if (a === 'pdf') savePdf();
       if (a === 'save') { setSaveState('กำลังบันทึก…'); saveNow(); }
@@ -653,7 +659,7 @@
     });
     w.addEventListener('dragover', function (e) { e.preventDefault(); var d = w.querySelector('.qn-drop'); if (d) d.classList.add('drag'); });
     w.addEventListener('dragleave', function () { var d = w.querySelector('.qn-drop'); if (d) d.classList.remove('drag'); });
-    w.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer.files[0]; if (f && /pdf$/i.test(f.type || f.name)) { st.forSite = ''; openFile(f); } });
+    w.addEventListener('drop', function (e) { e.preventDefault(); var f = e.dataTransfer.files[0]; if (f && /pdf$/i.test(f.type || f.name)) { st.forSite = st.fromBids ? st.fromBids.site || '' : ''; openFile(f); } });
     return w;
   }
 
@@ -672,6 +678,15 @@
   function render() {
     var w = page(); var has = st.pages.length > 0;
     // no job open: the list of sites; clicking one opens its quotation
+    if (!has && st.fromBids) {
+      // opened from ตารางประมูลแจ้งเตือน for a site that has no quotation yet: its PDF becomes the site's job
+      w.innerHTML =
+        '<div class="qn-head"><div><h2>ใบเสนอราคา · ' + esc(st.fromBids.site || '') + '</h2><p>ไซด์นี้ยังไม่มีใบเสนอราคา • เลือกไฟล์ PDF ใบเสนอราคาของการไฟฟ้า แล้วกรอกราคาต่อหน่วย</p></div></div>' +
+        '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="back">← กลับไปตารางประมูล</button></div>' +
+        '<div class="qn-card"><input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
+        '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังโหลด…' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคาของไซด์ ' + esc(st.fromBids.site || '') + '<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div></div>';
+      return;
+    }
     if (!has) {
       w.innerHTML =
         '<div class="qn-head"><div><h2>เสนอราคาแจ้งเตือน</h2><p>รายชื่อไซด์มาจากตารางประมูลแจ้งเตือน • กดไซด์ที่มีใบเสนอราคาเพื่อเปิด หรือกดไซด์ที่ยังไม่มีเพื่อเลือกไฟล์ PDF ของไซด์นั้น</p></div></div>' +
@@ -682,8 +697,8 @@
       return;
     }
     w.innerHTML =
-      '<div class="qn-head"><div><h2>เสนอราคาแจ้งเตือน</h2><p>นำไฟล์ใบเสนอราคาของการไฟฟ้าเข้ามา กรอกราคาต่อหน่วย ระบบคำนวณช่องที่เหลือและพิมพ์ออกเป็น PDF หน้าตาเดิม</p></div></div>' +
-      '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="back">← กลับไปรายชื่อไซด์</button></div>' +
+      '<div class="qn-head"><div><h2>' + (st.fromBids ? 'ใบเสนอราคา · ' + esc(st.fromBids.site || '') : 'เสนอราคาแจ้งเตือน') + '</h2><p>นำไฟล์ใบเสนอราคาของการไฟฟ้าเข้ามา กรอกราคาต่อหน่วย ระบบคำนวณช่องที่เหลือและพิมพ์ออกเป็น PDF หน้าตาเดิม</p></div></div>' +
+      '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="back">' + (st.fromBids ? '← กลับไปตารางประมูล' : '← กลับไปรายชื่อไซด์') + '</button></div>' +
       '<div class="qn-grid"><div class="qn-card">' +
       '<input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
       '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังอ่านไฟล์…' : (has ? '📄 ' + esc(st.name) + '<br><small>กดหรือวางไฟล์ใหม่เพื่อเปลี่ยน</small>' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคา<br><small>หรือลากไฟล์มาวางที่นี่</small>')) + '</div>' +
@@ -718,7 +733,7 @@
   }
   function syncNav() {
     var nav = document.getElementById('navQuoteNotice'); if (!nav) return;
-    var want = isAdmin() ? '' : 'none';
+    var want = 'none';   // merged into ตารางประมูลแจ้งเตือน (📄 ใบเสนอราคา on every site); the page still opens from there
     if (nav.style.display !== want) nav.style.display = want;
   }
   function ensureNav() {
@@ -736,17 +751,34 @@
   }
   function showPage() {
     if (!isAdmin()) { alert('เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
+    st.fromBids = null;
+    showWorkspace('navQuoteNotice');
+    st.history = null; st.bids = null;
+    render();
+  }
+  function showWorkspace(navId) {
     var w = page();
-    document.querySelectorAll('.side-nav .nav-item').forEach(function (x) { x.classList.toggle('active', x.id === 'navQuoteNotice'); });
+    document.querySelectorAll('.side-nav .nav-item').forEach(function (x) { x.classList.toggle('active', x.id === navId); });
     document.querySelectorAll('.main-shell [id$="Workspace"]').forEach(function (el) { if (el !== w && !w.contains(el)) el.style.display = 'none'; });
     w.style.display = 'block';
     document.documentElement.classList.add('sa-wide');
     window.scrollTo(0, 0);
-    st.history = null; st.bids = null;
-    render();
     loadPdfJs().catch(function () {}); loadPdfLib().catch(function () {});
   }
   window.openQuoteNotice = showPage;
+  // ตารางประมูลแจ้งเตือน → 📄 ใบเสนอราคา of one site: open its saved quotation, or ask for its PDF when it has none
+  window.openQuoteNoticeForSite = async function (bid) {
+    if (!isAdmin()) { alert('เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
+    await flushSave();
+    closeJob();
+    st.fromBids = { id: bid.id, site: bid.site || '' };
+    showWorkspace('navNoticeBids');
+    st.busy = true; st.history = null; st.bids = null; render();
+    await loadHistory();
+    st.busy = false;
+    var job = st.histErr ? null : (st.history || []).filter(function (h) { var b = bidFor(h.title); return b && b.id === bid.id; })[0];
+    if (job) await openSaved(job.id); else render();
+  };
 
   function boot() {
     style(); ensureNav();

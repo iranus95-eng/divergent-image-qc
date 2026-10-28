@@ -17,7 +17,7 @@
   var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';
   var QUOTE_API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';   // เสนอราคาแจ้งเตือน jobs are named after these sites
   var VAT = 0.07;
-  var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', open: null };   // open: id of the site whose details are shown
+  var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', open: null, quotes: null };   // quotes: saved เสนอราคาแจ้งเตือน jobs   // open: id of the site whose details are shown
 
   // ---------------------------------------------------------------- server
   async function token() {
@@ -38,6 +38,27 @@
     render();
   }
 
+  // the saved quotations (เสนอราคาแจ้งเตือน), shown on each site; refreshed every time the page opens
+  async function loadQuotes() {
+    try { st.quotes = (await call({ action: 'list' }, QUOTE_API)).items || []; } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; }
+    if (st.rows) renderTable();
+  }
+  // the jobs of one site: same site name, else the longest site name inside the job title (older jobs named after the file)
+  function quotesOf(row) {
+    var rows = st.rows || [];
+    return (st.quotes || []).filter(function (h) {
+      var k = nameKey(h.title);
+      var b = rows.filter(function (x) { return nameKey(x.site) === k; })[0] ||
+        rows.filter(function (x) { var bk = nameKey(x.site); return bk && k.indexOf(bk) >= 0; })
+          .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0];
+      return b && b.id === row.id;
+    });
+  }
+  function quoteBtn(r, big) {
+    var js = st.quotes == null ? null : quotesOf(r);
+    var txt = js == null ? '📄 ใบเสนอราคา' : js.length ? '📄 ใบเสนอราคา' + (js[0].total_amount ? ' · ' + fmt(js[0].total_amount, 2) : ' · ยังไม่กรอกราคา') : '📄 ทำใบเสนอราคา';
+    return '<button class="nb-q' + (js && js.length ? ' ok' : '') + (big ? ' big' : '') + '" data-nb="quote" data-i="' + r.id + '">' + txt + '</button>';
+  }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function fmt(v, d) { return v == null || v === '' || !isFinite(v) ? '' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d || 0, maximumFractionDigits: d == null ? 2 : d }); }
 
@@ -381,8 +402,10 @@
       '.nb-site{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e5dced;border-radius:10px;background:#fff;padding:10px 12px;font:inherit;font-weight:700;color:#3b2252;cursor:pointer}' +
       '.nb-site:hover{border-color:#7b4bab;background:#faf6fd}.nb-site .no{min-width:26px;color:#8a7a9a;font-weight:600;font-size:12px}.nb-site .go{margin-left:auto;color:#a08cb6}' +
       '.nb-site .nm{display:flex;flex-direction:column;gap:2px}.nb-site small{font-weight:600;font-size:12px;color:#6b5d7a}.nb-site.today{border-color:#3a9a5b;background:#f2fbf5}.nb-site.today small{color:#2d7a47}' +
-      '.nb-site.past{opacity:.6}.nb-item{position:relative}.nb-item .nb-site{padding-right:44px}.nb-item .nb-site .go{display:none}' +
-      '.nb-x{position:absolute;top:50%;right:8px;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:15px;opacity:.45;padding:6px;border-radius:8px}.nb-x:hover{opacity:1;background:#fbecec}' +
+      '.nb-site.past{opacity:.6}.nb-item{position:relative;display:flex;flex-direction:column}.nb-item .nb-site{padding-right:44px;border-radius:10px 10px 0 0}.nb-item .nb-site .go{display:none}' +
+      '.nb-q{border:1px solid #e5dced;border-top:0;border-radius:0 0 10px 10px;background:#f7f3fb;color:#5a2787;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;text-align:left;cursor:pointer}.nb-q:hover{background:#efe6f8}' +
+      '.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
+      '.nb-x{position:absolute;top:24px;right:8px;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:15px;opacity:.45;padding:6px;border-radius:8px}.nb-x:hover{opacity:1;background:#fbecec}' +
       '.nb-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
       '.nb-detail{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:16px}.nb-detail h3{margin:6px 0 2px;color:#4b2378;font-size:20px}' +
       '.nb-detail[data-state=saving]{box-shadow:inset 4px 0 #e0a24a}.nb-detail[data-state=err]{box-shadow:inset 4px 0 #d33}.nb-detail[data-state=ok]{box-shadow:inset 4px 0 #3a9a5b}' +
@@ -405,6 +428,11 @@
       if (a === 'add') addRow();
       if (a === 'xlsx') exportExcel().catch(function (er) { alert('ส่งออก Excel ไม่สำเร็จ: ' + (er.message || er)); });
       if (a === 'del') deleteRow(i);
+      if (a === 'quote') {
+        var row = (st.rows || []).filter(function (x) { return x.id === i; })[0];
+        if (row && typeof window.openQuoteNoticeForSite === 'function') window.openQuoteNoticeForSite(row);
+        else alert('ยังเปิดหน้าใบเสนอราคาไม่ได้ ลองรีเฟรชหน้าเว็บ');
+      }
       if (a === 'open') { st.open = i; render(); window.scrollTo(0, 0); }
       if (a === 'back') { st.open = null; render(); }
       if (a === 'ok') confirmPending(i);
@@ -487,7 +515,7 @@
       var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
       var when = day ? (day === today ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (day < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
       return '<div class="nb-item"><button class="nb-site' + (day && day < today ? ' past' : '') + (day === today ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
-        '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' +
+        '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' + quoteBtn(r) +
         '<button class="nb-x" data-nb="del" data-i="' + r.id + '" title="ลบไซด์นี้" aria-label="ลบ ' + esc(r.site || '') + '">🗑</button></div>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
   }
@@ -500,7 +528,7 @@
   function detailHtml(r) {
     var d = derived(r);
     return '<div class="nb-bar"><button class="nb-btn soft" data-nb="back">← กลับไปรายชื่อไซด์</button></div>' +
-      '<div class="nb-detail" data-row="' + r.id + '"><h3 data-d="name">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '</h3><small>แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ</small><div class="nb-form">' +
+      '<div class="nb-detail" data-row="' + r.id + '"><h3 data-d="name">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '</h3><small>แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ</small><div class="nb-bar" style="margin:10px 0 0">' + quoteBtn(r, true) + '</div><div class="nb-form">' +
       field(r, 'zone', 'เขต') + field(r, 'site', 'ไซด์งาน') + field(r, 'office', 'สาขา') + field(r, 'project_no', 'เลขที่โครงการ') +
       field(r, 'budget', 'วงเงิน (รวม VAT)', 'r') + shown('วงเงิน/เดือน', 'bm', fmt(d.budgetMonth, 2)) +
       '<label>จำนวนราย/ปี<input class="r" data-id="' + r.id + '" data-k="qty" value="' + esc(r.qty == null ? '' : fmt(r.qty)) + '" placeholder="' + (d.est ? fmt(d.qty) : '') + '" title="ว่าง = คำนวณจากวงเงิน ÷ 1.07 ÷ ราคากลาง"></label>' +
@@ -513,7 +541,7 @@
   function render() {
     var w = page();
     var zones = {}; (st.rows || []).forEach(function (r) { zones[r.zone || '-'] = 1; });
-    w.innerHTML = '<div class="nb-head"><div><h2>ตารางประมูลแจ้งเตือน ปี 2570</h2><p>วางไฟล์ PDF ประกาศ + TOR ระบบอ่านข้อมูลเข้าตาราง • กดชื่อไซด์เพื่อดูและแก้รายละเอียด บันทึกอัตโนมัติ</p></div></div>' +
+    w.innerHTML = '<div class="nb-head"><div><h2>ตารางประมูลแจ้งเตือน ปี 2570</h2><p>วางไฟล์ PDF ประกาศ + TOR ระบบอ่านข้อมูลเข้าตาราง • กดชื่อไซด์เพื่อดูและแก้รายละเอียด • กด 📄 ใต้ชื่อไซด์เพื่อทำ/เปิดใบเสนอราคา บันทึกอัตโนมัติ</p></div></div>' +
       '<div class="nb-card"><input type="file" id="nbFile" accept="application/pdf,.pdf" multiple hidden>' +
       '<div class="nb-drop" data-nb="pick">' + (st.busy ? esc(st.busy) : '📄 กดเพื่อเลือกไฟล์ PDF ประกาศ และ TOR (เลือกหลายไฟล์พร้อมกันได้)<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div>' + pendingHtml() + '</div>' +
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '><select id="nbZone"><option value="">ทุกเขต</option>' + Object.keys(zones).sort().map(function (z) { return '<option value="' + esc(z) + '"' + (z === st.zone ? ' selected' : '') + '>' + (z === '-' ? 'ไม่ระบุเขต' : esc(z)) + '</option>'; }).join('') + '</select>' +
@@ -552,11 +580,12 @@
     document.querySelectorAll('.side-nav .nav-item').forEach(function (x) { x.classList.toggle('active', x.id === 'navNoticeBids'); });
     document.querySelectorAll('.main-shell [id$="Workspace"]').forEach(function (el) { if (el !== w && !w.contains(el)) el.style.display = 'none'; });
     w.style.display = 'block';
-    st.open = null;
+    st.open = null; st.quotes = null;
     document.documentElement.classList.add('sa-wide');
     window.scrollTo(0, 0);
     render();
     if (st.rows == null || st.err) load();
+    loadQuotes();
     loadPdfJs().catch(function () {});
   }
   window.openNoticeBids = showPage;
