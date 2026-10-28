@@ -223,7 +223,10 @@
       }
     }
     var sum = near.filter(function (i) { return /^รวม$/.test(i.str.trim()) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
-    var qty = near.filter(function (i) { return /\(?\s*ราย\s*\)?$/.test(i.str.trim()) && i.str.trim().length <= 7 && center(i) < offer.x; })[0] ||
+    // "(ราย)" under the quantity header; a bare "ราย" can also be a split piece of "รายการ" in the first
+    // columns (e.g. กฟส.เสิงสาง), so prefer the bracketed one, then the right-most (closest to the prices)
+    var qty = near.filter(function (i) { return /\(?\s*ราย\s*\)?$/.test(i.str.trim()) && i.str.trim().length <= 7 && center(i) < offer.x; })
+        .sort(function (a, b) { return (/\(/.test(b.str) - /\(/.test(a.str)) || (b.x - a.x); })[0] ||
       near.filter(function (i) { return /ปริมาณ|เฟส|^จ\S{0,3}นวน$/.test(i.str.trim()) && center(i) < offer.x; }).sort(function (a, b) { return b.x - a.x; })[0];
     if (!qty) return null;
     if (!unit && !sum) {
