@@ -641,7 +641,8 @@
     var u = window.currentMenuUser || null;
     if (!u) { try { u = JSON.parse(localStorage.getItem('divergent_web_session_user') || 'null'); } catch (_) { u = null; } }
     var role = (u && u.role) || (window.qcAuthorizedUser && window.qcAuthorizedUser.user_role) || '';
-    return String(role).toLowerCase() === 'admin';
+    // only the main "admin" account, not every user whose role is admin
+    return String(role).toLowerCase() === 'admin' && String((u && u.username) || '').toLowerCase() === 'admin';
   }
   function syncNav() {
     var nav = document.getElementById('navNoticeBids'); if (!nav) return;

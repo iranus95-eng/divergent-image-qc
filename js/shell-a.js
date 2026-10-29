@@ -100,12 +100,21 @@
     return String(t || '').replace(/\s+/g, ' ').trim();
   }
 
+  // The "เฉพาะผู้ดูแลระบบ" group is for the main "admin" account only, not every user whose role is admin.
+  function isMainAdmin() {
+    var u = window.currentMenuUser || null;
+    if (!u) { try { u = JSON.parse(localStorage.getItem('divergent_web_session_user') || 'null'); } catch (_) { u = null; } }
+    return !!u && String(u.role || '').toLowerCase() === 'admin' && String(u.username || '').toLowerCase() === 'admin';
+  }
+
   // Current visible menu, grouped. Unknown legacy items fall into "อื่น ๆ".
   function collect() {
     var known = {};
     var items = [];
+    var mainAdmin = isMainAdmin();
     MENU.forEach(function (m) {
       known[m[0]] = true;
+      if (m[1] === 'admin' && !mainAdmin) return;
       if (isShown(legacy(m[0]))) items.push({ id: m[0], group: m[1], label: m[2], desc: m[3], icon: m[4] });
     });
     var side = document.querySelector('.side-nav');
