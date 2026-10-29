@@ -15,6 +15,7 @@ type Props = {
   tax: number;
   unsaved: boolean;
   rows: [string, number][];
+  allocationNote: string;
 };
 const money = (value: number) =>
   value.toLocaleString('th-TH', {
@@ -159,7 +160,7 @@ export default function NoticeReport(props: Props) {
         <span>ภาษีหักไว้เพื่อนำส่ง/เดือน {money(props.tax)} บาท</span>
       </div>
       <p style={{ fontSize: 11, color: '#6b5b80', margin: '15px 0' }}>
-        ค่าใช้จ่ายส่วนกลางเฉลี่ยจากยอดรวม ÷ 200,000 × จำนวนรายต่อเดือนของไซด์
+        {props.allocationNote}
         ภาษีหัก ณ ที่จ่ายรวมอยู่ในต้นทุนยอดเต็มแล้ว ใช้ปริมาณงานและต้นทุนคงที่
         12 เดือน ค่าเริ่มต้นหักครั้งเดียว ยังไม่บวกหรือแยก VAT
         และภาษีเงินได้นิติบุคคล

@@ -5,7 +5,6 @@ import NoticeReport from './NoticeReport';
 import { datedFileName } from './fileName';
 
 const KEY = 'epc:electricity-notice:v1';
-const ALLOCATION_JOBS = 200000;
 const SHARED_TOTALS_REVISION = 'confirmed-totals-2026-10-16-v1';
 const SHARED_COST_KEYS: (keyof Values)[] = [
   'supervisorTotal',
@@ -14,8 +13,22 @@ const SHARED_COST_KEYS: (keyof Values)[] = [
   'documents',
   'hospitality',
 ];
-const allocateSharedCost = (total: number, monthlyJobs: number) =>
-  (total / ALLOCATION_JOBS) * monthlyJobs;
+// Shared costs (supervisors, QC, staff, documents, hospitality) are split over the
+// won sites: by monthly jobs (the site's jobs over all of their jobs) or equally.
+export type Allocation = {
+  mode: 'jobs' | 'equal';
+  otherJobs: number;
+  sites: number;
+};
+export const shareOf = (allocation: Allocation, jobs: number) =>
+  allocation.mode === 'equal'
+    ? allocation.sites > 0
+      ? 1 / allocation.sites
+      : 0
+    : jobs + allocation.otherJobs > 0
+      ? jobs / (jobs + allocation.otherJobs)
+      : 0;
+const allocateSharedCost = (total: number, share: number) => total * share;
 const defaults = {
   budget: 19200000,
   jobs: 200000,
@@ -96,6 +109,7 @@ export type BidSource = {
   price: number;
   auction: number;
 };
+export const noticeStorageKey = (siteId: string) => KEY + ':site:' + siteId;
 const sourceTag = (bid: BidSource) =>
   ['notice-bids', bid.bidId, bid.budget, bid.price, bid.auction].join(':');
 const fmt = (n: number) =>
@@ -103,7 +117,7 @@ const fmt = (n: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-function load(storageKey: string, bid?: BidSource): Values {
+export function loadNoticeValues(storageKey: string, bid?: BidSource): Values {
   try {
     const saved = JSON.parse(cloudStorage.getItem(storageKey) || 'null');
     const result = { ...defaults };
@@ -142,19 +156,81 @@ function load(storageKey: string, bid?: BidSource): Values {
   }
 }
 
+// One site's monthly figures; the summary of the won sites uses the same formula.
+export function computeNotice(v: Values, share: number) {
+  const workers = v.capacity > 0 ? Math.ceil(v.jobs / v.capacity) : 0;
+  const paperCount = Math.ceil(v.jobs * (1 + v.waste / 100));
+  const labor = v.jobs * v.labor;
+  const supervisorCost = allocateSharedCost(v.supervisorTotal, share);
+  const qcCost = allocateSharedCost(v.qcTotal, share);
+  const documentsCost = allocateSharedCost(v.documents, share);
+  const staffCost = allocateSharedCost(v.staff, share);
+  const hospitalityCost = allocateSharedCost(v.hospitality, share);
+  const totalSso =
+    v.supervisors > 0
+      ? (v.supervisors *
+          Math.min(
+            v.ssoCap,
+            Math.max(v.ssoMin, v.supervisorTotal / v.supervisors),
+          ) *
+          v.ssoRate) /
+        100
+      : 0;
+  const sso = totalSso * share;
+  const recurring =
+    labor +
+    supervisorCost +
+    sso +
+    qcCost +
+    paperCount * v.paper +
+    documentsCost +
+    staffCost +
+    hospitalityCost;
+  const startup = workers * (v.printer + v.shirt);
+  const revenue = v.jobs * v.auction;
+  const tax = ((labor + qcCost) * v.withholding) / 100;
+  const rows: [string, number][] = [
+    ['ค่าแรงส่งใบแจ้งเตือน (ยอดเต็ม)', labor],
+    ['เงินเดือนผู้คุมงานเฉลี่ยตามไซด์', supervisorCost],
+    ['ประกันสังคมส่วนนายจ้าง', sso],
+    ['ค่า QC เฉลี่ยตามไซด์ (ก่อนหักภาษี)', qcCost],
+    ['กระดาษรวมเผื่อเสีย', paperCount * v.paper],
+    ['ค่าเอกสารเฉลี่ยตามไซด์', documentsCost],
+    ['ค่าใช้จ่ายสตาฟเฉลี่ยตามไซด์', staffCost],
+    ['ค่ารับรองเฉลี่ยตามไซด์', hospitalityCost],
+  ];
+  return {
+    workers,
+    paperCount,
+    labor,
+    supervisorCost,
+    qcCost,
+    documentsCost,
+    staffCost,
+    hospitalityCost,
+    recurring,
+    startup,
+    revenue,
+    tax,
+    rows,
+  };
+}
+
 export default function NoticeCalculator({
   onDirtyChange,
   siteId,
   siteName,
   bid,
+  allocation,
 }: {
   onDirtyChange: (dirty: boolean) => void;
   siteId: string;
   siteName: string;
   bid: BidSource;
+  allocation: Allocation;
 }) {
-  const storageKey = KEY + ':site:' + siteId;
-  const [values, setValues] = useState(() => load(storageKey, bid));
+  const storageKey = noticeStorageKey(siteId);
+  const [values, setValues] = useState(() => loadNoticeValues(storageKey, bid));
   const [hasLegacy] = useState(() => {
     try {
       return cloudStorage.getItem(KEY) !== null;
@@ -197,7 +273,7 @@ export default function NoticeCalculator({
         cloudStorage.setItem(
           storageKey,
           JSON.stringify({
-            ...load(storageKey, bid),
+            ...loadNoticeValues(storageKey, bid),
             bidSource: sourceTag(bid),
             sharedTotalsRevision: SHARED_TOTALS_REVISION,
           }),
@@ -259,7 +335,10 @@ export default function NoticeCalculator({
         value={
           SHARED_COST_KEYS.includes(key) && !editTotal
             ? values.price > 0 && draft.price !== '' && draft.budget !== ''
-              ? allocateSharedCost(values[key], values.jobs).toFixed(2)
+              ? allocateSharedCost(
+                  values[key],
+                  shareOf(allocation, values.jobs),
+                ).toFixed(2)
               : ''
             : key === 'jobs'
               ? values.price > 0 && draft.price !== '' && draft.budget !== ''
@@ -290,63 +369,18 @@ export default function NoticeCalculator({
     values.withholding > 100 ||
     values.ssoRate > 100 ||
     values.ssoMin > values.ssoCap;
-  const workers =
-    calculated.capacity > 0
-      ? Math.ceil(calculated.jobs / calculated.capacity)
-      : 0;
-  const paperCount = Math.ceil(calculated.jobs * (1 + calculated.waste / 100));
-  const labor = calculated.jobs * calculated.labor;
-  const allocationRatio = calculated.jobs / ALLOCATION_JOBS;
-  const supervisorCost = allocateSharedCost(
-    calculated.supervisorTotal,
-    calculated.jobs,
-  );
-  const qcCost = allocateSharedCost(calculated.qcTotal, calculated.jobs);
-  const documentsCost = allocateSharedCost(
-    calculated.documents,
-    calculated.jobs,
-  );
-  const staffCost = allocateSharedCost(calculated.staff, calculated.jobs);
-  const hospitalityCost = allocateSharedCost(
-    calculated.hospitality,
-    calculated.jobs,
-  );
-  const totalSso =
-    calculated.supervisors > 0
-      ? (calculated.supervisors *
-          Math.min(
-            calculated.ssoCap,
-            Math.max(
-              calculated.ssoMin,
-              calculated.supervisorTotal / calculated.supervisors,
-            ),
-          ) *
-          calculated.ssoRate) /
-        100
-      : 0;
-  const sso = totalSso * allocationRatio;
-  const recurring =
-    labor +
-    supervisorCost +
-    sso +
-    qcCost +
-    paperCount * calculated.paper +
-    documentsCost +
-    staffCost +
-    hospitalityCost;
-  const startup = workers * (calculated.printer + calculated.shirt);
-  const revenue = calculated.jobs * calculated.auction;
-  const tax = ((labor + qcCost) * calculated.withholding) / 100;
-  const rows: [string, number][] = [
-    ['ค่าแรงส่งใบแจ้งเตือน (ยอดเต็ม)', labor],
-    ['เงินเดือนผู้คุมงานเฉลี่ยตามไซด์', supervisorCost],
-    ['ประกันสังคมส่วนนายจ้าง', sso],
-    ['ค่า QC เฉลี่ยตามไซด์ (ก่อนหักภาษี)', qcCost],
-    ['กระดาษรวมเผื่อเสีย', paperCount * calculated.paper],
-    ['ค่าเอกสารเฉลี่ยตามไซด์', documentsCost],
-    ['ค่าใช้จ่ายสตาฟเฉลี่ยตามไซด์', staffCost],
-    ['ค่ารับรองเฉลี่ยตามไซด์', hospitalityCost],
-  ];
+  const allocationRatio = shareOf(allocation, calculated.jobs);
+  const {
+    workers,
+    paperCount,
+    labor,
+    qcCost,
+    recurring,
+    startup,
+    revenue,
+    tax,
+    rows,
+  } = computeNotice(calculated, allocationRatio);
   const reportRef = useRef<HTMLDivElement>(null);
   const [reportBusy, setReportBusy] = useState(false);
   const [reportError, setReportError] = useState('');
@@ -535,7 +569,7 @@ export default function NoticeCalculator({
                 )
               )
                 return;
-              const imported = load(KEY);
+              const imported = loadNoticeValues(KEY);
               setValues({
                 ...imported,
                 budget: bid.budget,
@@ -617,7 +651,7 @@ export default function NoticeCalculator({
       </div>
       <details className="rounded-xl border border-slate-200 bg-white p-4">
         <summary className="cursor-pointer text-sm font-semibold">
-          ตั้งค่ายอดรวมสำหรับเฉลี่ยต้นทุน (ฐาน 200,000 ราย)
+          ตั้งค่ายอดรวมสำหรับเฉลี่ยต้นทุน (เฉลี่ยให้ไซด์ที่ชนะประมูล)
         </summary>
         <p className="text-sm text-slate-500 my-3">
           ช่องต้นทุนด้านบนแสดงยอดเฉพาะไซด์นี้อัตโนมัติ
@@ -756,12 +790,16 @@ export default function NoticeCalculator({
             <h2 className="font-bold mb-4">รายละเอียดต้นทุน (บาท)</h2>
             <div className="rounded-xl bg-sky-50 p-4 mb-4 text-sm space-y-2">
               <p>
-                เงินเดือนผู้คุมงาน, QC, ค่าใช้จ่ายสตาฟ, ค่าเอกสาร และค่ารับรอง:
-                ยอดรวมทุกไซด์ ÷ {ALLOCATION_JOBS.toLocaleString('th-TH')} ×
-                จำนวนรายต่อเดือนของไซด์
+                เงินเดือนผู้คุมงาน, QC, ค่าใช้จ่ายสตาฟ, ค่าเอกสาร และค่ารับรอง:{' '}
+                {allocation.mode === 'equal'
+                  ? 'ยอดรวมทุกไซด์ ÷ ' +
+                    allocation.sites +
+                    ' ไซด์ที่ชนะประมูล (เท่ากันทุกไซด์)'
+                  : 'ยอดรวมทุกไซด์ × จำนวนรายของไซด์ ÷ จำนวนรายรวมของไซด์ที่ชนะประมูล'}
               </p>
               <p>
-                ฐานรวม {ALLOCATION_JOBS.toLocaleString('th-TH')} ราย • ไซด์นี้{' '}
+                ไซด์ที่ชนะประมูล {allocation.sites} ไซด์ • จำนวนรายรวม{' '}
+                {fmt(allocation.otherJobs + calculated.jobs)} ราย • ไซด์นี้{' '}
                 {calculated.jobs.toLocaleString('th-TH')} ราย • สัดส่วน{' '}
                 {(allocationRatio * 100).toFixed(4)}%
               </p>
@@ -814,9 +852,9 @@ export default function NoticeCalculator({
                         {label}
                         {sharedKey && (
                           <small className="block text-slate-500 mt-1">
-                            {fmt(calculated[sharedKey])} ÷{' '}
-                            {ALLOCATION_JOBS.toLocaleString('th-TH')} ×{' '}
-                            {fmt(calculated.jobs)} = {fmt(amount)} บาท/เดือน
+                            {fmt(calculated[sharedKey])} ×{' '}
+                            {(allocationRatio * 100).toFixed(4)}% ={' '}
+                            {fmt(amount)} บาท/เดือน
                           </small>
                         )}
                       </td>
@@ -945,6 +983,17 @@ export default function NoticeCalculator({
           tax={tax}
           unsaved={dirty}
           rows={rows}
+          allocationNote={
+            'ค่าใช้จ่ายส่วนกลางเฉลี่ยให้ ' +
+            allocation.sites +
+            ' ไซด์ที่ชนะประมูล ' +
+            (allocation.mode === 'equal'
+              ? 'เท่ากันทุกไซด์'
+              : 'ตามสัดส่วนจำนวนราย') +
+            ' (ไซด์นี้ ' +
+            (allocationRatio * 100).toFixed(2) +
+            '%)'
+          }
         />
       </div>
       <div className="flex flex-wrap items-center gap-3 pb-8">
