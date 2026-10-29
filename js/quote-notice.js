@@ -309,9 +309,12 @@
       var amtL = t.bounds.amount[0];
       // summary lines (รวม / ภาษี / รวมทั้งสิ้น) written left of the amount column
       var sums = [];
+      var dash = function (o) { return /^[-–—]+$/.test(o.str.trim()) && center(o) > amtL; };
       body.forEach(function (i) {
-        if (center(i) >= amtL || i.x + i.w < t.bounds.qty[0] - 40) return;
+        if (center(i) >= amtL) return;
         var key = sumKey(i.str.trim());
+        // a label far left (a merged "รวม" cell under ที่/รายการ) only counts when its row has "-" placeholders in the money columns
+        if (i.x + i.w < t.bounds.qty[0] - 40 && !(key && body.some(function (o) { return Math.abs(o.y - i.y) < 4 && dash(o); }))) return;
         if (key && !sums.some(function (s) { return s.key === key; })) sums.push({ key: key, y: i.y, h: i.h });
       });
       // the sum before VAT may be a row without any words, only the reference amount (e.g. กฟส.ศีขรภูมิ)
@@ -346,8 +349,12 @@
         });
       }
       // placeholder marks ("-") already printed in the summary cells are blanked before writing
+      // layout A: one "รวม" row with เป็นเงิน / ภาษี / รวมทั้งสิ้น side by side (placeholders "-" in each) instead of one row per figure
+      var across = sums.length === 1 && sums[0].key === 'amount' && t.cols.indexOf('vat') >= 0 && t.cols.indexOf('total') >= 0;
+      var right = t.bounds[t.cols[t.cols.length - 1]][1];
       t.sums = sums.map(function (s) {
-        s.blank = body.filter(function (i) { return Math.abs(i.y - s.y) < 4 && center(i) > amtL && center(i) < t.bounds.amount[1] + 20 && /^[-–—.]+$/.test(i.str.trim()); });
+        s.across = across;
+        s.blank = body.filter(function (i) { return Math.abs(i.y - s.y) < 4 && center(i) > amtL && center(i) < (across ? right : t.bounds.amount[1]) + 20 && /^[-–—.]+$/.test(i.str.trim()); });
         return s;
       });
       var firstRow = rows.filter(function (r) { return r.table === t; })[0];
@@ -428,7 +435,11 @@
         var found = detectTables(items, n - 1);
         found.forEach(function (r) {
           r.cells = snapCells(r.y, r.h, r.table.cols, r.table, canvas);
-          r.table.sums.forEach(function (sm) { if (!sm.cell) sm.cell = snapCells(sm.y, sm.h, ['amount'], r.table, canvas).amount; });
+          r.table.sums.forEach(function (sm) {
+            if (sm.cell) return;
+            if (sm.across) { sm.cells = snapCells(sm.y, sm.h, ['amount', 'vat', 'total'], r.table, canvas); sm.cell = sm.cells.amount; }
+            else sm.cell = snapCells(sm.y, sm.h, ['amount'], r.table, canvas).amount;
+          });
         });
         st.rows = st.rows.concat(found);
       }
@@ -476,7 +487,8 @@
       var tot = tableTotals(t), size = sizeFor(t.refStr, t.refW, t.refH || 15);
       t.sums.forEach(function (sm) {
         sm.blank.forEach(function (i) { out.blanks.push({ page: t.page, x: i.x - 0.6, y: i.y - i.h * 0.62, w: i.w + 1.2, h: i.h * 0.62 + 1 }); });
-        put(t.page, money(tot[sm.key]), sm.cell || t.bounds.amount, sm.y, size, t);
+        if (sm.across) ['amount', 'vat', 'total'].forEach(function (k) { put(t.page, money(tot[k]), (sm.cells && sm.cells[k]) || t.bounds[k], sm.y, size, t); });
+        else put(t.page, money(tot[sm.key]), sm.cell || t.bounds.amount, sm.y, size, t);
       });
     });
     // one digit size per table: if a long amount had to shrink to fit its cell, the other numbers follow

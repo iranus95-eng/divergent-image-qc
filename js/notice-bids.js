@@ -149,6 +149,17 @@
       var p = out.budget / (1 + VAT) / out.qty, r = Math.round(p * 100) / 100;
       if (Math.abs(p - r) < 0.0005 && r > 0 && r < 100) out.mid_price = r;
     }
+    // TOR with a monthly table only ("ราคากลาง | ราย / เดือน | … 8.00 10,000 …", กฟส.นม.2 หัวทะเล): no yearly quantity in words,
+    // so take the price per notice that divides the budget into whole notices (budget ÷ 1.07 ÷ price) and the year's quantity from it
+    if (!out.qty && out.budget && /ราคากลาง/.test(F)) {
+      var cands = F.match(/(?:^|[^\d,.])(\d{1,2}\.\d{2})(?![\d,])/g) || [];
+      cands.some(function (c) {
+        var pr = Number(c.replace(/[^\d.]/g, '')); if (!(pr > 0 && pr < 100)) return false;
+        var q = out.budget / (1 + VAT) / pr;
+        if (Math.abs(q - Math.round(q)) > 0.01 || q < 1000) return false;
+        out.qty = Math.round(q); out.mid_price = pr; return true;
+      });
+    }
     out.text = T;
     return out;
   }
@@ -235,7 +246,10 @@
   function matchRow(r) {
     var rows = st.rows || [], k = nameKey(r.site);
     var hit = rows.filter(function (x) { return r.project_no && x.project_no === r.project_no; })[0] ||
-      rows.filter(function (x) { return k && nameKey(x.site) === k; })[0];
+      rows.filter(function (x) { return k && nameKey(x.site) === k; })[0] ||
+      // "เมืองนครราชสีมา2" from the PDF vs "นครราชสีมา 2" in the table: one name inside the other (the longest wins)
+      rows.filter(function (x) { var xk = nameKey(x.site); return k && xk.length >= 4 && (k.indexOf(xk) >= 0 || xk.indexOf(k) >= 0); })
+        .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0];
     return hit ? hit.id : 0;
   }
 
