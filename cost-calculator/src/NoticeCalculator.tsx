@@ -5,7 +5,7 @@ import NoticeReport from './NoticeReport';
 import { datedFileName } from './fileName';
 
 const KEY = 'epc:electricity-notice:v1';
-const SHARED_TOTALS_REVISION = 'confirmed-totals-2026-10-16-v1';
+const SHARED_TOTALS_REVISION = 'confirmed-totals-2026-10-29-v1';
 const SHARED_COST_KEYS: (keyof Values)[] = [
   'supervisorTotal',
   'qcTotal',
@@ -37,16 +37,16 @@ const defaults = {
   auction: 8,
   labor: 3.5,
   withholding: 3,
-  printer: 3500,
+  printer: 0, // we already own about 200 printers
   supervisors: 4,
   supervisorTotal: 90000,
   qcPeople: 3,
   qcTotal: 9000,
   paper: 0.26,
   waste: 2,
-  documents: 5000,
+  documents: 350,
   staff: 50000,
-  hospitality: 5000,
+  hospitality: 350,
   shirt: 450,
   ssoRate: 5,
   ssoMin: 1650,
