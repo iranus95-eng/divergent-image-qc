@@ -52,8 +52,28 @@
 
   // the saved quotations (เสนอราคาแจ้งเตือน), shown on each site; refreshed every time the page opens
   async function loadQuotes() {
-    try { st.quotes = (await call({ action: 'list' }, QUOTE_API)).items || []; } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; }
-    if (st.rows) renderTable();
+    try {
+      var qs = (await call({ action: 'list' }, QUOTE_API)).items || [];
+      // the unit prices typed in each priced job (the list leaves the rows out, so open those jobs)
+      await Promise.all(qs.filter(function (h) { return Number(h.total_amount) > 0; }).map(function (h) {
+        return call({ action: 'get', id: h.id }, QUOTE_API).then(function (j) {
+          var ps = [];
+          ((j.item && j.item.state && j.item.state.rows) || []).forEach(function (r) { var v = Number(r.price); if (v > 0 && ps.indexOf(v) < 0) ps.push(v); });
+          h.prices = ps;
+        }, function (e) { console.warn('notice-bids quote', h.id, e); });
+      }));
+      st.quotes = qs;
+    } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; }
+    if (st.rows) { syncPrices(); renderTable(); }
+  }
+  // ราคาปี70 follows the unit price in the site's quotation (the first one when the rows differ)
+  function syncPrices() {
+    (st.rows || []).forEach(function (r) {
+      var q = quotesOf(r).filter(function (h) { return h.prices && h.prices.length; })[0];
+      if (!q || Number(r.price_bid) === q.prices[0]) return;
+      r.price_bid = q.prices[0];
+      call({ action: 'save', id: r.id, row: { price_bid: r.price_bid } }).catch(function (e) { console.error('notice-bids price from quote', e); });
+    });
   }
   // the jobs of one site: same site name, else the longest site name inside the job title (older jobs named after the file)
   function quotesOf(row) {
@@ -68,8 +88,10 @@
   }
   function quoteBtn(r, big) {
     var js = st.quotes == null ? null : quotesOf(r);
-    var txt = js == null ? '📄 ใบเสนอราคา' : js.length ? '📄 ใบเสนอราคา' + (js[0].total_amount ? ' · ' + fmt(js[0].total_amount, 2) : ' · ยังไม่กรอกราคา') : '📄 ทำใบเสนอราคา';
-    return '<button class="nb-q' + (js && js.length ? ' ok' : '') + (big ? ' big' : '') + '" data-nb="quote" data-i="' + r.id + '">' + txt + '</button>';
+    var txt = js == null ? '📄 ใบเสนอราคา' : js.length ? '📄 ใบเสนอราคา' + (Number(js[0].total_amount) ? ' · ' + fmt(js[0].total_amount, 2) : ' · ยังไม่กรอก') : '📄 ทำใบเสนอราคา';
+    var ps = js && js.length && js[0].prices && js[0].prices.length ? js[0].prices : null;
+    return '<button class="nb-q' + (js && js.length ? ' ok' : '') + (big ? ' big' : '') + '" data-nb="quote" data-i="' + r.id + '"><span class="nb-q1">' + txt + '</span>' +
+      (ps ? '<span class="nb-up">ราคา/หน่วย ' + ps.map(function (p) { return fmt(p, 2); }).join(' / ') + ' บาท</span>' : '') + '</button>';
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function fmt(v, d) { return v == null || v === '' || !isFinite(v) ? '' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d || 0, maximumFractionDigits: d == null ? 2 : d }); }
@@ -432,7 +454,7 @@
       '@media (prefers-reduced-motion:reduce){.nb-item.today{animation:none;box-shadow:0 0 0 3px #e11d2e}}' +
       '.nb-site.past{opacity:.6}.nb-item{position:relative;display:flex;flex-direction:column}.nb-item .nb-site{padding-right:44px;border-radius:10px 10px 0 0}.nb-item .nb-site .go{display:none}' +
       '.nb-q{border:1px solid #e5dced;border-top:0;border-radius:0 0 10px 10px;background:#f7f3fb;color:#5a2787;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;text-align:left;cursor:pointer}.nb-q:hover{background:#efe6f8}' +
-      '.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
+      '.nb-q1{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nb-up{display:block;font-weight:600;font-size:11.5px;color:#4d6b57;margin-top:1px}.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
       '.nb-x{position:absolute;top:24px;right:8px;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:15px;opacity:.45;padding:6px;border-radius:8px}.nb-x:hover{opacity:1;background:#fbecec}' +
       '.nb-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
       '.nb-detail{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:16px}.nb-detail h3{margin:6px 0 2px;color:#4b2378;font-size:20px}' +
