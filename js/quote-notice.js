@@ -8,6 +8,7 @@
  *  - Only the unit price is typed; everything else is calculated.
  *  - The menu lists the saved jobs by site with the auction day/time from ตารางประมูลแจ้งเตือน (upcoming first, past last);
  *    clicking one opens it. A new job is named after the site read from the PDF.
+ *  - A site whose TOR has no quotation form gets one drawn (📝 ใช้แบบฟอร์มเปล่า): figures from the site's row or its TOR PDF.
  */
 (function () {
   'use strict';
@@ -142,7 +143,7 @@
       orphans.map(function (h, i) { return card(i + 1, '', 'data-open="' + h.id + '"', h.title, h.total_amount ? money(h.total_amount) : 'ยังไม่กรอกราคา'); }).join('') + '</div>';
     box.innerHTML = html;
   }
-  function closeJob() { st.pages = []; st.rows = []; st.pdf = null; st.bytes = null; st.id = null; st.name = ''; st.saveState = ''; }
+  function closeJob() { st.blank = null; st.blankMsg = ''; st.pages = []; st.rows = []; st.pdf = null; st.bytes = null; st.id = null; st.name = ''; st.saveState = ''; }
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function money(v) { return (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -602,6 +603,151 @@
     } catch (e) { w.close(); alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e)); }
   }
 
+  // ---------------------------------------------------------------- blank form
+  // Some offices' TOR has no quotation form, only the price table (บก.06). "ใช้แบบฟอร์มเปล่า" draws one in the layout
+  // of กฟส.ครบุรี (layout C above: ราคากลาง ต่อหน่วย/รวม | ราคาที่เสนอ ต่อหน่วย/รวม, then รวม / VAT 7% / รวมทั้งสิ้น)
+  // from the site's figures or its TOR, and opens it like any office PDF so the offered columns are filled in the same way.
+  var FONTKIT = 'https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';
+  var BLANK_FILES = { regular: './fonts/Sarabun-Regular.ttf', bold: './fonts/Sarabun-Bold.ttf', logo: './images/pea-logo.png' };
+  var BLANK_KEYS = ['work', 'office', 'year', 'area', 'areaList', 'activity', 'qty', 'mid'];
+  function fmtNum(n) { n = Number(n) || 0; return n.toLocaleString('en-US', Math.round(n) === n ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function blankBudget(d) { return Math.round(num(d.qty) * num(d.mid) * (1 + VAT) * 100) / 100; }
+  // ปีงบประมาณ starts in October: offices auction the year's job from mid-year on, so a bid from July names the next year
+  function fiscalYear(iso) { var d = iso ? new Date(String(iso).slice(0, 10)) : new Date(); if (isNaN(d)) d = new Date(); return d.getFullYear() + 543 + (d.getMonth() >= 6 ? 1 : 0); }
+  // a site from ตารางประมูลแจ้งเตือน already carries its quantity and ราคากลาง (read from its TOR there)
+  function blankDefaults(bid) {
+    var b = bid || {}, site = String(b.site || '').replace(/^(กฟส|กฟจ|กฟอ)\.?\s*/, '');
+    return { work: 'งานจ้างเหมาบุคคลภายนอกปฏิบัติเกี่ยวกับงานงดจ่ายไฟ', office: site ? 'การไฟฟ้าส่วนภูมิภาคสาขา' + site : '', year: String(fiscalYear(b.bid_date)),
+      area: b.office || (site ? 'กฟส.' + site : ''), areaList: '', activity: 'งานวางใบแจ้งเตือน', qty: b.qty ? String(b.qty) : '', mid: b.mid_price ? String(b.mid_price) : '' };
+  }
+  // TOR text → form fields. The บก.06 table is "ชื่อโครงการ … วงเงินงบประมาณที่ได้รับจัดสรร 1,027,200 บาท … 120,000 8 960,000.00 …
+  // สถานที่ปฏิบัติงาน การไฟฟ้าส่วนภูมิภาคสาขาภูเขียว …"; marks are often lost ("ประจาปี", "จานวน")
+  function torFields(text) {
+    var F = String(text || '').replace(/\s+/g, ' ').replace(/ประจ\s*า\s*ปี/g, 'ประจำปี').replace(/จ\s*านวน/g, 'จำนวน')
+      .replace(/([ก-๎])\s*\.\s*(?=[ก-๎])/g, '$1.'), out = {}, m;     // "กฟส . ภูเขียว" → "กฟส.ภูเขียว"
+    m = F.match(/วงเงิน[\s\S]{0,60}?(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/);
+    var budget = m ? num(m[1]) : 0;
+    // quantity and price per notice: the pair whose quantity × price + VAT is the budget
+    var nums = (F.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g) || []).map(num);
+    if (budget) nums.some(function (q) {
+      return q >= 1000 && nums.some(function (p) {
+        if (!(p > 0 && p < 100) || Math.abs(q * p * (1 + VAT) - budget) > 0.5) return false;
+        out.qty = String(q); out.mid = String(p); return true;
+      });
+    });
+    m = F.match(/(?:ประจำปี|ปีงบประมาณ)\s*(?:พ\.\s*ศ\.\s*)?(25\d\d)/);
+    if (m) out.year = m[1];
+    var sites = [], re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*สาขา\s*([ก-๎]+)/g;
+    while ((m = re.exec(F))) { var s = m[1].replace(/(และ|ขอ|มี|จะ|ปร)$/, ''); if (sites.indexOf(s) < 0) sites.push(s); }
+    m = F.match(/ช\S{0,3}\s*โครงการ\s*(.+?)\s+(?:หน\S{0,2}วยงานเจ\S{0,2}าของ|\d\s*วงเงิน|วงเงิน)/);
+    var project = m ? m[1].trim() : '';
+    var main = (project.match(/กฟ[สจ]\.\s*([ก-๎]+?)(?:และ|\s|$)/) || [])[1] || sites[0];
+    if (project) out.work = project.split(/\s*(?:กฟ[สจ]\.|การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค|ในเขต|ประจำปี)/)[0].trim();
+    if (out.work && !/^งาน/.test(out.work)) out.work = 'งาน' + out.work;
+    if (main) {
+      out.office = 'การไฟฟ้าส่วนภูมิภาคสาขา' + main + (/กฟฟ\.\s*ในสังกัด/.test(project) ? ' และ กฟฟ.ในสังกัด' : '');
+      out.area = 'กฟส.' + main;
+    }
+    if (sites.length > 1) out.areaList = sites.map(function (s) { return 'กฟส.' + s; }).join(' ');
+    return out;
+  }
+  var MARK = /[ัิ-ฺ็-๎]/;
+  // lines no wider than maxW: break at spaces; a run longer than the line (Thai has no spaces) breaks between letters, never before a mark
+  function wrapText(s, font, size, maxW) {
+    var out = [], cur = '';
+    var fits = function (t) { return font.widthOfTextAtSize(t, size) <= maxW; };
+    String(s || '').split(/(\s+)/).forEach(function (tok) {
+      if (!tok) return;
+      if (fits(cur + tok)) { cur += tok; return; }
+      if (/^\s+$/.test(tok)) { out.push(cur); cur = ''; return; }
+      if (cur.trim()) { out.push(cur); cur = ''; }
+      for (var i = 0; i < tok.length; i++) {
+        if (cur && !MARK.test(tok[i]) && !fits(cur + tok[i])) { out.push(cur); cur = ''; }
+        cur += tok[i];
+      }
+    });
+    out.push(cur);
+    return out.map(function (l) { return l.trim(); }).filter(Boolean);
+  }
+  // A4 in PDF points; "top" values are baselines measured from the top edge.
+  // pdf-lib places Thai marks with their own advance width (no GPOS), which breaks the words apart, so the letters are drawn
+  // as outlines from fontkit's shaped layout, with the same text written invisibly on top for pdf.js to read (table detection).
+  async function blankFormPdf(P, fontkit, files, d) {
+    var doc = await P.PDFDocument.create();
+    doc.registerFontkit(fontkit);
+    var shape = { regular: fontkit.create(files.regular), bold: fontkit.create(files.bold) };
+    // marks are kept as their own characters in the hidden text: no ligatures / composed forms ("ำ" stays one letter)
+    var hidden = await doc.embedFont(files.regular, { subset: true, features: { ccmp: false, liga: false, locl: false, calt: false, rlig: false, clig: false, kern: false } });
+    var logo = files.logo ? await doc.embedPng(files.logo) : null;
+    var W = 595.28, H = 841.89, L = 51, RM = W - 51, S = 12, LH = 20, black = P.rgb(0, 0, 0);
+    var pg = doc.addPage([W, H]);
+    function run(s, f, z) {
+      var lay = f.layout(s), k = z / f.unitsPerEm, x = 0, out = [];
+      lay.glyphs.forEach(function (g, i) {
+        var p = lay.positions[i];
+        out.push({ path: g.path, x: (x + p.xOffset) * k, y: p.yOffset * k });
+        x += p.xAdvance;
+      });
+      return { glyphs: out, w: x * k, k: k };
+    }
+    var measure = { widthOfTextAtSize: function (s, z) { return run(s, shape.regular, z).w; } };
+    function text(s, x, top, o) {
+      o = o || {}; s = String(s); if (!s.trim()) return;
+      var z = o.size || S, r = run(s, o.bold ? shape.bold : shape.regular, z);
+      if (o.align === 'center') x -= r.w / 2; else if (o.align === 'right') x -= r.w;
+      r.glyphs.forEach(function (g) {
+        if (!g.path.commands.length) return;
+        pg.drawSvgPath(g.path.scale(1, -1).toSVG(), { x: x + g.x, y: H - top + g.y, scale: r.k, color: black, borderWidth: 0 });
+      });
+      // the hidden copy sits centred on the drawn words, so header centres read back where they are drawn
+      var hw = hidden.widthOfTextAtSize(s, z);
+      pg.drawText(s, { x: x + (r.w - hw) / 2, y: H - top, size: z, font: hidden, opacity: 0 });
+    }
+    function line(x1, t1, x2, t2, dots) {
+      pg.drawLine({ start: { x: x1, y: H - t1 }, end: { x: x2, y: H - t2 }, thickness: dots ? 0.6 : 0.8, color: black, dashArray: dots ? [1, 1.5] : undefined });
+    }
+    var qty = num(d.qty), mid = num(d.mid), amount = Math.round(qty * mid * 100) / 100, vat = Math.round(amount * VAT * 100) / 100;
+    var y = 34;
+    if (logo) { var lh = 62, lw = logo.width * lh / logo.height; pg.drawImage(logo, { x: (W - lw) / 2, y: H - y - lh, width: lw, height: lh }); y += lh + 10; }
+    y += S + 4;
+    text('รายละเอียดประกอบใบเสนอราคา', W / 2, y, { align: 'center' });
+    var title = [d.work, d.office ? 'ในเขตพื้นที่ระบบจำหน่ายของ' + d.office : '', d.year ? 'ประจำปีงบประมาณ ปี ' + d.year : ''].filter(Boolean).join(' ');
+    wrapText(title, measure, S, RM - L - 40).forEach(function (ln) { y += LH; text(ln, W / 2, y, { align: 'center' }); });
+    y += LH + 8; text('พื้นที่ ' + (d.area || ''), L, y, { bold: true, size: 13 });
+    var para = 'พื้นที่ระบบจำหน่ายไฟฟ้าในเขต ' + (d.area || '') + (d.areaList ? ' (' + d.areaList + ')' : '') + ' ขออนุมัติ ปริมาณงาน จำนวน ' + fmtNum(qty) +
+      '.- ราย จำนวน 1 กิจกรรม วงเงินงบประมาณ รวมภาษีมูลค่าเพิ่ม ' + fmtNum(amount + vat) + '.- บาท รายละเอียดดังนี้';
+    wrapText(para, measure, S, RM - L).forEach(function (ln) { y += LH; text(ln, L, y); });
+    // the table: 7 columns, a two-line header, the item row, then รวม / VAT 7% / รวมทั้งสิ้น
+    var xs = [L];
+    [10, 26, 11, 12, 13, 12, 16].forEach(function (p) { xs.push(xs[xs.length - 1] + (RM - L) * p / 100); });
+    var cx = function (a, b) { return (xs[a] + xs[b == null ? a + 1 : b]) / 2; }, B = { bold: true, align: 'center' }, C = { align: 'center' };
+    var t0 = y + 14, hm = t0 + 22, hb = hm + 22, rh = 24, rb = hb + rh, end = rb + rh * 3, base = 16.5;
+    text('รายการ', cx(0), t0 + 17, B); text('ที่', cx(0), t0 + 32, B); text('กิจกรรมงานงดจ่ายไฟ', cx(1), t0 + 26, B);
+    text('จำนวน', cx(2), t0 + base, B); text('ราคากลาง(บาท)', cx(3, 5), t0 + base, B); text('ราคาที่เสนอ (บาท)', cx(5, 7), t0 + base, B);
+    text('(ราย)', cx(2), hm + base, B); text('ต่อหน่วย', cx(3), hm + base, B); text('รวม', cx(4), hm + base, B); text('ต่อหน่วย', cx(5), hm + base, B); text('รวม', cx(6), hm + base, B);
+    text('1', cx(0), hb + base, C); text(d.activity || '', xs[1] + 5, hb + base);
+    text(fmtNum(qty), cx(2), hb + base, C); text(fmtNum(mid), cx(3), hb + base, C); text(fmtNum(amount), xs[5] - 6, hb + base, { align: 'right' });
+    [['รวม', amount], ['VAT 7%', vat], ['รวมทั้งสิ้น', amount + vat, true]].forEach(function (s, i) {
+      var top = rb + rh * i + base;
+      text(s[0], xs[4] - 6, top, { align: 'right', bold: s[2] }); text(fmtNum(s[1]), xs[5] - 6, top, { align: 'right', bold: s[2] });
+    });
+    [t0, hb, rb, rb + rh, rb + rh * 2, end].forEach(function (t) { line(L, t, RM, t); });
+    line(xs[2], hm, RM, hm);
+    xs.forEach(function (x, i) {
+      if (i === 0 || i === 7) return line(x, t0, x, end);
+      var top = (i === 4 || i === 6) ? hm : t0;
+      line(x, top, x, (i >= 4) ? end : rb);
+    });
+    // signature
+    var sx = 330, sy = end + 60;
+    text('ลงชื่อ', sx, sy); line(sx + 32, sy + 3, RM - 62, sy + 3, true); text('ผู้เสนอราคา', RM, sy, { align: 'right' });
+    text('(', sx, sy + 26); line(sx + 10, sy + 29, RM - 10, sy + 29, true); text(')', RM, sy + 26, { align: 'right' });
+    text('วันที่', sx, sy + 52); line(sx + 28, sy + 55, RM, sy + 55, true);
+    doc.setTitle('รายละเอียดประกอบใบเสนอราคา ' + (d.area || ''));
+    return doc.save({ useObjectStreams: false });
+  }
+  // ---------------------------------------------------------------- end of blank form
+
   // ---------------------------------------------------------------- page
   function style() {
     if (document.getElementById('qnStyle')) return;
@@ -650,6 +796,9 @@
           render(); loadHistory(); window.scrollTo(0, 0);
         });
       }
+      if (a === 'blank') { var bb = st.fromBids ? (st.bids || []).filter(function (x) { return x.id === st.fromBids.id; })[0] : null; st.blank = blankDefaults(bb || st.fromBids); st.blankMsg = ''; render(); }
+      if (a === 'blankTor') w.querySelector('#qnTor').click();
+      if (a === 'blankMake') makeBlank();
       if (a === 'delete' && st.id) deleteSaved(st.id).then(render);
       if (a === 'pdf') savePdf();
       if (a === 'save') { setSaveState('กำลังบันทึก…'); saveNow(); }
@@ -660,8 +809,13 @@
         render(); scheduleSave();
       }
     });
-    w.addEventListener('change', function (e) { if (e.target.id === 'qnFile' && e.target.files[0]) { openFile(e.target.files[0]); e.target.value = ''; } });
+    w.addEventListener('change', function (e) {
+      if (e.target.id === 'qnFile' && e.target.files[0]) { openFile(e.target.files[0]); e.target.value = ''; }
+      if (e.target.id === 'qnTor' && e.target.files[0]) { importTor(e.target.files[0]); e.target.value = ''; }
+    });
     w.addEventListener('input', function (e) {
+      var bf = e.target.getAttribute('data-bf');
+      if (bf && st.blank) { st.blank[bf] = e.target.value; var bo = document.getElementById('qnBfBudget'); if (bo) bo.textContent = money(blankBudget(st.blank)) + ' บาท'; return; }
       if (e.target.id === 'qnName') { st.name = e.target.value.trim() || st.name; scheduleSave(); return; }
       var i = e.target.getAttribute('data-row'), q = e.target.getAttribute('data-qty');
       if (q != null) st.rows[+q].qty = num(e.target.value);
@@ -689,6 +843,7 @@
 
   function render() {
     var w = page(); var has = st.pages.length > 0;
+    if (!has && st.blank) { renderBlank(w); return; }
     // no job open: the list of sites; clicking one opens its quotation
     if (!has && st.fromBids) {
       // opened from ตารางประมูลแจ้งเตือน for a site that has no quotation yet: its PDF becomes the site's job
@@ -696,7 +851,8 @@
         '<div class="qn-head"><div><h2>ใบเสนอราคา · ' + esc(st.fromBids.site || '') + '</h2><p>ไซด์นี้ยังไม่มีใบเสนอราคา • เลือกไฟล์ PDF ใบเสนอราคาของการไฟฟ้า แล้วกรอกราคาต่อหน่วย</p></div></div>' +
         '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="back">← กลับไปตารางประมูล</button></div>' +
         '<div class="qn-card"><input type="file" id="qnFile" accept="application/pdf,.pdf" hidden>' +
-        '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังโหลด…' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคาของไซด์ ' + esc(st.fromBids.site || '') + '<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div></div>';
+        '<div class="qn-drop" data-qn="pick">' + (st.busy ? 'กำลังโหลด…' : '📄 กดเพื่อเลือกไฟล์ PDF ใบเสนอราคาของไซด์ ' + esc(st.fromBids.site || '') + '<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div>' +
+        '<div class="qn-actions" style="margin-bottom:0"><button class="qn-btn soft" data-qn="blank">📝 ใช้แบบฟอร์มเปล่า</button><span class="qn-state">TOR ไม่มีแบบฟอร์มใบเสนอราคา: สร้างจากข้อมูลไซด์หรือไฟล์ TOR</span></div></div>';
       return;
     }
     if (!has) {
@@ -790,6 +946,77 @@
     st.busy = false;
     var job = st.histErr ? null : (st.history || []).filter(function (h) { var b = bidFor(h.title); return b && b.id === bid.id; })[0];
     if (job) await openSaved(job.id); else render();
+  };
+
+  var fontkitReady = null;
+  function loadFontkit() {
+    if (window.fontkit) return Promise.resolve(window.fontkit);
+    if (fontkitReady) return fontkitReady;
+    fontkitReady = new Promise(function (ok, fail) {
+      var s = document.createElement('script'); s.src = FONTKIT; s.async = true;
+      s.onload = function () { ok(window.fontkit); };
+      s.onerror = function () { fontkitReady = null; fail(new Error('โหลดตัวอ่านฟอนต์ไม่สำเร็จ')); };
+      document.head.appendChild(s);
+    });
+    return fontkitReady;
+  }
+  async function fileBytes(url) {
+    var r = await fetch(url); if (!r.ok) throw new Error('โหลด ' + url + ' ไม่สำเร็จ');
+    return new Uint8Array(await r.arrayBuffer());
+  }
+  // TOR PDF → its text, read the same way as an office form
+  async function importTor(file) {
+    try {
+      st.blankMsg = 'กำลังอ่านไฟล์ TOR…'; render();
+      var lib = await loadPdfJs(), pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise, text = '';
+      for (var n = 1; n <= Math.min(pdf.numPages, 6); n++) {
+        var tc = await (await pdf.getPage(n)).getTextContent();
+        text += ' ' + tc.items.map(function (i) { return thaiText(i.str); }).join(' ');
+      }
+      var got = torFields(text), keys = Object.keys(got);
+      keys.forEach(function (k) { st.blank[k] = got[k]; });
+      st.blankMsg = keys.length ? 'นำเข้าจาก ' + file.name + ' แล้ว ' + keys.length + ' ช่อง กรุณาตรวจทานก่อนสร้างแบบฟอร์ม' : 'ไม่พบข้อมูลในไฟล์ ' + file.name + ' กรุณากรอกเอง';
+    } catch (e) { console.error('quote-notice tor', e); st.blankMsg = 'อ่านไฟล์ TOR ไม่สำเร็จ: ' + (e.message || e); }
+    render();
+  }
+  async function makeBlank() {
+    var d = st.blank;
+    if (!(num(d.qty) > 0) || !(num(d.mid) > 0)) { alert('กรุณากรอกจำนวน (ราย) และราคากลางต่อหน่วย'); return; }
+    try {
+      st.blankMsg = 'กำลังสร้างแบบฟอร์ม…'; render();
+      var libs = await Promise.all([loadPdfLib(), loadFontkit(), fileBytes(BLANK_FILES.regular), fileBytes(BLANK_FILES.bold), fileBytes(BLANK_FILES.logo).catch(function () { return null; })]);
+      var bytes = await blankFormPdf(libs[0], libs[1], { regular: libs[2], bold: libs[3], logo: libs[4] }, d);
+      var site = (st.fromBids && st.fromBids.site) || String(d.area || '').replace(/^(กฟส|กฟจ|กฟอ)\.?\s*/, '');
+      st.blank = null; st.blankMsg = '';
+      await openBytes(new Uint8Array(bytes), site || 'แบบฟอร์มเปล่า', null, null, site);
+    } catch (e) { console.error('quote-notice blank', e); st.blankMsg = 'สร้างแบบฟอร์มไม่สำเร็จ: ' + (e.message || e); render(); }
+  }
+  function renderBlank(w) {
+    var d = st.blank, F = [['work', 'ชื่องาน'], ['office', 'ในเขตพื้นที่ระบบจำหน่ายของ'], ['year', 'ปีงบประมาณ'], ['area', 'พื้นที่'],
+      ['areaList', 'กฟส. ในพื้นที่ (ถ้ามี)'], ['activity', 'กิจกรรม'], ['qty', 'จำนวน (ราย)'], ['mid', 'ราคากลางต่อหน่วย (บาท)']];
+    w.innerHTML =
+      '<div class="qn-head"><div><h2>แบบฟอร์มเปล่า' + (st.fromBids ? ' · ' + esc(st.fromBids.site || '') : '') + '</h2><p>สำหรับไซด์ที่ TOR ไม่มีแบบฟอร์มใบเสนอราคา • ระบบสร้าง "รายละเอียดประกอบใบเสนอราคา" แบบเดียวกับ กฟส.ครบุรี (มีโลโก้การไฟฟ้า) แล้วเปิดให้กรอกราคาที่เสนอเหมือนฟอร์มของการไฟฟ้า</p></div></div>' +
+      '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="back">' + (st.fromBids ? '← กลับไปตารางประมูล' : '← กลับไปรายชื่อไซด์') + '</button></div>' +
+      '<div class="qn-card" style="max-width:720px"><input type="file" id="qnTor" accept="application/pdf,.pdf" hidden>' +
+      '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="blankTor">📥 นำเข้าข้อมูลจากไฟล์ TOR (ตารางราคากลาง)</button></div>' +
+      (st.blankMsg ? '<div class="qn-state" style="margin:-4px 0 8px">' + esc(st.blankMsg) + '</div>' : '') +
+      F.map(function (f) {
+        return '<div class="qn-line" style="align-items:center"><span style="min-width:190px">' + f[1] + '</span><input data-bf="' + f[0] + '" value="' + esc(d[f[0]] || '') + '"' +
+          (f[0] === 'qty' || f[0] === 'mid' ? ' inputmode="decimal" style="flex:1;width:auto;text-align:right"' : ' style="flex:1;width:auto;text-align:left"') + '></div>';
+      }).join('') +
+      '<div class="qn-sum qn-line"><span>วงเงินงบประมาณ รวมภาษีมูลค่าเพิ่ม</span><span id="qnBfBudget">' + money(blankBudget(d)) + ' บาท</span></div>' +
+      '<div class="qn-actions"><button class="qn-btn" data-qn="blankMake">✔ สร้างแบบฟอร์มและกรอกราคา</button></div></div>';
+    w.querySelectorAll('[data-bf]').forEach(function (el) { el.style.border = '1px solid #d9cfdf'; el.style.borderRadius = '8px'; el.style.padding = '7px 8px'; el.style.font = 'inherit'; el.style.margin = '3px 0'; });
+  }
+  // ตารางประมูลแจ้งเตือน → 📝 ใช้แบบฟอร์มเปล่า of one site
+  window.openQuoteNoticeBlank = async function (bid) {
+    if (!isAdmin()) { alert('เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
+    await flushSave();
+    closeJob();
+    st.fromBids = { id: bid.id, site: bid.site || '' };
+    st.blank = blankDefaults(bid); st.blankMsg = '';
+    showWorkspace('navNoticeBids');
+    render();
   };
 
   function boot() {
