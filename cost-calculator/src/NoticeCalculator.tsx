@@ -5,13 +5,19 @@ import NoticeReport from './NoticeReport';
 import { datedFileName } from './fileName';
 
 const KEY = 'epc:electricity-notice:v1';
-const SHARED_TOTALS_REVISION = 'confirmed-totals-2026-10-29-v1';
+const SHARED_TOTALS_REVISION = 'confirmed-totals-2026-10-29-v2';
 const SHARED_COST_KEYS: (keyof Values)[] = [
   'supervisorTotal',
   'qcTotal',
   'staff',
   'documents',
   'hospitality',
+];
+// Values confirmed for every site at once: reset to the defaults when the revision changes.
+const CONFIRMED_KEYS: (keyof Values)[] = [
+  ...SHARED_COST_KEYS,
+  'paper',
+  'printer',
 ];
 // Shared costs (supervisors, QC, staff, documents, hospitality) are split over the
 // won sites: by monthly jobs (the site's jobs over all of their jobs) or equally.
@@ -134,7 +140,7 @@ export function loadNoticeValues(storageKey: string, bid?: BidSource): Values {
       }
     }
     if (saved?.sharedTotalsRevision !== SHARED_TOTALS_REVISION) {
-      for (const key of SHARED_COST_KEYS) result[key] = defaults[key];
+      for (const key of CONFIRMED_KEYS) result[key] = defaults[key];
     }
     if (saved && saved.auction === undefined) result.auction = result.price;
     if (bid && saved?.bidSource !== sourceTag(bid)) {
@@ -254,7 +260,7 @@ export default function NoticeCalculator({
   const [message, setMessage] = useState('');
   useEffect(() => {
     try {
-      // Reset only the five confirmed totals once, across all notice-site records.
+      // Reset the confirmed values once, across all notice-site records.
       const noticeKeys = storageKeys().filter(
         (key) => key === KEY || key.startsWith(KEY + ':site:'),
       );
@@ -271,8 +277,7 @@ export default function NoticeCalculator({
           ...record,
           sharedTotalsRevision: SHARED_TOTALS_REVISION,
         };
-        for (const field of SHARED_COST_KEYS)
-          corrected[field] = defaults[field];
+        for (const field of CONFIRMED_KEYS) corrected[field] = defaults[field];
         cloudStorage.setItem(key, JSON.stringify(corrected), true);
       }
       const saved = JSON.parse(cloudStorage.getItem(storageKey) || 'null');
