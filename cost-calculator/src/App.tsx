@@ -278,7 +278,7 @@ const readSavedOperating = (key: MenuKey): Cost[] => {
   return createDefaultOperatingCosts();
 };
 const defaultMonthlyBuys: BuyCost[] = [
-  { label: 'กระดาษ/แบบฟอร์ม (ก่อน VAT)', value: 0 },
+  { label: 'กระดาษ/แบบฟอร์ม (ก่อน VAT)', value: 0.24 },
   { label: 'วัสดุสิ้นเปลืองอื่น (ก่อน VAT)', value: 0 },
 ];
 const defaultEquipment: BuyCost[] = [
