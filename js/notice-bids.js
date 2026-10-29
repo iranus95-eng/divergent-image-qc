@@ -416,6 +416,8 @@
       '.nb-site{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e5dced;border-radius:10px;background:#fff;padding:10px 12px;font:inherit;font-weight:700;color:#3b2252;cursor:pointer}' +
       '.nb-site:hover{border-color:#7b4bab;background:#faf6fd}.nb-site .no{min-width:26px;color:#8a7a9a;font-weight:600;font-size:12px}.nb-site .go{margin-left:auto;color:#a08cb6}' +
       '.nb-site .nm{display:flex;flex-direction:column;gap:2px}.nb-site small{font-weight:600;font-size:12px;color:#6b5d7a}.nb-site.today{border-color:#3a9a5b;background:#f2fbf5}.nb-site.today small{color:#2d7a47}' +
+      '.nb-item.today{border-radius:10px;animation:nbBlink 1s step-end infinite}@keyframes nbBlink{0%{box-shadow:0 0 0 3px #e11d2e}50%{box-shadow:0 0 0 3px transparent}}' +
+      '@media (prefers-reduced-motion:reduce){.nb-item.today{animation:none;box-shadow:0 0 0 3px #e11d2e}}' +
       '.nb-site.past{opacity:.6}.nb-item{position:relative;display:flex;flex-direction:column}.nb-item .nb-site{padding-right:44px;border-radius:10px 10px 0 0}.nb-item .nb-site .go{display:none}' +
       '.nb-q{border:1px solid #e5dced;border-top:0;border-radius:0 0 10px 10px;background:#f7f3fb;color:#5a2787;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;text-align:left;cursor:pointer}.nb-q:hover{background:#efe6f8}' +
       '.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
@@ -528,7 +530,7 @@
     box.innerHTML = rows.length ? '<div class="nb-list">' + rows.map(function (r, i) {
       var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
       var when = day ? (day === today ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (day < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
-      return '<div class="nb-item"><button class="nb-site' + (day && day < today ? ' past' : '') + (day === today ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
+      return '<div class="nb-item' + (day === today ? ' today' : '') + '"><button class="nb-site' + (day && day < today ? ' past' : '') + (day === today ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' + quoteBtn(r) +
         '<button class="nb-x" data-nb="del" data-i="' + r.id + '" title="ลบไซด์นี้" aria-label="ลบ ' + esc(r.site || '') + '">🗑</button></div>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
