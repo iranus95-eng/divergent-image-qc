@@ -12,7 +12,11 @@
         user = null;
       }
     }
-    return String((user && user.role) || '').toLowerCase() === 'admin';
+    // only the main "admin" account, not every user whose role is admin
+    return (
+      String((user && user.role) || '').toLowerCase() === 'admin' &&
+      String((user && user.username) || '').toLowerCase() === 'admin'
+    );
   }
   function sync() {
     var side = document.querySelector('.side-nav');
