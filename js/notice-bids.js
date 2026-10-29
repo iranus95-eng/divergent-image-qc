@@ -38,6 +38,18 @@
     render();
   }
 
+  // the same summary pg_cron pushes every morning, sent now to every admin who linked LINE
+  var LINE_ERR = { NO_ADMIN_LINKED_LINE: 'ยังไม่มีแอดมินที่ผูก LINE', LINE_CHANNEL_ACCESS_TOKEN_MISSING: 'ยังไม่ได้ตั้งค่า LINE OA', LINE_PUSH_FAILED: 'LINE ไม่รับข้อความ (โควตาเต็มหรือแอดมินบล็อก OA)' };
+  async function sendLine(b) {
+    if (!confirm('ส่งสรุปตารางประมูล (วันนี้ / พรุ่งนี้ / 7 วัน) เข้า LINE แอดมินตอนนี้?')) return;
+    b.disabled = true;
+    try {
+      var j = await call({ action: 'line_alert' });
+      alert(j.ok ? 'ส่งเข้า LINE แอดมินแล้ว ' + j.sent + ' คน' : 'ส่งไม่สำเร็จ: ' + (LINE_ERR[j.reason] || j.reason));
+    } catch (e) { alert('ส่งไม่สำเร็จ: ' + (e.message || e)); }
+    finally { b.disabled = false; }
+  }
+
   // the saved quotations (เสนอราคาแจ้งเตือน), shown on each site; refreshed every time the page opens
   async function loadQuotes() {
     try { st.quotes = (await call({ action: 'list' }, QUOTE_API)).items || []; } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; }
@@ -444,6 +456,7 @@
       if (a === 'add') addRow();
       if (a === 'xlsx') exportExcel().catch(function (er) { alert('ส่งออก Excel ไม่สำเร็จ: ' + (er.message || er)); });
       if (a === 'del') deleteRow(i);
+      if (a === 'line') sendLine(b);
       if (a === 'quote') {
         var row = (st.rows || []).filter(function (x) { return x.id === i; })[0];
         if (row && typeof window.openQuoteNoticeForSite === 'function') window.openQuoteNoticeForSite(row);
@@ -562,7 +575,7 @@
       '<div class="nb-drop" data-nb="pick">' + (st.busy ? esc(st.busy) : '📄 กดเพื่อเลือกไฟล์ PDF ประกาศ และ TOR (เลือกหลายไฟล์พร้อมกันได้)<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div>' + pendingHtml() + '</div>' +
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '><select id="nbZone"><option value="">ทุกเขต</option>' + Object.keys(zones).sort().map(function (z) { return '<option value="' + esc(z) + '"' + (z === st.zone ? ' selected' : '') + '>' + (z === '-' ? 'ไม่ระบุเขต' : esc(z)) + '</option>'; }).join('') + '</select>' +
       '<input id="nbQ" placeholder="ค้นหาไซด์งาน / เลขที่โครงการ" value="' + esc(st.q) + '">' +
-      '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button></div>' +
+      '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งสรุปไซด์ที่เคาะราคาวันนี้/พรุ่งนี้/7 วัน เข้า LINE แอดมินทุกคน (ระบบส่งเองทุกเช้า 07:00)">📣 ส่งเข้า LINE แอดมิน</button></div>' +
       '<div id="nbTable"></div>';
     renderTable();
   }
