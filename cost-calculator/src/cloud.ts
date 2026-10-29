@@ -111,6 +111,36 @@ export async function loadNoticeBids(fiscalYear = 2570): Promise<NoticeBid[]> {
   }));
 }
 
+// Marks a site won (or not) the same way ตารางประมูลแจ้งเตือน does: its status reads "ชนะประมูล".
+export async function saveNoticeBidStatus(id: number, status: string) {
+  await call({ action: 'save', id, row: { status } }, BIDS_ENDPOINT);
+}
+
+const QUOTE_ENDPOINT =
+  'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';
+
+// The unit price typed in each priced เสนอราคาแจ้งเตือน job (the first one when its rows differ).
+export async function loadQuotePrices(): Promise<
+  { title: string; price: number }[]
+> {
+  const { items } = await call({ action: 'list' }, QUOTE_ENDPOINT);
+  const priced = (items as Record<string, unknown>[]).filter(
+    (item) => Number(item.total_amount) > 0,
+  );
+  const quotes = await Promise.all(
+    priced.map(async (item) => {
+      const { item: full } = await call(
+        { action: 'get', id: item.id },
+        QUOTE_ENDPOINT,
+      );
+      const rows = (full?.state?.rows || []) as { price?: unknown }[];
+      const price = rows.map((row) => Number(row.price)).find((v) => v > 0);
+      return { title: String(item.title || ''), price: price ?? 0 };
+    }),
+  );
+  return quotes.filter((quote) => quote.price > 0);
+}
+
 export function initialize() {
   if (!initialization)
     initialization = (async () => {
