@@ -484,6 +484,11 @@
         if (row && typeof window.openQuoteNoticeForSite === 'function') window.openQuoteNoticeForSite(row);
         else alert('ยังเปิดหน้าใบเสนอราคาไม่ได้ ลองรีเฟรชหน้าเว็บ');
       }
+      if (a === 'blank') {   // the TOR has no quotation form: draw one from the site's figures (เสนอราคาแจ้งเตือน)
+        var br = (st.rows || []).filter(function (x) { return x.id === i; })[0];
+        if (br && typeof window.openQuoteNoticeBlank === 'function') window.openQuoteNoticeBlank(br);
+        else alert('ยังเปิดหน้าใบเสนอราคาไม่ได้ ลองรีเฟรชหน้าเว็บ');
+      }
       if (a === 'open') { st.open = i; render(); window.scrollTo(0, 0); }
       if (a === 'back') { st.open = null; render(); }
       if (a === 'ok') confirmPending(i);
@@ -595,7 +600,8 @@
   function detailHtml(r) {
     var d = derived(r);
     return '<div class="nb-bar"><button class="nb-btn soft" data-nb="back">← กลับไปรายชื่อไซด์</button></div>' +
-      '<div class="nb-detail" data-row="' + r.id + '"><h3 data-d="name">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '</h3><small>แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ</small><div class="nb-bar" style="margin:10px 0 0">' + quoteBtn(r, true) + '</div><div class="nb-form">' +
+      '<div class="nb-detail" data-row="' + r.id + '"><h3 data-d="name">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '</h3><small>แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ</small><div class="nb-bar" style="margin:10px 0 0">' + quoteBtn(r, true) +
+        '<button class="nb-q big" data-nb="blank" data-i="' + r.id + '" title="สำหรับไซด์ที่ TOR ไม่มีแบบฟอร์มใบเสนอราคา"><span class="nb-q1">📝 ใช้แบบฟอร์มเปล่า</span></button></div><div class="nb-form">' +
       field(r, 'zone', 'เขต') + field(r, 'site', 'ไซด์งาน') + field(r, 'office', 'สาขา') + field(r, 'project_no', 'เลขที่โครงการ') +
       field(r, 'budget', 'วงเงิน (รวม VAT)', 'r') + shown('วงเงิน/เดือน', 'bm', fmt(d.budgetMonth, 2)) +
       '<label>จำนวนราย/ปี<input class="r" data-id="' + r.id + '" data-k="qty" value="' + esc(r.qty == null ? '' : fmt(r.qty)) + '" placeholder="' + (d.est ? fmt(d.qty) : '') + '" title="ว่าง = คำนวณจากวงเงิน ÷ 1.07 ÷ ราคากลาง"></label>' +
