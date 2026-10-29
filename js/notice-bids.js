@@ -458,6 +458,10 @@
       '.nb-q1{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nb-up{display:block;font-weight:600;font-size:11.5px;color:#4d6b57;margin-top:1px}.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
       '.nb-x{position:absolute;top:24px;right:8px;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:15px;opacity:.45;padding:6px;border-radius:8px}.nb-x:hover{opacity:1;background:#fbecec}' +
       '.nb-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
+      '.nb-sum{display:flex;flex-direction:column;border:1px solid #f0c36d;background:#fff8e6;color:#8a5b00;border-radius:9px;padding:5px 12px;font-weight:700;line-height:1.3}.nb-sum small{font-size:12px;font-weight:600}' +
+      '.nb-today{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;border:1px solid #d9c5ee;background:#f4ecfb;color:#4b2378;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-weight:600}' +
+      '.nb-today.none{background:#faf8fc;border-color:#eee7f4;color:#a497b2}.nb-today .chips{display:flex;gap:6px;flex-wrap:wrap}' +
+      '.nb-today .chip{background:#fff;border:1px solid #d9c5ee;border-radius:999px;padding:2px 10px;font-size:13px;font-weight:700}.nb-today .chip.more{background:#e6d6f5}' +
       '.nb-detail{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:16px}.nb-detail h3{margin:6px 0 2px;color:#4b2378;font-size:20px}' +
       '.nb-detail[data-state=saving]{box-shadow:inset 4px 0 #e0a24a}.nb-detail[data-state=err]{box-shadow:inset 4px 0 #d33}.nb-detail[data-state=ok]{box-shadow:inset 4px 0 #3a9a5b}' +
       '.nb-detail .nb-form input.r{text-align:right}.nb-detail .nb-form input.nb-bad{border-color:#d33;background:#fff0f0}' +
@@ -582,6 +586,27 @@
     var box = document.getElementById('nbTable');
     if (box && box.offsetParent && st.rows && st.open == null && st.endedKey !== endedKey()) renderTable();
   }, 60e3);
+  // the two summaries above the list follow the zone picked (not the search box or the 🏆 filter)
+  function zoneRows() { return (st.rows || []).filter(function (r) { return !st.zone || (r.zone || '') === (st.zone === '-' ? '' : st.zone); }); }
+  function perMonth(rows) { return rows.reduce(function (s, r) { return s + (derived(r).qtyMonth || 0); }, 0); }
+  function renderSummary() {
+    var rows = zoneRows(), today = todayIso();
+    var sum = document.getElementById('nbOpenSum');
+    if (sum) {
+      var open = rows.filter(function (r) { return !won(r); });
+      sum.innerHTML = 'ยังไม่มีผู้ชนะ <b>' + open.length + '</b> ไซด์<small>รวม ' + fmt(Math.round(perMonth(open))) + ' ราย/เดือน</small>';
+    }
+    var bar = document.getElementById('nbToday');
+    if (bar) {
+      var todays = rows.filter(function (r) { return r.bid_date && String(r.bid_date).slice(0, 10) === today; });
+      var p = today.split('-'), date = p[2] + '/' + p[1] + '/' + (Number(p[0]) + 543), MAX = 4;
+      bar.classList.toggle('none', !todays.length);
+      bar.innerHTML = !todays.length ? 'วันนี้ไม่มีประมูล' :
+        '<b>📅 ประมูลวันนี้ ' + date + '</b> · ' + todays.length + ' ไซด์ · ' + fmt(Math.round(perMonth(todays))) + ' ราย/เดือน<span class="chips">' +
+        todays.slice(0, MAX).map(function (r) { var m = derived(r).qtyMonth; return '<span class="chip">' + esc(r.site || '(ไม่มีชื่อไซด์)') + (m ? ' · ' + fmt(Math.round(m)) + '/เดือน' : '') + '</span>'; }).join('') +
+        (todays.length > MAX ? '<span class="chip more">+' + (todays.length - MAX) + ' ไซด์</span>' : '') + '</span>';
+    }
+  }
   // the menu lists the sites by name only; a site's details open when its name is clicked
   function renderTable() {
     var box = document.getElementById('nbTable'); if (!box) return;
@@ -590,6 +615,7 @@
     var open = st.open != null ? (st.rows || []).filter(function (x) { return x.id === st.open; })[0] : null;
     if (open) { box.innerHTML = detailHtml(open); return; }
     st.open = null; st.endedKey = endedKey();
+    renderSummary();
     var rows = byAuction(visibleRows()), today = todayIso();
     box.innerHTML = rows.length ? '<div class="nb-list">' + rows.map(function (r, i) {
       var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
@@ -628,10 +654,12 @@
     w.innerHTML = '<div class="nb-head"><div><h2>ตารางประมูลแจ้งเตือน ปี 2570</h2><p>วางไฟล์ PDF ประกาศ + TOR ระบบอ่านข้อมูลเข้าตาราง • กดชื่อไซด์เพื่อดูและแก้รายละเอียด • กด 📄 ใต้ชื่อไซด์เพื่อทำ/เปิดใบเสนอราคา บันทึกอัตโนมัติ</p></div></div>' +
       '<div class="nb-card"><input type="file" id="nbFile" accept="application/pdf,.pdf" multiple hidden>' +
       '<div class="nb-drop" data-nb="pick">' + (st.busy ? esc(st.busy) : '📄 กดเพื่อเลือกไฟล์ PDF ประกาศ และ TOR (เลือกหลายไฟล์พร้อมกันได้)<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div>' + pendingHtml() + '</div>' +
-      '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '><select id="nbZone"><option value="">ทุกเขต</option>' + Object.keys(zones).sort().map(function (z) { return '<option value="' + esc(z) + '"' + (z === st.zone ? ' selected' : '') + '>' + (z === '-' ? 'ไม่ระบุเขต' : esc(z)) + '</option>'; }).join('') + '</select>' +
+      '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '><select id="nbZone"><option value="">ทุกเขต</option>' + Object.keys(zones).sort().map(function (z) { return '<option value="' + esc(z) + '"' + (z === st.zone ? ' selected' : '') + '>' + (z === '-' ? 'ไม่ระบุเขต' : esc(z)) + '</option>'; }).join('') + '</select></div>' +
+      '<div id="nbToday" class="nb-today"' + (st.open != null ? ' style="display:none"' : '') + '></div>' +
+      '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '>' +
       '<input id="nbQ" placeholder="ค้นหาไซด์งาน / เลขที่โครงการ" value="' + esc(st.q) + '">' +
       '<button class="nb-btn won' + (st.wonOnly ? ' on' : '') + '" data-nb="won" title="แสดงเฉพาะไซด์ที่ชนะประมูล">🏆 ชนะประมูล ' + (st.rows || []).filter(won).length + ' ไซด์</button>' +
-      '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมิน (วันที่มีประมูล ระบบส่งเอง 07:00 และทุก 30 นาที 09:00-12:00, 13:00-16:00)">📣 ส่งเข้า LINE แอดมิน</button></div>' +
+      '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมิน (วันที่มีประมูล ระบบส่งเอง 07:00 และทุก 30 นาที 09:00-12:00, 13:00-16:00)">📣 ส่งเข้า LINE แอดมิน</button><div id="nbOpenSum" class="nb-sum"></div></div>' +
       '<div id="nbTable"></div>';
     renderTable();
   }
