@@ -43,7 +43,7 @@ const defaults = {
   supervisorTotal: 90000,
   qcPeople: 3,
   qcTotal: 9000,
-  paper: 0.26,
+  paper: 0.24,
   waste: 2,
   documents: 350,
   staff: 50000,
