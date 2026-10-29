@@ -593,9 +593,11 @@
     var rows = zoneRows(), today = todayIso();
     var sum = document.getElementById('nbOpenSum');
     if (sum) {
-      // still up for grabs: not won and not cancelled (a past auction with no winner marked still counts)
+      // still up for grabs: not won and not cancelled; split into auctions still to come and those held without a result marked
       var open = rows.filter(function (r) { return !won(r) && String(r.status || '').indexOf('ยกเลิก') < 0; });
-      sum.innerHTML = '<span>ยังไม่มีผู้ชนะ <b>' + fmt(Math.round(perMonth(open))) + '</b> ราย/เดือน</span><small>จาก ' + open.length + ' ไซด์ที่ยังไม่ได้ประมูลหรือยังไม่มีผู้ชนะ</small>';
+      var past = open.filter(ended), ahead = open.filter(function (r) { return !ended(r); });
+      sum.innerHTML = '<span>ยังไม่ประมูล <b>' + fmt(Math.round(perMonth(ahead))) + '</b> ราย/เดือน · ' + ahead.length + ' ไซด์</span>' +
+        '<small>ประมูลแล้ว ยังไม่บันทึกผล ' + fmt(Math.round(perMonth(past))) + ' ราย/เดือน · ' + past.length + ' ไซด์</small>';
     }
     var bar = document.getElementById('nbToday');
     if (bar) {
