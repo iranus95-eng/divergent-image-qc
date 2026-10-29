@@ -26,8 +26,9 @@ const num = (v: unknown, d = 4) => {
 };
 const text = (v: unknown, max = 200) => { const s = String(v ?? "").trim(); return s ? s.slice(0, max) : null; };
 const date = (v: unknown) => { const s = String(v ?? ""); return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s)) ? s : null; };
-// ---- LINE alert to admins: sites whose price auction (bid_date) is today / tomorrow / within 7 days.
+// ---- LINE alert to the admin in ALERT_USERNAMES: sites whose price auction (bid_date) is today / tomorrow / within 7 days.
 // Sent every morning by pg_cron (header x-cron-key, checked against the vault) or by an admin's 📣 button.
+const ALERT_USERNAMES = ["admin"];   // who gets the alert (app_users.username, must be an active admin with LINE linked)
 const TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 const bkkDay = (offset = 0) => new Date(Date.now() + 7 * 3600_000 + offset * 86400_000).toISOString().slice(0, 10);
 const thDate = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return `${dd} ${TH_MONTHS[m - 1]} ${String(y + 543).slice(2)}`; };
@@ -54,7 +55,7 @@ async function sendAlert(force: boolean) {
   if (error) throw error;
   let text = alertText(data || [], today, tomorrow, until);
   if (!text) { if (!force) return { ok: true, sent: 0, reason: "NOTHING_DUE" }; text = `🔔 ตารางประมูลแจ้งเตือน (${thDate(today)})\nไม่มีไซด์ที่เคาะราคาภายใน 7 วันนี้`; }
-  const { data: admins, error: ae } = await db.from("app_users").select("line_user_id,expires_at").eq("is_active", true).ilike("role", "admin").not("line_user_id", "is", null);
+  const { data: admins, error: ae } = await db.from("app_users").select("line_user_id,expires_at").eq("is_active", true).ilike("role", "admin").in("username", ALERT_USERNAMES).not("line_user_id", "is", null);
   if (ae) throw ae;
   const to = [...new Set((admins || []).filter((u) => !u.expires_at || Date.parse(u.expires_at) > Date.now()).map((u) => u.line_user_id))];
   const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") || "";
