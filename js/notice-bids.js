@@ -520,9 +520,18 @@
   }
   // the site list: auctions from today on first (soonest first), then sites without a date, then auctions already past
   function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
+  // the auction is over once its day is past, or today after the end of its hours ("09.00-12.00 น." ends at 12:00)
+  function ended(r) {
+    var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '', today = todayIso();
+    if (!day || day > today) return false;
+    if (day < today) return true;
+    var t = String(r.bid_time || '').match(/(\d{1,2})[.:](\d{2})(?!.*\d{1,2}[.:]\d{2})/);
+    if (!t) return false;
+    var now = new Date(Date.now() + 7 * 3600e3);
+    return now.getUTCHours() * 60 + now.getUTCMinutes() >= +t[1] * 60 + +t[2];
+  }
   function byAuction(rows) {
-    var today = todayIso();
-    var group = function (r) { return !r.bid_date ? 1 : (String(r.bid_date).slice(0, 10) >= today ? 0 : 2); };
+    var group = function (r) { return !r.bid_date ? 1 : ended(r) ? 2 : 0; };
     return rows.slice().sort(function (a, b) {
       return group(a) - group(b) || String(a.bid_date || '').localeCompare(String(b.bid_date || '')) ||
         String(a.bid_time || '').localeCompare(String(b.bid_time || '')) || (a.seq || 1e9) - (b.seq || 1e9) || a.id - b.id;
@@ -553,6 +562,12 @@
         '<div class="nb-bar"><button class="nb-btn" data-nb="ok" data-i="' + i + '">✔ บันทึกลงตาราง</button><button class="nb-btn soft" data-nb="drop" data-i="' + i + '">ยกเลิก</button></div></div>';
     }).join('');
   }
+  // a site whose auction hours end while the list is open drops to the bottom on its own
+  function endedKey() { return todayIso() + ':' + (st.rows || []).filter(ended).map(function (r) { return r.id; }).join(','); }
+  setInterval(function () {
+    var box = document.getElementById('nbTable');
+    if (box && box.offsetParent && st.rows && st.open == null && st.endedKey !== endedKey()) renderTable();
+  }, 60e3);
   // the menu lists the sites by name only; a site's details open when its name is clicked
   function renderTable() {
     var box = document.getElementById('nbTable'); if (!box) return;
@@ -560,12 +575,13 @@
     if (st.err) { box.innerHTML = '<div class="nb-empty">โหลดตารางไม่สำเร็จ: ' + esc(st.err) + ' <button class="nb-btn soft" data-nb="reload">ลองใหม่</button></div>'; return; }
     var open = st.open != null ? (st.rows || []).filter(function (x) { return x.id === st.open; })[0] : null;
     if (open) { box.innerHTML = detailHtml(open); return; }
-    st.open = null;
+    st.open = null; st.endedKey = endedKey();
     var rows = byAuction(visibleRows()), today = todayIso();
     box.innerHTML = rows.length ? '<div class="nb-list">' + rows.map(function (r, i) {
       var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
-      var when = day ? (day === today ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (day < today ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
-      return '<div class="nb-item' + (day === today ? ' today' : '') + '"><button class="nb-site' + (day && day < today ? ' past' : '') + (day === today ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
+      var over = ended(r), now = day === today && !over;
+      var when = day ? (now ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (over ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
+      return '<div class="nb-item' + (now ? ' today' : '') + '"><button class="nb-site' + (over ? ' past' : '') + (now ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' + quoteBtn(r) +
         '<button class="nb-x" data-nb="del" data-i="' + r.id + '" title="ลบไซด์นี้" aria-label="ลบ ' + esc(r.site || '') + '">🗑</button></div>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
