@@ -33,6 +33,7 @@ const defaults = {
   budget: 19200000,
   jobs: 200000,
   capacity: 2500,
+  workers: 0, // พนักงานส่งใบแจ้งเตือน typed by hand; 0 = jobs ÷ capacity
   price: 8,
   auction: 8,
   labor: 3.5,
@@ -60,6 +61,7 @@ const groups: { title: string; fields: Field[] }[] = [
     fields: [
       ['jobs', 'จำนวนรายต่อเดือน (คำนวณอัตโนมัติ)'],
       ['capacity', 'กำลังงานเฉลี่ย (ราย/คน/เดือน)', 1],
+      ['workers', 'พนักงานส่งใบแจ้งเตือน (คน, 0 = คำนวณอัตโนมัติ)', 1],
       ['price', 'ราคากลาง (บาท/ราย)'],
       ['auction', 'ราคาที่ประมูล (บาท/ราย)'],
     ],
@@ -158,7 +160,12 @@ export function loadNoticeValues(storageKey: string, bid?: BidSource): Values {
 
 // One site's monthly figures; the summary of the won sites uses the same formula.
 export function computeNotice(v: Values, share: number) {
-  const workers = v.capacity > 0 ? Math.ceil(v.jobs / v.capacity) : 0;
+  const workers =
+    v.workers > 0
+      ? v.workers
+      : v.capacity > 0
+        ? Math.ceil(v.jobs / v.capacity)
+        : 0;
   const paperCount = Math.ceil(v.jobs * (1 + v.waste / 100));
   const labor = v.jobs * v.labor;
   const supervisorCost = allocateSharedCost(v.supervisorTotal, share);
@@ -364,6 +371,7 @@ export default function NoticeCalculator({
     values.price <= 0 ||
     !Number.isFinite(values.jobs) ||
     !Number.isInteger(values.capacity) ||
+    !Number.isInteger(values.workers) ||
     !Number.isInteger(values.supervisors) ||
     !Number.isInteger(values.qcPeople) ||
     values.withholding > 100 ||

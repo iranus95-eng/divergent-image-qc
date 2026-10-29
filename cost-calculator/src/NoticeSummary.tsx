@@ -85,6 +85,7 @@ export default function NoticeSummary({
             <tr>
               <th>ไซด์</th>
               <th>ราย/เดือน</th>
+              <th>พนักงาน (คน)</th>
               <th>ราคาที่ชนะ</th>
               <th>รายรับ</th>
               <th>ค่าแรง + กระดาษ</th>
@@ -109,6 +110,7 @@ export default function NoticeSummary({
                   </small>
                 </td>
                 <td>{fmt(line.values.jobs)}</td>
+                <td>{fmt(line.workers)}</td>
                 <td>{fmt(line.values.auction, 2)}</td>
                 <td>{fmt(line.revenue)}</td>
                 <td>{fmt(line.direct)}</td>
@@ -126,6 +128,7 @@ export default function NoticeSummary({
             <tr className="font-bold">
               <td>รวม {sites.length} ไซด์</td>
               <td>{fmt(total((line) => line.values.jobs))}</td>
+              <td>{fmt(total((line) => line.workers))}</td>
               <td></td>
               <td>{fmt(revenue)}</td>
               <td>{fmt(total((line) => line.direct))}</td>
