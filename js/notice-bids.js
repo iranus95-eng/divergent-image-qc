@@ -38,10 +38,10 @@
     render();
   }
 
-  // the same summary pg_cron pushes every morning, sent now to the admin set in notice-bid-api (ALERT_USERNAMES)
+  // today's auctions, the same summary pg_cron pushes on auction days, sent now to the admin set in notice-bid-api (ALERT_USERNAMES)
   var LINE_ERR = { NO_ADMIN_LINKED_LINE: 'แอดมินผู้รับยังไม่ได้ผูก LINE', LINE_CHANNEL_ACCESS_TOKEN_MISSING: 'ยังไม่ได้ตั้งค่า LINE OA', LINE_PUSH_FAILED: 'LINE ไม่รับข้อความ (โควตาเต็มหรือแอดมินบล็อก OA)' };
   async function sendLine(b) {
-    if (!confirm('ส่งสรุปตารางประมูล (วันนี้ / พรุ่งนี้ / 7 วัน) เข้า LINE แอดมินตอนนี้?')) return;
+    if (!confirm('ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมินตอนนี้?')) return;
     b.disabled = true;
     try {
       var j = await call({ action: 'line_alert' });
@@ -575,7 +575,7 @@
       '<div class="nb-drop" data-nb="pick">' + (st.busy ? esc(st.busy) : '📄 กดเพื่อเลือกไฟล์ PDF ประกาศ และ TOR (เลือกหลายไฟล์พร้อมกันได้)<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div>' + pendingHtml() + '</div>' +
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '><select id="nbZone"><option value="">ทุกเขต</option>' + Object.keys(zones).sort().map(function (z) { return '<option value="' + esc(z) + '"' + (z === st.zone ? ' selected' : '') + '>' + (z === '-' ? 'ไม่ระบุเขต' : esc(z)) + '</option>'; }).join('') + '</select>' +
       '<input id="nbQ" placeholder="ค้นหาไซด์งาน / เลขที่โครงการ" value="' + esc(st.q) + '">' +
-      '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งสรุปไซด์ที่เคาะราคาวันนี้/พรุ่งนี้/7 วัน เข้า LINE แอดมิน (ระบบส่งเองทุกเช้า 07:00)">📣 ส่งเข้า LINE แอดมิน</button></div>' +
+      '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมิน (วันที่มีประมูล ระบบส่งเอง 07:00 และทุก 30 นาที 09:00-12:00, 13:00-16:00)">📣 ส่งเข้า LINE แอดมิน</button></div>' +
       '<div id="nbTable"></div>';
     renderTable();
   }

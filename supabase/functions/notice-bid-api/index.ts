@@ -26,35 +26,48 @@ const num = (v: unknown, d = 4) => {
 };
 const text = (v: unknown, max = 200) => { const s = String(v ?? "").trim(); return s ? s.slice(0, max) : null; };
 const date = (v: unknown) => { const s = String(v ?? ""); return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s)) ? s : null; };
-// ---- LINE alert to the admin in ALERT_USERNAMES: sites whose price auction (bid_date) is today / tomorrow / within 7 days.
-// Sent every morning by pg_cron (header x-cron-key, checked against the vault) or by an admin's 📣 button.
+// ---- LINE alert to the admin in ALERT_USERNAMES: only the sites whose price auction (bid_date) is today.
+// pg_cron sends a summary at 07:00 and repeats on auction days (header x-cron-key, checked against the vault); admins also have a 📣 button.
 const ALERT_USERNAMES = ["admin"];   // who gets the alert (app_users.username, must be an active admin with LINE linked)
 const TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-const bkkDay = (offset = 0) => new Date(Date.now() + 7 * 3600_000 + offset * 86400_000).toISOString().slice(0, 10);
+const bkkDay = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 const thDate = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return `${dd} ${TH_MONTHS[m - 1]} ${String(y + 543).slice(2)}`; };
 const baht = (v: unknown) => v == null ? "" : Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 });
-export function alertText(rows: any[], today: string, tomorrow: string, until: string) {
-  const live = rows.filter((r) => r.bid_date && r.bid_date >= today && r.bid_date <= until && !String(r.status || "").includes("ยกเลิก"));
+export function alertText(rows: any[], today: string) {
+  const live = rows.filter((r) => r.bid_date === today && !String(r.status || "").includes("ยกเลิก"));
   if (!live.length) return "";
   const line = (r: any) => `• ${r.site}${r.bid_time ? ` (${r.bid_time})` : ""}${r.office ? ` – ${r.office}` : ""}${r.budget != null ? ` งบ ${baht(r.budget)}` : ""}${r.price_bid != null ? ` เสนอ ${r.price_bid}` : ""}`;
-  const group = (title: string, list: any[]) => list.length ? [`${title} ${list.length} ไซด์`, ...list.map(line)].join("\n") : "";
-  const later = live.filter((r) => r.bid_date > tomorrow);
-  const parts = [
-    `🔔 ตารางประมูลแจ้งเตือน (${thDate(today)})`,
-    group(`🔴 เคาะราคาวันนี้`, live.filter((r) => r.bid_date === today)),
-    group(`🟠 พรุ่งนี้ ${thDate(tomorrow)}`, live.filter((r) => r.bid_date === tomorrow)),
-    later.length ? [`🗓 ภายใน 7 วัน ${later.length} ไซด์`, ...later.map((r) => `• ${thDate(r.bid_date)} ${r.site}${r.bid_time ? ` (${r.bid_time})` : ""}`)].join("\n") : "",
-  ].filter(Boolean);
-  const t = parts.join("\n\n");
+  const t = [`🔔 ตารางประมูลแจ้งเตือน (${thDate(today)})`, `🔴 เคาะราคาวันนี้ ${live.length} ไซด์`, ...live.map(line)].join("\n");
   return t.length > 4900 ? t.slice(0, 4880) + "\n…(ดูต่อในเว็บ)" : t;
 }
-async function sendAlert(force: boolean) {
-  const today = bkkDay(0), tomorrow = bkkDay(1), until = bkkDay(7);
+// on an auction day the cron calls every 30 min; only 09:00-12:00 and 13:00-16:00 (Bangkok) send, today's sites only
+export const inRepeatWindow = (hhmm: string) => (hhmm >= "09:00" && hhmm <= "12:00") || (hhmm >= "13:00" && hhmm <= "16:00");
+export function todayText(rows: any[], today: string, hhmm: string) {
+  const live = rows.filter((r) => r.bid_date === today && !String(r.status || "").includes("ยกเลิก"));
+  if (!live.length) return "";
+  const line = (r: any) => `• ${r.site}${r.bid_time ? ` (${r.bid_time})` : ""}${r.office ? ` – ${r.office}` : ""}`;
+  return [`⏰ ${hhmm} น. วันนี้เคาะราคา ${live.length} ไซด์`, ...live.map(line)].join("\n").slice(0, 4900);
+}
+async function bidsOn(day: string) {
   const { data, error } = await db.from("notice_bids").select("site,office,bid_date,bid_time,budget,price_bid,status")
-    .gte("bid_date", today).lte("bid_date", until).order("bid_date").order("bid_time").limit(300);
+    .eq("bid_date", day).order("bid_time").limit(300);
   if (error) throw error;
-  let text = alertText(data || [], today, tomorrow, until);
-  if (!text) { if (!force) return { ok: true, sent: 0, reason: "NOTHING_DUE" }; text = `🔔 ตารางประมูลแจ้งเตือน (${thDate(today)})\nไม่มีไซด์ที่เคาะราคาภายใน 7 วันนี้`; }
+  return data || [];
+}
+async function sendToday() {
+  const hhmm = new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 16);
+  if (!inRepeatWindow(hhmm)) return { ok: true, sent: 0, reason: "OUTSIDE_WINDOW" };
+  const today = bkkDay();
+  const text = todayText(await bidsOn(today), today, hhmm);
+  return text ? push(text) : { ok: true, sent: 0, reason: "NOTHING_DUE" };
+}
+async function sendAlert(force: boolean) {
+  const today = bkkDay();
+  let text = alertText(await bidsOn(today), today);
+  if (!text) { if (!force) return { ok: true, sent: 0, reason: "NOTHING_DUE" }; text = `🔔 ตารางประมูลแจ้งเตือน (${thDate(today)})\nวันนี้ไม่มีไซด์ที่เคาะราคา`; }
+  return push(text);
+}
+async function push(text: string) {
   const { data: admins, error: ae } = await db.from("app_users").select("line_user_id,expires_at").eq("is_active", true).ilike("role", "admin").in("username", ALERT_USERNAMES).not("line_user_id", "is", null);
   if (ae) throw ae;
   const to = [...new Set((admins || []).filter((u) => !u.expires_at || Date.parse(u.expires_at) > Date.now()).map((u) => u.line_user_id))];
@@ -84,7 +97,8 @@ Deno.serve(async (req) => {
       const { data: ok, error } = await db.rpc("notice_alert_key_ok", { k: cronKey });
       if (error) throw error;
       if (ok !== true) return json({ error: "CRON_KEY_INVALID" }, 403);
-      return json(await sendAlert(false));
+      const b = await req.json().catch(() => ({}));
+      return json(b?.action === "cron_today" ? await sendToday() : await sendAlert(false));
     }
     const user = await authAdmin(req);
     const body = await req.json().catch(() => ({}));
