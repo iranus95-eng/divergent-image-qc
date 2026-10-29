@@ -600,12 +600,12 @@
     var bar = document.getElementById('nbToday');
     if (bar) {
       var todays = rows.filter(function (r) { return r.bid_date && String(r.bid_date).slice(0, 10) === today; });
-      var p = today.split('-'), date = p[2] + '/' + p[1] + '/' + (Number(p[0]) + 543), MAX = 4;
+      var p = today.split('-'), date = p[2] + '/' + p[1] + '/' + (Number(p[0]) + 543);
       bar.classList.toggle('none', !todays.length);
       bar.innerHTML = !todays.length ? 'วันนี้ไม่มีประมูล' :
         '<b>📅 ประมูลวันนี้ ' + date + '</b> · ' + todays.length + ' ไซด์ · ' + fmt(Math.round(perMonth(todays))) + ' ราย/เดือน<span class="chips">' +
-        todays.slice(0, MAX).map(function (r) { var m = derived(r).qtyMonth; return '<span class="chip">' + esc(r.site || '(ไม่มีชื่อไซด์)') + (m ? ' · ' + fmt(Math.round(m)) + '/เดือน' : '') + '</span>'; }).join('') +
-        (todays.length > MAX ? '<span class="chip more">+' + (todays.length - MAX) + ' ไซด์</span>' : '') + '</span>';
+        todays.map(function (r) { var m = derived(r).qtyMonth; return '<span class="chip">' + esc(r.site || '(ไม่มีชื่อไซด์)') + (m ? ' · ' + fmt(Math.round(m)) + '/เดือน' : '') + '</span>'; }).join('') +
+        '</span>';
     }
   }
   // the menu lists the sites by name only; a site's details open when its name is clicked
