@@ -593,8 +593,9 @@
     var rows = zoneRows(), today = todayIso();
     var sum = document.getElementById('nbOpenSum');
     if (sum) {
-      var open = rows.filter(function (r) { return !won(r); });
-      sum.innerHTML = 'ยังไม่มีผู้ชนะ <b>' + open.length + '</b> ไซด์<small>รวม ' + fmt(Math.round(perMonth(open))) + ' ราย/เดือน</small>';
+      // still up for grabs: not won and not cancelled (a past auction with no winner marked still counts)
+      var open = rows.filter(function (r) { return !won(r) && String(r.status || '').indexOf('ยกเลิก') < 0; });
+      sum.innerHTML = '<span>ยังไม่มีผู้ชนะ <b>' + fmt(Math.round(perMonth(open))) + '</b> ราย/เดือน</span><small>จาก ' + open.length + ' ไซด์ที่ยังไม่ได้ประมูลหรือยังไม่มีผู้ชนะ</small>';
     }
     var bar = document.getElementById('nbToday');
     if (bar) {
