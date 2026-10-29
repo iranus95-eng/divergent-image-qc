@@ -26,6 +26,58 @@ const num = (v: unknown, d = 4) => {
 };
 const text = (v: unknown, max = 200) => { const s = String(v ?? "").trim(); return s ? s.slice(0, max) : null; };
 const date = (v: unknown) => { const s = String(v ?? ""); return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s)) ? s : null; };
+// ---- LINE alert to the admin in ALERT_USERNAMES: only the sites whose price auction (bid_date) is today.
+// pg_cron sends a summary at 07:00 and repeats on auction days (header x-cron-key, checked against the vault); admins also have a 📣 button.
+const ALERT_USERNAMES = ["admin"];   // who gets the alert (app_users.username, must be an active admin with LINE linked)
+const TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const bkkDay = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+const thDate = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return `${dd} ${TH_MONTHS[m - 1]} ${String(y + 543).slice(2)}`; };
+const baht = (v: unknown) => v == null ? "" : Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 });
+export function alertText(rows: any[], today: string) {
+  const live = rows.filter((r) => r.bid_date === today && !String(r.status || "").includes("ยกเลิก"));
+  if (!live.length) return "";
+  const line = (r: any) => `• ${r.site}${r.bid_time ? ` (${r.bid_time})` : ""}${r.office ? ` – ${r.office}` : ""}${r.budget != null ? ` งบ ${baht(r.budget)}` : ""}${r.price_bid != null ? ` เสนอ ${r.price_bid}` : ""}`;
+  const t = [`🔔 ตารางประมูลแจ้งเตือน (${thDate(today)})`, `🔴 เคาะราคาวันนี้ ${live.length} ไซด์`, ...live.map(line)].join("\n");
+  return t.length > 4900 ? t.slice(0, 4880) + "\n…(ดูต่อในเว็บ)" : t;
+}
+// on an auction day the cron calls every 30 min; only 09:00-12:00 and 13:00-16:00 (Bangkok) send, today's sites only
+export const inRepeatWindow = (hhmm: string) => (hhmm >= "09:00" && hhmm <= "12:00") || (hhmm >= "13:00" && hhmm <= "16:00");
+export function todayText(rows: any[], today: string, hhmm: string) {
+  const live = rows.filter((r) => r.bid_date === today && !String(r.status || "").includes("ยกเลิก"));
+  if (!live.length) return "";
+  const line = (r: any) => `• ${r.site}${r.bid_time ? ` (${r.bid_time})` : ""}${r.office ? ` – ${r.office}` : ""}`;
+  return [`⏰ ${hhmm} น. วันนี้เคาะราคา ${live.length} ไซด์`, ...live.map(line)].join("\n").slice(0, 4900);
+}
+async function bidsOn(day: string) {
+  const { data, error } = await db.from("notice_bids").select("site,office,bid_date,bid_time,budget,price_bid,status")
+    .eq("bid_date", day).order("bid_time").limit(300);
+  if (error) throw error;
+  return data || [];
+}
+async function sendToday() {
+  const hhmm = new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 16);
+  if (!inRepeatWindow(hhmm)) return { ok: true, sent: 0, reason: "OUTSIDE_WINDOW" };
+  const today = bkkDay();
+  const text = todayText(await bidsOn(today), today, hhmm);
+  return text ? push(text) : { ok: true, sent: 0, reason: "NOTHING_DUE" };
+}
+async function sendAlert(force: boolean) {
+  const today = bkkDay();
+  let text = alertText(await bidsOn(today), today);
+  if (!text) { if (!force) return { ok: true, sent: 0, reason: "NOTHING_DUE" }; text = `🔔 ตารางประมูลแจ้งเตือน (${thDate(today)})\nวันนี้ไม่มีไซด์ที่เคาะราคา`; }
+  return push(text);
+}
+async function push(text: string) {
+  const { data: admins, error: ae } = await db.from("app_users").select("line_user_id,expires_at").eq("is_active", true).ilike("role", "admin").in("username", ALERT_USERNAMES).not("line_user_id", "is", null);
+  if (ae) throw ae;
+  const to = [...new Set((admins || []).filter((u) => !u.expires_at || Date.parse(u.expires_at) > Date.now()).map((u) => u.line_user_id))];
+  const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") || "";
+  if (!token) return { ok: false, sent: 0, reason: "LINE_CHANNEL_ACCESS_TOKEN_MISSING", text };
+  if (!to.length) return { ok: false, sent: 0, reason: "NO_ADMIN_LINKED_LINE", text };
+  const r = await fetch("https://api.line.me/v2/bot/message/multicast", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ to, messages: [{ type: "text", text }] }) });
+  if (!r.ok) { console.error("notice alert push failed", r.status, await r.text().catch(() => "")); return { ok: false, sent: 0, reason: "LINE_PUSH_FAILED", status: r.status, text }; }
+  return { ok: true, sent: to.length, text };
+}
 // only the columns sent are changed, so typing one cell never clears another
 const CLEAN: Record<string, (v: unknown) => unknown> = {
   zone: (v) => text(v, 20), site: (v) => text(v, 120), office: (v) => text(v, 160), project_no: (v) => text(v, 40),
@@ -40,6 +92,14 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: H });
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
   try {
+    const cronKey = req.headers.get("x-cron-key");
+    if (cronKey) {
+      const { data: ok, error } = await db.rpc("notice_alert_key_ok", { k: cronKey });
+      if (error) throw error;
+      if (ok !== true) return json({ error: "CRON_KEY_INVALID" }, 403);
+      const b = await req.json().catch(() => ({}));
+      return json(b?.action === "cron_today" ? await sendToday() : await sendAlert(false));
+    }
     const user = await authAdmin(req);
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "list");
@@ -74,6 +134,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return json({ ok: true, item: data, created: true });
     }
+
+    if (action === "line_alert") return json(await sendAlert(true));
 
     if (action === "delete") {
       const id = cleanId(body?.id);
