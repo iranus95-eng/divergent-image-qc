@@ -156,6 +156,15 @@
     var ids = String(fileName || '').match(/\d{11}(?!\d)/g) || [];
     m = ids.length ? [0, ids[ids.length - 1]] : F.match(/เลขที่โครงการ\s*:?\s*(\d{11})/);
     if (m) out.project_no = m[1];
+    // e-GP "สรุปข้อมูลการเสนอราคาเบื้องต้น": the lowest price offered (VAT included) of each รายการพิจารณา
+    if (/สรุปข้อมูลการเสนอราคา|ราคาต่ำสุดที่เสนอ/.test(F)) {
+      out.kind = 'result';
+      m = F.match(/เลขที่โครงการ\s*:?\s*(\d{11})/); if (m) out.project_no = m[1];
+      out.lowest = []; var re0 = /รายการพิจารณาที่\s*\d+\s*([\d,]+\.\d{2})/g;
+      while ((m = re0.exec(F))) out.lowest.push(amount(m[1]));
+      out.lowest = out.lowest.filter(Boolean);
+      return out;
+    }
     // document no. "ฉ.๓ พธ.(พ.)๐๓๐/๒๕๖๙" → zone ฉ.3
     m = F.match(/เลขที่\s*(ฉ\.\s*\d\s*\S+?\/\d{4})/);
     if (m) out.doc_no = m[1].replace(/\s+/g, ' ').replace(/^ฉ\. /, 'ฉ.');
@@ -291,10 +300,35 @@
       catch (e) { console.error('notice-bids', e); alert('อ่านไฟล์ ' + files[i].name + ' ไม่สำเร็จ: ' + (e.message || e)); }
     }
     st.busy = '';
+    var results = docs.filter(function (d) { return d.kind === 'result'; });
+    docs = docs.filter(function (d) { return d.kind !== 'result'; });
+    for (var k = 0; k < results.length; k++) await applyResult(results[k]);
+    if (!docs.length) { render(); return; }
     mergeDocs(docs).forEach(function (r) { r.target = matchRow(r); st.pending.push(r); });
     if (docs.length && !docs.some(function (d) { return d.site || d.budget || d.qty; }))
       alert('ไม่พบข้อมูลในไฟล์ (ไฟล์อาจเป็นภาพสแกน) กรุณากรอกเอง');
     render();
+  }
+  // the result file of an auction: lowest price ÷ 1.07 ÷ ราย/ปี = the winning price per notice before VAT → ราคาปี70
+  async function applyResult(d) {
+    var name = d.file + (d.project_no ? ' (เลขที่โครงการ ' + d.project_no + ')' : '');
+    if (!d.project_no) { alert('ไฟล์ ' + d.file + ': ไม่พบเลขที่โครงการในไฟล์'); return; }
+    if (!d.lowest || !d.lowest.length) { alert('ไฟล์ ' + name + ': ไม่พบราคาต่ำสุดที่เสนอ (ไฟล์อาจเป็นภาพสแกน)'); return; }
+    var row = (st.rows || []).filter(function (x) { return String(x.project_no || '').trim() === d.project_no; })[0];
+    if (!row) { alert('ไฟล์ ' + name + ': ไม่พบไซด์ที่มีเลขที่โครงการนี้ในตาราง'); return; }
+    var qty = derived(row).qty;
+    if (!qty) { alert(row.site + ': ยังไม่มีจำนวนราย/ปี (หรือวงเงิน + ราคากลาง) จึงคำนวณราคาต่อรายไม่ได้'); return; }
+    var total = d.lowest.reduce(function (s, v) { return s + v; }, 0);
+    var exact = total / (1 + VAT) / qty, price = Math.round(exact * 100) / 100;
+    var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
+      'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + '\n' +
+      '÷ 1.07 ÷ ' + fmt(qty) + ' ราย = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT' +
+      (Math.abs(exact - price) >= 0.0005 ? '\n⚠ หารไม่ลงตัว (' + exact.toFixed(4) + ') จำนวนรายในตารางอาจไม่ตรงกับ TOR' : '') +
+      (row.price_bid != null ? '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่' : '') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
+    if (!confirm(msg)) return;
+    try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, { price_bid: price }))); }
+    catch (e) { alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
+    st.busy = '';
   }
   function matchRow(r) {
     var rows = st.rows || [], k = nameKey(r.site);
@@ -673,7 +707,7 @@
     var zones = {}; (st.rows || []).forEach(function (r) { zones[r.zone || '-'] = 1; });
     w.innerHTML = '<div class="nb-head"><div><h2>ตารางประมูลแจ้งเตือน ปี 2570</h2><p>วางไฟล์ PDF ประกาศ + TOR ระบบอ่านข้อมูลเข้าตาราง • กดชื่อไซด์เพื่อดูและแก้รายละเอียด • กด 📄 ใต้ชื่อไซด์เพื่อทำ/เปิดใบเสนอราคา บันทึกอัตโนมัติ</p></div></div>' +
       '<div class="nb-card"><input type="file" id="nbFile" accept="application/pdf,.pdf" multiple hidden>' +
-      '<div class="nb-drop" data-nb="pick">' + (st.busy ? esc(st.busy) : '📄 กดเพื่อเลือกไฟล์ PDF ประกาศ และ TOR (เลือกหลายไฟล์พร้อมกันได้)<br><small>หรือลากไฟล์มาวางที่นี่</small>') + '</div>' + pendingHtml() + '</div>' +
+      '<div class="nb-drop" data-nb="pick">' + (st.busy ? esc(st.busy) : '📄 กดเพื่อเลือกไฟล์ PDF ประกาศ และ TOR (เลือกหลายไฟล์พร้อมกันได้)<br><small>หรือลากไฟล์มาวางที่นี่ • วางไฟล์ "สรุปข้อมูลการเสนอราคาเบื้องต้น" เพื่อใส่ราคาผู้ชนะ (ก่อน VAT) ในช่องราคาปี70</small>') + '</div>' + pendingHtml() + '</div>' +
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '><select id="nbZone"><option value="">ทุกเขต</option>' + Object.keys(zones).sort().map(function (z) { return '<option value="' + esc(z) + '"' + (z === st.zone ? ' selected' : '') + '>' + (z === '-' ? 'ไม่ระบุเขต' : esc(z)) + '</option>'; }).join('') + '</select></div>' +
       '<div id="nbToday" class="nb-today"' + (st.open != null ? ' style="display:none"' : '') + '></div>' +
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '>' +
