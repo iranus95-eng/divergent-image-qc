@@ -160,7 +160,8 @@
     if (/สรุปข้อมูลการเสนอราคา|ราคาต่ำสุดที่เสนอ/.test(F)) {
       out.kind = 'result';
       m = F.match(/เลขที่โครงการ\s*:?\s*(\d{11})/); if (m) out.project_no = m[1];
-      out.lowest = []; var re0 = /รายการพิจารณาที่\s*\d+\s*([\d,]+\.\d{2})/g;
+      // the item may carry a description before its price ("รายการพิจารณาที่ 1 เหมาบุคคลภายนอก… 49,434.00")
+      out.lowest = []; var re0 = /รายการพิจารณาที่\s*\d+[\s\S]{0,200}?(\d{1,3}(?:,\d{3})*\.\d{2})/g;
       while ((m = re0.exec(F))) out.lowest.push(amount(m[1]));
       out.lowest = out.lowest.filter(Boolean);
       return out;
@@ -319,12 +320,16 @@
     var qty = derived(row).qty;
     if (!qty) { alert(row.site + ': ยังไม่มีจำนวนราย/ปี (หรือวงเงิน + ราคากลาง) จึงคำนวณราคาต่อรายไม่ได้'); return; }
     var total = d.lowest.reduce(function (s, v) { return s + v; }, 0);
-    var exact = total / (1 + VAT) / qty, price = Math.round(exact * 100) / 100;
+    // some offices price the job per month (นม.2: 49,434 = 10,000 ราย/เดือน × 4.62 + VAT): a per-year reading far below
+    // the ราคากลาง means the file holds the monthly price
+    var mid = Number(row.mid_price) || 8, monthly = total / (1 + VAT) / qty < mid / 4 && total / (1 + VAT) / (qty / 12) <= mid;
+    var per = monthly ? qty / 12 : qty;
+    var exact = total / (1 + VAT) / per, price = Math.round(exact * 100) / 100;
     var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
-      'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + '\n' +
-      '÷ 1.07 ÷ ' + fmt(qty) + ' ราย = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT' +
+      'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (monthly ? ' เป็นราคาต่อเดือน' : '') + '\n' +
+      '÷ 1.07 ÷ ' + fmt(per) + (monthly ? ' ราย/เดือน' : ' ราย') + ' = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT' +
       (Math.abs(exact - price) >= 0.0005 ? '\n⚠ หารไม่ลงตัว (' + exact.toFixed(4) + ') จำนวนรายในตารางอาจไม่ตรงกับ TOR' : '') +
-      (row.price_bid != null ? '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่' : '') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
+      (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
     if (!confirm(msg)) return;
     try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, { price_bid: price }))); }
     catch (e) { alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
