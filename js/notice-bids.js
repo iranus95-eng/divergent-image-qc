@@ -555,7 +555,7 @@
   }
   // a site we won is marked by its status ("ชนะประมูล")
   function won(r) { return String(r.status || '').indexOf('ชนะ') >= 0; }
-  // the site list: auctions from today on first (soonest first), then sites without a date, then auctions already past
+  // the site list: auctions still to come (soonest first) and sites without a date on top, then the sites we won, then auctions over without a win (lost) at the bottom
   function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
   // the auction is over once its day is past, or today after the end of its hours ("09.00-12.00 น." ends at 12:00)
   function ended(r) {
@@ -568,7 +568,7 @@
     return now.getUTCHours() * 60 + now.getUTCMinutes() >= +t[1] * 60 + +t[2];
   }
   function byAuction(rows) {
-    var group = function (r) { return !r.bid_date ? 1 : ended(r) ? 2 : 0; };
+    var group = function (r) { return won(r) ? 2 : !r.bid_date ? 1 : ended(r) ? 3 : 0; };
     return rows.slice().sort(function (a, b) {
       return group(a) - group(b) || String(a.bid_date || '').localeCompare(String(b.bid_date || '')) ||
         String(a.bid_time || '').localeCompare(String(b.bid_time || '')) || (a.seq || 1e9) - (b.seq || 1e9) || a.id - b.id;
