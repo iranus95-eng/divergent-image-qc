@@ -82,7 +82,8 @@
       var k = nameKey(h.title);
       var b = rows.filter(function (x) { return nameKey(x.site) === k; })[0] ||
         rows.filter(function (x) { var bk = nameKey(x.site); return bk && k.indexOf(bk) >= 0; })
-          .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0];
+          .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0] ||
+        rows.filter(function (x) { return /\+/.test(x.site || '') && nameKey(String(x.site).split('+')[0]) === k; })[0];   // "ลำปลายมาศ + หนองหงส์"
       return b && b.id === row.id;
     });
   }
@@ -185,6 +186,24 @@
     }
     // TOR with a monthly table only ("ราคากลาง | ราย / เดือน | … 8.00 10,000 …", กฟส.นม.2 หัวทะเล): no yearly quantity in words,
     // so take the price per notice that divides the budget into whole notices (budget ÷ 1.07 ÷ price) and the year's quantity from it
+    // one project for several offices (บก.06 "รายการที่ 1 พื้นที่ …สาขาลำปลายมาศ … รายการที่ 2 พื้นที่ …สาขาหนองหงส์"):
+    // name every office and add up the quantities of all the areas
+    var parts = F.split(/รายการที่\s*\d+\s*พื้นที่/).slice(1);
+    if (parts.length > 1) {
+      var names = [], total = 0;
+      parts.forEach(function (sec) {
+        var n = sec.match(/^\s*(?:การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(?:สาขา|จังหวัด|อำเภอ)?|กฟ[สจ]\.)\s*([ก-๎]+(?:\s?\d)?)/);
+        if (n && names.indexOf(n[1]) < 0) names.push(n[1]);
+        var q = sec.match(/(\d{1,3}(?:,\d{3})+)/);
+        if (q) total += amount(q[1]) || 0;
+      });
+      if (names.length > 1) { out.site = names.join(' + '); out.office = names.map(function (x) { return 'กฟส.' + x; }).join(', '); }
+      if (total) { out.qty = total; delete out.mid_price; }
+      if (out.qty && out.budget) {
+        var pp = out.budget / (1 + VAT) / out.qty, rr = Math.round(pp * 100) / 100;
+        if (Math.abs(pp - rr) < 0.0005 && rr > 0 && rr < 100) out.mid_price = rr;
+      }
+    }
     if (!out.qty && out.budget && /ราคากลาง/.test(F)) {
       var cands = F.match(/(?:^|[^\d,.])(\d{1,2}\.\d{2})(?![\d,])/g) || [];
       cands.some(function (c) {

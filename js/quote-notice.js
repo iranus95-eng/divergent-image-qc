@@ -110,7 +110,9 @@
     var k = nameKey(title);
     return (st.bids || []).filter(function (b) { return nameKey(b.site) === k; })[0] ||
       (st.bids || []).filter(function (b) { var bk = nameKey(b.site); return bk && k.indexOf(bk) >= 0; })
-        .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0] || null;   // "นครราชสีมา 2" before "นครราชสีมา"
+        .sort(function (a, b) { return nameKey(b.site).length - nameKey(a.site).length; })[0] ||
+      // a site of several offices ("ลำปลายมาศ + หนองหงส์"): a job named after its first office
+      (st.bids || []).filter(function (b) { return /\+/.test(b.site || '') && nameKey(String(b.site).split('+')[0]) === k; })[0] || null;   // "นครราชสีมา 2" before "นครราชสีมา"
   }
   function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
   function thaiDate(iso) { var p = String(iso).slice(0, 10).split('-'); return Number(p[2]) + '/' + Number(p[1]) + '/' + (Number(p[0]) + 543); }
