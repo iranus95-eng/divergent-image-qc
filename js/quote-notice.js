@@ -201,7 +201,7 @@
   var SUM = { total: /ทั้งสิ้น/, vat: /ภาษี|VAT/i, amount: /^\d?\s*รวม|ไม\S{0,2}รวมภาษี/ };
   function sumKey(str) {
     if (SUM.total.test(str)) return 'total';
-    if (/ไม\S{0,2}รวมภาษี/.test(str)) return 'amount';
+    if (/ไม\S{0,2}รวมภาษี|ก\S{0,2}อนภาษี/.test(str)) return 'amount';   // "ราคารวมก่อนภาษีมูลค่าเพิ่ม" is the sum before VAT
     if (SUM.vat.test(str)) return 'vat';
     if (SUM.amount.test(str)) return 'amount';
     return null;
@@ -313,7 +313,11 @@
       var dash = function (o) { return /^[-–—]+$/.test(o.str.trim()) && center(o) > amtL; };
       body.forEach(function (i) {
         if (center(i) >= amtL) return;
-        var key = sumKey(i.str.trim());
+        // judge the whole label of the line: "ราคารวมก่อน" + "ภาษีมูลค่าเพิ่ม" may come as separate pieces
+        var line = body.filter(function (o) { return Math.abs(o.y - i.y) < 4 && center(o) < amtL && !RE.number.test(o.str.trim()); })
+          .sort(function (a, b) { return a.x - b.x; }).map(function (o) { return o.str.trim(); }).join('');
+        var key = sumKey(line) || sumKey(i.str.trim());
+        if (sums.some(function (s) { return Math.abs(s.y - i.y) < 4; })) return;
         // a label far left (a merged "รวม" cell under ที่/รายการ) only counts when its row has "-" placeholders in the money columns
         if (i.x + i.w < t.bounds.qty[0] - 40 && !(key && body.some(function (o) { return Math.abs(o.y - i.y) < 4 && dash(o); }))) return;
         if (key && !sums.some(function (s) { return s.key === key; })) sums.push({ key: key, y: i.y, h: i.h });
