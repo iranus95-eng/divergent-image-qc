@@ -41,9 +41,20 @@ function mid(r){return (r[0]+r[1])/2;}
   assert.ok(mid(t.bounds.price)>453&&mid(t.bounds.price)<mid(t.bounds.amount),'offered halves');
   assert.deepEqual([...t.sums.map(s=>s.key)],['amount','vat','total']);
 }
+// กฟส.เมืองนครราชสีมา 2: จำนวน (ราย/เดือน) left blank, one "รวม" row with "-" under เป็นเงิน / ภาษี / รวมทั้งสิ้น
+{
+  const r=rows('quote-notice-nakhonratchasima2.json');
+  assert.equal(r.length,1);
+  assert.equal(r[0].qtyEdit,true);
+  const t=r[0].table;
+  assert.equal(t.perMonth,true,'quantity per month');
+  assert.deepEqual([...t.cols],['qty','price','amount','vat','total']);
+  assert.deepEqual([...t.sums.map(s=>[s.key,s.across,s.blank.length])],[['amount',true,3]]);
+}
+for(const f of ['quote-notice-putthaisong.json','quote-notice-sikhoraphum.json'])assert.equal(rows(f)[0].table.perMonth,false);
 // a new job is named after the office's site
-for(const [f,site] of [['quote-notice-putthaisong.json','พุทไธสง'],['quote-notice-sikhoraphum.json','ศีขรภูมิ']]){
+for(const [f,site] of [['quote-notice-putthaisong.json','พุทไธสง'],['quote-notice-sikhoraphum.json','ศีขรภูมิ'],['quote-notice-nakhonratchasima2.json','เมืองนครราชสีมา 2']]){
   const raw=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures',f),'utf8'));
   assert.equal(ctx.officeSite(raw.map(i=>i.str).join(' ')),site);
 }
-console.log('PASS: quote notice layouts (tall header, offered column without headings, site name)');
+console.log('PASS: quote notice layouts (tall header, offered column without headings, per-month blank quantity, site name)');

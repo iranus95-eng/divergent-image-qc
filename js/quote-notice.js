@@ -301,7 +301,9 @@
       }).map(function (i) { return i.y; })));
       var title = items.filter(function (i) { return i.y < p.y - 5 && i.y > p.y - 70 && i.x < cx[0] && /การไฟฟ้า|การไฟฟา|พื้นที่/.test(i.str); })
         .sort(function (a, b) { return b.y - a.y; })[0];
-      tables.push({ page: pageNo, y: p.y, headerBottom: headerBottom, bounds: bounds, cols: order, sums: [],
+      // "จำนวน (ราย/เดือน)": the quantity is per month (e.g. กฟส.เมืองนครราชสีมา 2)
+      var perMonth = near.some(function (i) { var c = center(i); return /เดือน/.test(i.str) && i.y >= cols.qty.y - 2 && c > bounds.qty[0] && c < bounds.qty[1]; });
+      tables.push({ page: pageNo, y: p.y, headerBottom: headerBottom, bounds: bounds, cols: order, sums: [], perMonth: perMonth,
         title: title ? title.str.replace(/^\d+\.\s*/, '') : 'ตารางที่ ' + (tables.length + 1) });
     });
     tables.sort(function (a, b) { return a.y - b.y; });
@@ -404,6 +406,20 @@
     s.total = s.amount + s.vat;
     return s;
   }
+  // A form whose quantity is left blank (one item) gets the site's quantity from ตารางประมูลแจ้งเตือน:
+  // ราย/ปี = จำนวน, else วงเงิน ÷ 1.07 ÷ ราคากลาง; ÷ 12 when the column is ราย/เดือน. Still editable.
+  async function qtyFromBids() {
+    var blank = st.rows.filter(function (r) { return r.qtyEdit; });
+    if (blank.length !== 1 || blank[0].qty > 0) return false;
+    if (!st.bids) await call({ action: 'list' }, BIDS_API).then(function (j) { st.bids = j.items || []; }, function () { st.bids = []; });
+    var b = (st.fromBids && (st.bids || []).filter(function (x) { return x.id === st.fromBids.id; })[0]) || bidFor(st.name);
+    if (!b) return false;
+    var year = num(b.qty) || (num(b.budget) && num(b.mid_price) ? Math.round(num(b.budget) / (1 + VAT) / num(b.mid_price)) : 0);
+    var q = blank[0].table.perMonth ? Math.round(year / 12) : year;
+    if (!(q > 0)) return false;
+    blank[0].qty = q; blank[0].qtyAuto = b.site;
+    return true;
+  }
   function allTables() { var out = []; st.rows.forEach(function (r) { if (out.indexOf(r.table) < 0) out.push(r.table); }); return out; }
 
   async function openFile(file) {
@@ -414,7 +430,7 @@
   }
   async function openBytes(data, name, savedId, savedState, site) {
     st.busy = true; render();
-    var ok = false;
+    var ok = false, filled = false;
     try {
       var lib = await loadPdfJs();
       st.bytes = data.slice();          // pdf.js hands its copy to the worker; the original file is kept untouched here
@@ -452,13 +468,14 @@
       }
       if (savedState) applySnapshot(savedState);
       if (!savedId) st.name = site || officeSite(text) || name;      // a new job is named after its site, so it sits under that site in the list
+      filled = await qtyFromBids();
       if (!st.rows.length) alert('ไม่พบตารางราคาในไฟล์นี้ (ต้องมีคอลัมน์ จำนวน, ราคาต่อหน่วย และจำนวนเงิน/รวม) กรุณาส่งไฟล์ให้ผู้ดูแลปรับรูปแบบ');
       ok = true;
     } catch (e) {
       console.error('quote-notice', e);
       alert('เปิดไฟล์ไม่สำเร็จ: ' + (e.message || e));
     } finally { st.busy = false; render(); }
-    if (ok && !savedId && st.rows.length) saveNow();     // a new file goes into the list straight away
+    if (ok && (!savedId || filled) && st.rows.length) saveNow();     // a new file goes into the list straight away
   }
 
   // ---------------------------------------------------------------- drawing
@@ -888,7 +905,8 @@
         st.rows.map(function (r, i) {
           var label = r.label || 'รายการ'; if (label.length > 70) label = label.slice(0, 68) + '…';
           return '<div class="qn-row"><b>' + esc(r.table.title) + '</b><small>' + esc(label) + (r.qtyEdit ? '' : ' • จำนวน ' + r.qty.toLocaleString('th-TH')) + ' (หน้า ' + (r.page + 1) + ')</small>' +
-            (r.qtyEdit ? '<div class="qn-line"><span>จำนวน</span><input data-qty="' + i + '" inputmode="numeric" value="' + (r.qty ? r.qty : '') + '" placeholder="0"></div>' : '') +
+            (r.qtyEdit ? '<div class="qn-line"><span>จำนวน' + (r.table.perMonth ? ' (ราย/เดือน)' : '') + '</span><input data-qty="' + i + '" inputmode="numeric" value="' + (r.qty ? r.qty : '') + '" placeholder="0"></div>' +
+              (r.qtyAuto ? '<small>จำนวนจากตารางประมูล (' + esc(r.qtyAuto) + ') แก้ได้ถ้าไม่ตรง</small>' : '') : '') +
             '<div class="qn-line"><span>ราคา/หน่วย (บาท)</span><input data-row="' + i + '" inputmode="decimal" value="' + (r.price ? r.price : '') + '" placeholder="0.00"></div>' +
             '<div class="qn-line" data-out="' + i + '"></div></div>';
         }).join('') + '<div class="qn-sum" id="qnSum"></div>' : '') +
