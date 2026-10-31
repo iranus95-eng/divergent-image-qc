@@ -102,7 +102,8 @@ const bids = [
         json: auth ? { ok: true, items: bids } : { error: 'SESSION_REQUIRED' },
       });
     });
-    // The winning unit price of โชคชัย comes from its เสนอราคาแจ้งเตือน quote.
+    // The winning unit price and quantity of โชคชัย come from its เสนอราคาแจ้งเตือน quote:
+    // 358,236 ÷ 1.07 ÷ 4.65 = 72,000 ราย/ปี.
     await ctx.route(quoteApi, (route) => {
       const body = route.request().postDataJSON();
       return route.fulfill({
@@ -115,7 +116,7 @@ const bids = [
                   {
                     id: 1,
                     title: 'ใบเสนอราคา กฟส.โชคชัย',
-                    total_amount: '386740.80',
+                    total_amount: '358236.00',
                   },
                 ],
               },
@@ -165,7 +166,12 @@ const bids = [
     await page.getByRole('heading', { name: /สรุปกำไรขาดทุน/ }).waitFor();
     assert.match(
       await page.locator('table').innerText(),
-      /โชคชัย[\s\S]*4\.65[\s\S]*รวม 1 ไซด์/,
+      /โชคชัย[\s\S]*\t6,000\t[\s\S]*4\.65[\s\S]*รวม 1 ไซด์/,
+    );
+    // Its จำนวนราย comes from the quote, so no site falls back to budget ÷ ราคากลาง.
+    assert.equal(
+      await page.getByText('ไม่พบจำนวนรายในใบเสนอราคา').count(),
+      0,
     );
     await page.getByText(/ยังไม่นับในยอดรวม.*ปราสาท ขาดราคาที่ชนะ/).waitFor();
     assert.equal(await page.getByRole('button', { name: /สตึก/ }).count(), 0);
@@ -202,7 +208,7 @@ const bids = [
       .filter({ hasText: 'บันทึกข้อมูลในฐานข้อมูลกลางแล้ว' })
       .waitFor();
     const key = 'epc:electricity-notice:v1:site:bid-8';
-    assert.equal(rows.get(key).value.jobs, 6420);
+    assert.equal(rows.get(key).value.jobs, 6000);
     assert.equal(rows.get(key).value.budget, 616320);
     assert.equal(rows.get(key).value.auction, 4.65);
     assert.equal(rows.get(key).value.labor, 3.5);
