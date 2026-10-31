@@ -25,6 +25,7 @@ const TITLE = 'สรุปกำไรขาดทุน ไซด์ที่�
 const FILE = 'สรุปกำไรขาดทุนใบแจ้งเตือน';
 const HEADERS = [
   'ไซด์',
+  'ราย/ปี ตามใบเสนอราคา',
   'ราย/เดือน',
   'พนักงาน (คน)',
   'ราคาที่ชนะ (บาท/ราย)',
@@ -35,7 +36,7 @@ const HEADERS = [
   'กำไร/เดือน',
   'กำไร 12 เดือน หลังค่าเริ่มต้น',
 ];
-const DIGITS = [0, 0, 0, 2, 0, 0, 0, 2, 0, 0];
+const DIGITS = [0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0];
 
 // The printed / PDF page: a standalone A4 landscape document with inline styles.
 function reportHtml(
@@ -126,6 +127,7 @@ export default function NoticeSummary({
   const table: (string | number)[][] = [
     ...lines.map((line) => [
       line.site.name,
+      line.site.qty ?? '-',
       line.values.jobs,
       line.workers,
       line.values.auction,
@@ -138,6 +140,7 @@ export default function NoticeSummary({
     ]),
     [
       'รวม ' + sites.length + ' ไซด์',
+      '',
       total((line) => line.values.jobs),
       total((line) => line.workers),
       '',
@@ -190,7 +193,7 @@ export default function NoticeSummary({
       xlsxBlob(
         'สรุปกำไรขาดทุน',
         rows,
-        [24, 12, 12, 14, 14, 15, 15, 14, 14, 18],
+        [24, 16, 12, 12, 14, 14, 15, 15, 14, 14, 18],
       ),
       datedFileName(FILE) + '.xlsx',
     );
@@ -328,6 +331,7 @@ export default function NoticeSummary({
           <thead>
             <tr>
               <th>ไซด์</th>
+              <th>ราย/ปี ตามใบเสนอราคา</th>
               <th>ราย/เดือน</th>
               <th>พนักงาน (คน)</th>
               <th>ราคาที่ชนะ</th>
@@ -353,6 +357,7 @@ export default function NoticeSummary({
                     สัดส่วนส่วนกลาง {fmt(line.share * 100, 2)}%
                   </small>
                 </td>
+                <td>{line.site.qty ? fmt(line.site.qty) : '-'}</td>
                 <td>{fmt(line.values.jobs)}</td>
                 <td>{fmt(line.workers)}</td>
                 <td>{fmt(line.values.auction, 2)}</td>
@@ -371,6 +376,7 @@ export default function NoticeSummary({
             ))}
             <tr className="font-bold">
               <td>รวม {sites.length} ไซด์</td>
+              <td></td>
               <td>{fmt(total((line) => line.values.jobs))}</td>
               <td>{fmt(total((line) => line.workers))}</td>
               <td></td>
