@@ -166,7 +166,7 @@ const bids = [
     await page.getByRole('heading', { name: /สรุปกำไรขาดทุน/ }).waitFor();
     assert.match(
       await page.locator('table').innerText(),
-      /โชคชัย[\s\S]*\t6,000\t[\s\S]*4\.65[\s\S]*รวม 1 ไซด์/,
+      /โชคชัย[\s\S]*\t72,000\t6,000\t[\s\S]*4\.65[\s\S]*รวม 1 ไซด์/,
     );
     // Its จำนวนราย comes from the quote, so no site falls back to budget ÷ ราคากลาง.
     assert.equal(
