@@ -148,7 +148,10 @@
     out.kind = /ระหว่างเวลา|ประกาศ\s*ณ\s*วันที่/.test(F) || /^\(?สำเนา\)?$|^ประกาศ/.test(lines[0] || '') || /^ประกาศ/.test(lines[1] || '') ? 'announce'
       : (/รายละเอียดประกอบ|ปริมาณงาน|ขอบเขตของงาน|ราคากลาง\s*\(/.test(F) ? 'tor' : 'other');
     // office: "การไฟฟ้าส่วนภูมิภาคสาขาพุทไธสง" (marks may be missing), or the short "กฟส.พุทไธสง"
-    var m = (head + ' ' + F).match(/การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(สาขา|จังหวัด|อำเภอ|อ\S{0,2}เภอ)?\s*([ก-๎]+(?:\s?\d)?)/);
+    // the heading "ประกาศการไฟฟ้าส่วนภูมิภาค เรื่อง ประกวดราคา…" names no office: skip words that are not a name
+    var NOT_NAME = /^(เรื่อง|ประกาศ|ประกวด|ว่าด้วย|โดย|เขต)/;
+    var re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(สาขา|จังหวัด|อำเภอ|อ\S{0,2}เภอ)?\s*([ก-๎]+(?:\s?\d)?)/g, m, all = head + ' ' + F;
+    while ((m = re.exec(all)) && NOT_NAME.test(m[2]) && !m[1]) {}
     if (m) { out.site = m[2].replace(/(และ|ขอ|มี|จะ)$/, ''); out.office = (/จังหวัด/.test(m[1] || '') ? 'กฟจ.' : 'กฟส.') + out.site; }
     else if ((m = F.match(/กฟ([สจ])\.\s*([ก-๎]+)/))) { out.site = m[2]; out.office = 'กฟ' + m[1] + '.' + m[2]; }
     // project number: 11 digits in the e-GP file name (annoudoc_S50631000002_69099738828.pdf) or in the text
@@ -394,6 +397,8 @@
     // values read from the PDFs replace the row's; what the PDFs did not give stays as typed
     FIELDS.forEach(function (k) { if (r[k] != null && r[k] !== '') row[k] = r[k]; });
     if (base && base.project_no && !r.project_no) delete row.project_no;
+    // updating a row: the name already in the table stays (a misread heading once renamed บ้านไผ่ to "เรื่อง")
+    if (base && base.site) { row.site = base.site; if (base.office) row.office = base.office; }
     try {
       st.busy = 'กำลังบันทึก…'; render();
       var item = await saveRow(row);

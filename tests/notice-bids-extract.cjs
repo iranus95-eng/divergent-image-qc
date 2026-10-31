@@ -35,3 +35,20 @@ const r=rows[0];
 assert.deepEqual([r.zone,r.site,r.project_no,r.budget,r.qty,r.mid_price,r.bid_date,r.bid_time,r.method],['ฉ.3','พุทไธสง','69099738828',616320,72000,8,'2026-11-03','09.00-12.00','e-bidding']);
 assert.ok(r.has_announce&&r.has_tor);
 console.log('PASS: notice bids PDF reading (announcement + TOR → one row)');
+
+// heading without the office ("ประกาศการไฟฟ้าส่วนภูมิภาค" then "เรื่อง ประกวดราคา…"): the name is the office found later,
+// never the word "เรื่อง" (บ้านไผ่ ฉ.1 was once renamed "เรื่อง" this way)
+const noOffice=ctx.extract([
+  {p:0,str:'(สำเนา)',x:272,y:100,w:79,h:16},
+  {p:0,str:'ประกาศการไฟฟ้าส่วนภูมิภาค',x:217,y:157,w:189,h:16},
+  {p:0,str:'เรื่อง ประกวดราคาจ้างเหมาวางหนังสือแจ้งเตือนก่อนการงดจ่ายกระแสไฟฟ้า ในเขตพื้นที่รับผิดชอบของ',x:88,y:179,w:447,h:16},
+  {p:0,str:'การไฟฟ้าส่วนภูมิภาคสาขาบ้านไผ่ ด้วยวิธีประกวดราคาอิเล็กทรอนิกส์ (e-bidding)',x:88,y:201,w:447,h:16},
+],'annoudoc_S50640000002_69109275821.pdf');
+assert.equal(noOffice.site,'บ้านไผ่');
+assert.equal(noOffice.office,'กฟส.บ้านไผ่');
+const shortOnly=ctx.extract([
+  {p:0,str:'ประกาศการไฟฟ้าส่วนภูมิภาค',x:217,y:157,w:189,h:16},
+  {p:0,str:'เรื่อง ประกวดราคาจ้างเหมาวางหนังสือแจ้งเตือน ของ กฟส.ครบุรี',x:88,y:179,w:447,h:16},
+],'x.pdf');
+assert.equal(shortOnly.site,'ครบุรี');
+console.log('PASS: notice bids PDF reading (heading without office is not named "เรื่อง")');
