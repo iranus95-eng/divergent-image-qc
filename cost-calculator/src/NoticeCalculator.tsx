@@ -116,7 +116,11 @@ export type BidSource = {
   budget: number;
   price: number;
   auction: number;
+  qty?: number | null; // ราย per year from the site's quotation
 };
+// Monthly jobs: the quotation's quantity ÷ 12, else งบประมาณ ÷ ราคากลาง ÷ 12.
+const jobsOf = (v: Pick<Values, 'budget' | 'price'>, bid?: BidSource) =>
+  bid?.qty ? bid.qty / 12 : v.price > 0 ? v.budget / v.price / 12 : 0;
 export const noticeStorageKey = (siteId: string) => KEY + ':site:' + siteId;
 const sourceTag = (bid: BidSource) =>
   ['notice-bids', bid.bidId, bid.budget, bid.price, bid.auction].join(':');
@@ -148,7 +152,7 @@ export function loadNoticeValues(storageKey: string, bid?: BidSource): Values {
       result.price = bid.price;
       result.auction = bid.auction;
     }
-    result.jobs = result.price > 0 ? result.budget / result.price / 12 : 0;
+    result.jobs = jobsOf(result, bid);
     return result;
   } catch {
     const result = {
@@ -159,7 +163,7 @@ export function loadNoticeValues(storageKey: string, bid?: BidSource): Values {
         auction: bid.auction,
       }),
     };
-    result.jobs = result.price > 0 ? result.budget / result.price / 12 : 0;
+    result.jobs = jobsOf(result, bid);
     return result;
   }
 }
@@ -308,6 +312,9 @@ export default function NoticeCalculator({
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
+  const jobsNote = bid.qty
+    ? 'จำนวนรายจากใบเสนอราคา ÷ 12'
+    : 'งบประมาณ ÷ ราคากลาง ÷ 12';
   const edit = (key: keyof Values, text: string) => {
     setDraft((previous) => ({ ...previous, [key]: text }));
     setDirty(true);
@@ -320,7 +327,7 @@ export default function NoticeCalculator({
     ) {
       setValues((previous) => {
         const next = { ...previous, [key]: Number(text) };
-        next.jobs = next.price > 0 ? next.budget / next.price / 12 : 0;
+        next.jobs = jobsOf(next, bid);
         return next;
       });
     }
@@ -360,9 +367,7 @@ export default function NoticeCalculator({
         }
         onChange={(event) => edit(key, event.target.value)}
       />
-      {key === 'jobs' && (
-        <small>งบประมาณ ÷ ราคากลาง ÷ 12 โดยไม่ปัดเศษจำนวนรายเฉลี่ย</small>
-      )}
+      {key === 'jobs' && <small>{jobsNote} โดยไม่ปัดเศษจำนวนรายเฉลี่ย</small>}
     </label>
   );
   const invalid =
@@ -567,7 +572,11 @@ export default function NoticeCalculator({
         <p className="text-sm text-slate-500 mt-2">
           บันทึกข้อมูลแยกเฉพาะไซด์ {siteName} • งบประมาณ {fmt(bid.budget)} บาท
           และราคากลาง {bid.price} บาท/ราย จากตารางประมูลแจ้งเตือน
-          คำนวณจำนวนรายจากงบประมาณกับราคากลาง
+          {bid.qty
+            ? 'จำนวนราย ' +
+              bid.qty.toLocaleString('th-TH') +
+              ' ราย/ปี จากใบเสนอราคา'
+            : 'คำนวณจำนวนรายจากงบประมาณกับราคากลาง (ไม่พบจำนวนในใบเสนอราคา)'}
         </p>
         {hasLegacy && (
           <button
@@ -588,7 +597,7 @@ export default function NoticeCalculator({
                 budget: bid.budget,
                 price: bid.price,
                 auction: bid.auction,
-                jobs: bid.budget / bid.price / 12,
+                jobs: jobsOf(bid, bid),
               });
               setDraft({});
               setDirty(true);
@@ -634,7 +643,7 @@ export default function NoticeCalculator({
         <h2 className="font-bold">งบประมาณและจำนวนราย</h2>
         {input('budget', 'งบประมาณตลอดสัญญา 12 เดือน (บาท)')}
         <p className="text-sm text-slate-600">
-          จำนวนรายต่อเดือน = งบประมาณ ÷ ราคากลาง ÷ 12
+          จำนวนรายต่อเดือน = {jobsNote}
           รายรับและกำไรยังคำนวณจากราคาที่ประมูล
         </p>
       </section>

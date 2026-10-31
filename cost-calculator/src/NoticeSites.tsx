@@ -17,6 +17,7 @@ type Row = {
   bid: NoticeBid;
   won: boolean;
   quotePrice: number | null;
+  quoteQty: number | null; // ราย per year from the quotation
   site: Site | null; // null while the budget, ราคากลาง or winning price is missing
   missing: string;
 };
@@ -25,11 +26,13 @@ const SUMMARY = 'summary';
 const WON = 'ชนะประมูล';
 // A site we won is marked by its status, as in ตารางประมูลแจ้งเตือน.
 const isWon = (bid: NoticeBid) => String(bid.status || '').includes('ชนะ');
-// Same matching as ตารางประมูลแจ้งเตือน: tone marks, spaces and the กฟส./กฟจ. prefix are ignored.
+// Same matching as ตารางประมูลแจ้งเตือน: tone marks, spaces and the กฟส./กฟจ. prefix are ignored,
+// and นครราชสีมา is written นม (so "นม3" finds "เมืองนครราชสีมา 3").
 const nameKey = (text: string) =>
   String(text || '')
     .replace(/[ัิ-ฺ็-๎\s.]/g, '')
-    .replace(/^(กฟส|กฟจ|กฟอ)/, '');
+    .replace(/^(กฟส|กฟจ|กฟอ)/, '')
+    .replace(/นครราชสีมา/g, 'นม');
 // A quote belongs to the site of the same name, else to the longest site name inside its title.
 function quoteSite(title: string, bids: NoticeBid[]) {
   const key = nameKey(title);
@@ -41,19 +44,35 @@ function quoteSite(title: string, bids: NoticeBid[]) {
   );
 }
 
+// A quote's quantity is per year, or per month when its column is ราย/เดือน: it is taken as
+// monthly when twelve times it is nearer the bid's own estimate (budget ÷ 1.07 ÷ ราคากลาง).
+function yearlyQty(qty: number | null, bid: NoticeBid) {
+  if (!qty) return null;
+  const estimate =
+    bid.budget && bid.mid_price ? bid.budget / 1.07 / bid.mid_price : 0;
+  if (!estimate) return qty;
+  const off = (value: number) => Math.abs(Math.log(value / estimate));
+  return off(qty * 12) < off(qty) ? qty * 12 : qty;
+}
+
 function buildRows(
   bids: NoticeBid[],
-  quotes: { title: string; price: number }[],
+  quotes: { title: string; price: number; qty: number | null }[],
 ): Row[] {
-  const quotePrice = new Map<number, number>();
+  const quoteOf = new Map<number, { price: number; qty: number | null }>();
   for (const quote of quotes) {
     const bid = quoteSite(quote.title, bids);
-    if (bid && !quotePrice.has(bid.id)) quotePrice.set(bid.id, quote.price);
+    if (bid && !quoteOf.has(bid.id))
+      quoteOf.set(bid.id, {
+        price: quote.price,
+        qty: yearlyQty(quote.qty, bid),
+      });
   }
   return bids
     .filter((bid) => bid.site)
     .map((bid) => {
-      const price = quotePrice.get(bid.id) ?? null;
+      const price = quoteOf.get(bid.id)?.price ?? null;
+      const qty = quoteOf.get(bid.id)?.qty ?? null;
       // The winning unit price comes from our quotation, else ราคาปี70 of the bid table.
       const auction = price ?? (bid.price_bid || null);
       const missing = [
@@ -67,6 +86,7 @@ function buildRows(
         bid,
         won: isWon(bid),
         quotePrice: price,
+        quoteQty: qty,
         missing,
         site: missing
           ? null
@@ -77,7 +97,9 @@ function buildRows(
               budget: bid.budget!,
               price: bid.mid_price!,
               auction: auction!,
-              jobs: bid.budget! / bid.mid_price! / 12,
+              qty,
+              // ราย/เดือน: the quotation's quantity, else งบประมาณ ÷ ราคากลาง
+              jobs: (qty ?? bid.budget! / bid.mid_price!) / 12,
             },
       };
     });
@@ -271,6 +293,9 @@ export default function NoticeSites({
               .map((row) => ({ name: row.bid.site, missing: row.missing }))}
             noQuote={won
               .filter((row) => row.site && row.quotePrice == null)
+              .map((row) => row.bid.site)}
+            noQuoteQty={won
+              .filter((row) => row.site && row.quoteQty == null)
               .map((row) => row.bid.site)}
             quoteError={quoteError}
             allocationFor={allocationFor}

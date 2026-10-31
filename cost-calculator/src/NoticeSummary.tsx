@@ -85,6 +85,7 @@ export default function NoticeSummary({
   sites,
   incomplete,
   noQuote,
+  noQuoteQty,
   quoteError,
   allocationFor,
   onOpen,
@@ -92,6 +93,7 @@ export default function NoticeSummary({
   sites: Site[];
   incomplete: { name: string; missing: string }[];
   noQuote: string[];
+  noQuoteQty: string[];
   quoteError: boolean;
   allocationFor: (jobs: number) => Allocation;
   onOpen: (id: string) => void;
@@ -154,6 +156,12 @@ export default function NoticeSummary({
     ['กำไรตลอดสัญญา 12 เดือน', contract],
   ];
   const notes = [
+    'จำนวนราย/เดือน = จำนวนรายในใบเสนอราคา ÷ 12' +
+      (noQuoteQty.length
+        ? ' (ไม่พบในใบเสนอราคา ใช้งบประมาณ ÷ ราคากลาง ÷ 12: ' +
+          noQuoteQty.join(', ') +
+          ')'
+        : ''),
     'ส่วนกลาง = เงินเดือนผู้คุมงาน + ประกันสังคมส่วนนายจ้าง + QC + ค่าใช้จ่ายสตาฟ + ค่าเอกสาร + ค่ารับรอง เฉลี่ยตามสัดส่วนจำนวนรายของไซด์ที่ชนะประมูล • ยังไม่บวกหรือแยก VAT และภาษีเงินได้นิติบุคคล',
     ...(incomplete.length
       ? [
@@ -296,7 +304,8 @@ export default function NoticeSummary({
         </h1>
         <p className="text-sm text-slate-500 mt-2">
           คิด {sites.length} ไซด์ • รายรับ = จำนวนราย/เดือน × ราคาต่อหน่วยที่ชนะ
-          (จากใบเสนอราคา ถ้าไม่มีใช้ราคาปี70 ในตารางประมูล) •
+          (จากใบเสนอราคา ถ้าไม่มีใช้ราคาปี70 ในตารางประมูล) • จำนวนราย/เดือน =
+          จำนวนรายในใบเสนอราคา ÷ 12 •
           ต้นทุนแต่ละไซด์ใช้ค่าที่บันทึกไว้ในหน้าไซด์นั้น
         </p>
       </header>
@@ -396,7 +405,10 @@ export default function NoticeSummary({
           ยังไม่บวกหรือแยก VAT และภาษีเงินได้นิติบุคคล
         </p>
       </section>
-      {(incomplete.length > 0 || noQuote.length > 0 || quoteError) && (
+      {(incomplete.length > 0 ||
+        noQuote.length > 0 ||
+        noQuoteQty.length > 0 ||
+        quoteError) && (
         <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm space-y-2">
           {incomplete.length > 0 && (
             <p>
@@ -409,6 +421,12 @@ export default function NoticeSummary({
           {noQuote.length > 0 && (
             <p>
               ไม่มีใบเสนอราคา ใช้ราคาปี70 ในตารางประมูล: {noQuote.join(', ')}
+            </p>
+          )}
+          {noQuoteQty.length > 0 && (
+            <p>
+              ไม่พบจำนวนรายในใบเสนอราคา ใช้งบประมาณ ÷ ราคากลาง ÷ 12:{' '}
+              {noQuoteQty.join(', ')}
             </p>
           )}
           {quoteError && (

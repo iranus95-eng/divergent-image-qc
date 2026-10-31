@@ -120,8 +120,10 @@ const QUOTE_ENDPOINT =
   'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';
 
 // The unit price typed in each priced เสนอราคาแจ้งเตือน job (the first one when its rows differ).
+// Each priced quote: its first unit price, and its quantity (ราย) when it can be read back:
+// the typed quantities, else total ÷ 1.07 ÷ price when every row has the same price.
 export async function loadQuotePrices(): Promise<
-  { title: string; price: number }[]
+  { title: string; price: number; qty: number | null }[]
 > {
   const { items } = await call({ action: 'list' }, QUOTE_ENDPOINT);
   const priced = (items as Record<string, unknown>[]).filter(
@@ -133,9 +135,24 @@ export async function loadQuotePrices(): Promise<
         { action: 'get', id: item.id },
         QUOTE_ENDPOINT,
       );
-      const rows = (full?.state?.rows || []) as { price?: unknown }[];
-      const price = rows.map((row) => Number(row.price)).find((v) => v > 0);
-      return { title: String(item.title || ''), price: price ?? 0 };
+      const rows = (full?.state?.rows || []) as {
+        price?: unknown;
+        qty?: unknown;
+      }[];
+      const prices = rows.map((row) => Number(row.price)).filter((v) => v > 0);
+      const typed = rows.map((row) => Number(row.qty));
+      const total = Number(item.total_amount);
+      const qty =
+        rows.length && typed.every((v) => v > 0)
+          ? typed.reduce((sum, v) => sum + v, 0)
+          : prices.length === rows.length && new Set(prices).size === 1
+            ? Math.round(total / 1.07 / prices[0])
+            : null;
+      return {
+        title: String(item.title || ''),
+        price: prices[0] ?? 0,
+        qty: qty && qty > 0 ? qty : null,
+      };
     }),
   );
   return quotes.filter((quote) => quote.price > 0);
