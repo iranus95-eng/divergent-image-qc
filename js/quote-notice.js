@@ -225,7 +225,8 @@
         unit = { str: 'ต่อหน่วย', x: x0, w: x1 - x0, y: under ? under.y : per.y, h: per.h };
       }
     }
-    var sum = near.filter(function (i) { return /^รวม$/.test(i.str.trim()) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
+    // "รวม", or "รวม(ไม่รวม" with "ภาษีมูลค่าเพิ่ม)" wrapped onto the next line (e.g. กฟส.ด่านขุนทด)
+    var sum = near.filter(function (i) { return /^รวม(\s*\(\s*ไม\S{0,2}\s*รวม.*)?$/.test(i.str.trim()) && right(i); }).sort(function (a, b) { return a.x - b.x; })[0];
     // "(ราย)" under the quantity header; a bare "ราย" can also be a split piece of "รายการ" in the first
     // columns (e.g. กฟส.เสิงสาง), so prefer the bracketed one, then the right-most (closest to the prices)
     var qty = near.filter(function (i) { return /\(?\s*ราย\s*\)?$/.test(i.str.trim()) && i.str.trim().length <= 7 && center(i) < offer.x; })
