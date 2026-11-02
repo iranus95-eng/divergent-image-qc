@@ -123,7 +123,8 @@
   }
 
   function n0(v) { return Math.round(v).toLocaleString('en-US'); }
-  function unitsText(u) { return u ? ' · ' + n0(u) + ' ราย/ปี (' + n0(u / 12) + ' ราย/เดือน)' : ''; }
+  // per month, like the 🏆 button (units is ราย/ปี)
+  function unitsText(u) { return u ? ' · ' + n0(u / 12) + ' ราย/เดือน' : ''; }
   var lastRows = null;
   function html(rows) {
     var d = draw(rows);
