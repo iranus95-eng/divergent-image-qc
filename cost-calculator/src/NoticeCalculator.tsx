@@ -118,9 +118,9 @@ export type BidSource = {
   auction: number;
   qty?: number | null; // ราย per year from the site's quotation
 };
-// Monthly jobs: the quotation's quantity ÷ 12, else งบประมาณ ÷ ราคากลาง ÷ 12.
+// Monthly jobs: the quotation's quantity ÷ 12, else งบประมาณ (VAT removed) ÷ ราคากลาง ÷ 12.
 const jobsOf = (v: Pick<Values, 'budget' | 'price'>, bid?: BidSource) =>
-  bid?.qty ? bid.qty / 12 : v.price > 0 ? v.budget / v.price / 12 : 0;
+  bid?.qty ? bid.qty / 12 : v.price > 0 ? v.budget / 1.07 / v.price / 12 : 0;
 export const noticeStorageKey = (siteId: string) => KEY + ':site:' + siteId;
 const sourceTag = (bid: BidSource) =>
   ['notice-bids', bid.bidId, bid.budget, bid.price, bid.auction].join(':');
