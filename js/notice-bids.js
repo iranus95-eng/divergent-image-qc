@@ -242,13 +242,15 @@
   //     (จักราช: 10 in the sheet, 8 in the TOR) still divides exactly (410,623.20 ÷ 1.07 ÷ 62,400 = 6.15). When the price
   //     typed in the site's quotation splits the money into whole notices that also give a clean ราคากลาง from the budget
   //     (÷ 4.92 = 78,000 ราย; 667,680 ÷ 1.07 ÷ 78,000 = 8.00), that quantity is the real one.
-  // opt: { est: qty is estimated, budget, quotePrices: unit prices in the site's quotations }
+  //     The same when the lowest offer is our own quotation (its total is the same money, ours: true): the row's quantity
+  //     may be wrong too (ท่าตูม: 50,800 ราย at ราคากลาง 12 in the row; 406,039.32 ÷ 1.07 ÷ 4.98 = 76,200 ราย at 8.00).
+  // opt: { est: qty is estimated, ours: the lowest offer is our quotation's total, budget, quotePrices: unit prices in the site's quotations }
   function resultPrice(lowest, qty, mid, site, names, opt) {
     var exactOf = function (money, n) { var e = money / (1 + VAT) / n, r = Math.round(e * 100) / 100; return { exact: e, price: r, ok: Math.abs(e - r) < 0.0005 && r > 0 }; };
     var total = lowest.reduce(function (s, v) { return s + v; }, 0), mid0 = Number(mid) || 8;
     var res = { total: total, per: qty, monthly: false, item: -1, areas: null };
     opt = opt || {};
-    if (opt.est && opt.budget) {
+    if ((opt.est || opt.ours) && opt.budget) {
       var fix = (opt.quotePrices || []).map(function (qp) {
         var q = total / (1 + VAT) / qp, qr = Math.round(q);
         if (!(qp > 0) || Math.abs(q - qr) > 0.01 || qr < 1000 || qr === qty) return null;
@@ -273,6 +275,16 @@
     }
     return Object.assign(res, all);
     function named(i) { var n = nameKey((names || [])[i] || ''); return k && n.indexOf(k) >= 0 ? 1 : 0; }
+  }
+  // did we win? The lowest offer in the result file is our own quotation: its total (VAT included) is the same money,
+  // for the whole project or for one รายการพิจารณา (ท่าตูม: 406,039.32 = the ท่าตูม quotation, 1 bidder). Without a total
+  // in the quotation, its unit price equal to the winning price per notice is enough.
+  function isOurWin(lowest, quoteTotals, quotePrices, price) {
+    var total = lowest.reduce(function (s, v) { return s + v; }, 0), near = function (a, b) { return Math.abs(a - b) < 0.015; };
+    var byTotal = (quoteTotals || []).some(function (t) { return t > 0 && (near(t, total) || lowest.some(function (v) { return near(t, v); })); });
+    if (byTotal) return true;
+    if ((quoteTotals || []).some(function (t) { return t > 0; })) return false;
+    return price > 0 && (quotePrices || []).some(function (q) { return near(q, price); });
   }
   // announcement + TOR of the same office become one row; announcement wins for dates/money, TOR for quantities
   function mergeDocs(docs) {
@@ -370,8 +382,12 @@
     var names = (d.items || []).map(function (x) { return x.name; });
     var dv = derived(row), qps = [];
     quotesOf(row).forEach(function (h) { (h.prices || []).forEach(function (v) { if (qps.indexOf(v) < 0) qps.push(v); }); });
-    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, budget: Number(row.budget) || 0, quotePrices: qps }), price = r.price, total = r.total;
+    var qts = quotesOf(row).map(function (h) { return Number(h.total_amount) || 0; });
+    var byTotal = isOurWin(d.lowest, qts, [], 0);
+    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps }), price = r.price, total = r.total;
     var patch = { price_bid: price };
+    var ours = byTotal || isOurWin(d.lowest, qts, qps, price);
+    if (ours && !won(row)) patch.status = 'ชนะประมูล';
     var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
       'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
     if (r.qty) {
@@ -391,6 +407,7 @@
       msg += '÷ 1.07 ÷ ' + fmt(r.per) + (r.monthly ? ' ราย/เดือน' : ' ราย') + ' = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT' +
         (Math.abs(r.exact - price) >= 0.0005 ? '\n⚠ หารไม่ลงตัว (' + r.exact.toFixed(4) + ') จำนวนรายในตารางอาจไม่ตรงกับ TOR' : '');
     }
+    if (ours) msg += '\n\n🏆 ราคาต่ำสุดตรงกับใบเสนอราคาของเรา: ' + (won(row) ? 'ไซด์นี้ทำเครื่องหมายชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าชนะประมูล');
     msg += (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
     if (!confirm(msg)) return;
     try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, patch))); }

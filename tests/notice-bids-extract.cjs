@@ -9,7 +9,7 @@ const a=src.indexOf('// --------------------------------------------------------
 const b=src.indexOf('// ---------------------------------------------------------------- end of extraction');
 assert.ok(a>0&&b>a,'extraction section not found');
 const ctx={};
-vm.runInNewContext(`var VAT=0.07;${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;`,ctx);
+vm.runInNewContext(`var VAT=0.07;${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;this.isOurWin=isOurWin;`,ctx);
 const fx=n=>JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures',n),'utf8'));
 
 // กฟส.พุทไธสง ปี 2570: announcement (e-GP file name carries the project number) + TOR with marks missing ("การไฟฟาสวนภูมิภาค")
@@ -111,3 +111,21 @@ assert.equal(jkp.price,4.92); assert.equal(jkp.qty,78000); assert.equal(jkp.mid,
 assert.equal(ctx.resultPrice(jk.lowest,62400,10,'จักราช',[''],{est:true,budget:667680,quotePrices:[]}).price,6.15);
 assert.equal(ctx.resultPrice(jk.lowest,62400,10,'จักราช',[''],{est:false,budget:667680,quotePrices:[4.92]}).price,6.15);
 console.log('PASS: notice bids result file → quantity from the site quotation when the ราคากลาง was wrong (จักราช)');
+
+// "สังขะ5.pdf" is the result of project 69099736484 (ท่าตูม): its lowest offer 406,039.32 is our ท่าตูม quotation → we won (🏆)
+const tt=ctx.extract(fx('notice-bids-sangkha-result.json'),'สังขะ5.pdf');
+assert.equal(tt.kind,'result');
+assert.equal(tt.project_no,'69099736484');
+assert.deepEqual([...tt.lowest],[406039.32]);
+// the row says 50,800 ราย at ราคากลาง 12 (→ 7.47), but the lowest offer is our quotation at 4.98: 76,200 ราย, ราคากลาง 8.00
+assert.equal(ctx.resultPrice(tt.lowest,50800,12,'ท่าตูม',['']).price,7.47);
+assert.equal(ctx.isOurWin(tt.lowest,[406039.32],[],0),true);
+const ttp=ctx.resultPrice(tt.lowest,50800,12,'ท่าตูม',[''],{ours:true,budget:652272,quotePrices:[4.98]});
+assert.equal(ttp.price,4.98); assert.equal(ttp.qty,76200); assert.equal(ttp.mid,8);
+assert.equal(ctx.isOurWin(tt.lowest,[542425.80],[4.97],ttp.price),false);   // สังขะ's quotation is other money
+// สว่างแดนดิน: our quotation 877,793.76 (6.33) is not the lowest 825,098.40 nor any area → lost
+assert.equal(ctx.isOurWin(res.lowest,[877793.76],[6.33],5.95),false);
+// a quotation without a total: same unit price as the winning one
+assert.equal(ctx.isOurWin([410623.2],[0],[4.92],4.92),true);
+assert.equal(ctx.isOurWin([410623.2],[],[5.10],4.92),false);
+console.log('PASS: notice bids result file → 🏆 when the lowest offer is our quotation');
