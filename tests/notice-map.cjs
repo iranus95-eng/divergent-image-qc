@@ -29,7 +29,7 @@ Object.keys(M.COVER).forEach(k=>{ assert.ok(of(k.split('/')[1]).includes(k),k); 
 
 // a win beats a wait or a loss on the same district; the office's other districts are ticked only when won; cancelled rows mark nothing
 const rows=[
-  {site:'นครราชสีมา 2',status:'ชนะประมูล'},{site:'นม1',status:null},
+  {site:'นครราชสีมา 2',status:'ชนะประมูล',qty:120000},{site:'นม1',status:null},
   {site:'ขอนแก่น 2',status:'ไม่ชนะประมูล'},
   {site:'โชคชัย',status:'ไม่ชนะประมูล'},
   {site:'พล',status:'ไม่ชนะประมูล'},
@@ -53,6 +53,8 @@ console.log('notice-map: ok');
 const pic=M.pictureSvg(rows,'');
 assert.ok(pic.svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"'));
 assert.ok(pic.svg.includes('แผนที่ไซด์ประมูลแจ้งเตือน 5 จังหวัด'));
-assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์'));
+assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์ · 120,000 ราย/ปี (10,000 ราย/เดือน)'));
+// a won row without จำนวนราย: วงเงิน ÷ 1.07 ÷ ราคากลาง
+assert.ok(M.pictureSvg([{site:'พล',status:'ชนะประมูล',budget:667680,mid_price:8}],'').svg.includes('78,000 ราย/ปี'));
 assert.match(pic.name,/^notice-bid-map-\d{4}-\d{2}-\d{2}\.png$/);
 console.log('notice-map picture: ok');

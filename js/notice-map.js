@@ -110,13 +110,20 @@
     // won districts drawn again on top, so their red outline is not hidden under the neighbours' grey edges
     var tops = g.list.filter(function (d) { return state(m[d.key]) === 'won'; }).map(function (d) { return '<path class="nm-wo" d="' + d.path + '"/>'; }).join('');
     var prov = Object.keys(g.prov).map(function (p) { var a = g.prov[p]; return '<text class="nm-p" x="' + Math.round(a.x / a.n) + '" y="' + Math.round(a.y / a.n) + '">' + esc(p) + '</text>'; }).join('');
+    // ราย/ปี of every site we won (also one off the map), the same sum as the 🏆 button: จำนวนราย, else วงเงิน ÷ 1.07 ÷ ราคากลาง
+    var units = (rows || []).filter(won).reduce(function (t, r) {
+      var q = Number(r.qty) || (r.budget && r.mid_price ? Math.round(r.budget / 1.07 / r.mid_price) : 0);
+      return t + (q || 0);
+    }, 0);
     var count = function (f) { return (rows || []).filter(function (r) { return !cancelled(r) && f(r) && districtsOf(r).length; }).length; };
     return {
       body: shapes + tops + '<g class="nm-prov">' + prov + '</g><g>' + labels + '</g>' + signs, H: g.H, off: mk.off.length,
-      won: count(won), lost: count(lost), wait: count(function (r) { return !won(r) && !lost(r); })
+      won: count(won), units: units, lost: count(lost), wait: count(function (r) { return !won(r) && !lost(r); })
     };
   }
 
+  function n0(v) { return Math.round(v).toLocaleString('en-US'); }
+  function unitsText(u) { return u ? ' · ' + n0(u) + ' ราย/ปี (' + n0(u / 12) + ' ราย/เดือน)' : ''; }
   var lastRows = null;
   function html(rows) {
     var d = draw(rows);
@@ -124,7 +131,7 @@
     lastRows = rows;
     return '<div class="nm-wrap"><div class="nm-top"><button type="button" class="nm-dl" data-nm="dl" title="บันทึกแผนที่ตามสถานะตอนนี้เป็นรูป PNG">⬇ ดาวน์โหลดแผนที่ (PNG)</button></div>' +
       '<div class="nm-scroll"><svg class="nm-svg" viewBox="0 0 ' + W + ' ' + d.H + '" role="img" aria-label="แผนที่ไซด์ประมูล 5 จังหวัด">' + d.body + '</svg></div>' +
-      '<div class="nm-legend"><span><svg viewBox="-10 -10 20 20">' + check(0, 1) + '</svg> ชนะประมูล ' + d.won + ' ไซด์</span>' +
+      '<div class="nm-legend"><span><svg viewBox="-10 -10 20 20">' + check(0, 1) + '</svg> ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</span>' +
       '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> รอประมูล / รอผล ' + d.wait + ' ไซด์</span>' +
       '<span><svg viewBox="-10 -10 20 20">' + cross(0, 0) + '</svg> ไม่ชนะ ' + d.lost + ' ไซด์</span>' +
       '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • ✓ ในอำเภอข้างเคียง = อำเภอในเขตของสาขาที่ชนะ (ตามแผนที่เดิม) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
@@ -158,7 +165,7 @@
   // the whole picture as one SVG document: title on top, the map, the legend under it
   function pictureSvg(rows, font) {
     var d = draw(rows); if (!d) return null;
-    var day = thaiToday(), top = 70, foot = 70, H = top + d.H + foot, y = top + d.H + 30;
+    var day = thaiToday(), top = 70, foot = 98, H = top + d.H + foot, y = top + d.H + 30;
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
       '<style>' + font + 'text{font-family:NmSarabun,Sarabun,Tahoma,sans-serif}' + MAP_CSS +
       '.nm-t{font-size:24px;font-weight:800;fill:#222}.nm-s{font-size:13px;fill:#555}.nm-g{font-size:15px;font-weight:700;fill:#222}.nm-n{font-size:11px;fill:#777}</style>' +
@@ -166,10 +173,10 @@
       '<text class="nm-t" x="24" y="36">แผนที่ไซด์ประมูลแจ้งเตือน 5 จังหวัด</text>' +
       '<text class="nm-s" x="24" y="58">ขอนแก่น • ชัยภูมิ • นครราชสีมา • บุรีรัมย์ • สุรินทร์ | ข้อมูล ณ ' + day.th + '</text>' +
       '<g transform="translate(0 ' + top + ')">' + d.body + '</g>' +
-      check(32, y) + '<text class="nm-g" x="48" y="' + (y + 5) + '">ชนะประมูล ' + d.won + ' ไซด์</text>' +
-      pin(232, y + 9) + '<text class="nm-g" x="248" y="' + (y + 5) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
-      cross(482, y) + '<text class="nm-g" x="498" y="' + (y + 5) + '">ไม่ชนะ ' + d.lost + ' ไซด์</text>' +
-      '<text class="nm-n" x="24" y="' + (y + 30) + '">✓ ในอำเภอข้างเคียง = อำเภอในเขตของสาขาที่ชนะ (ตามแผนที่เดิม) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
+      check(32, y) + '<text class="nm-g" x="48" y="' + (y + 5) + '">ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</text>' +
+      pin(32, y + 37) + '<text class="nm-g" x="48" y="' + (y + 33) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
+      cross(292, y + 28) + '<text class="nm-g" x="308" y="' + (y + 33) + '">ไม่ชนะ ' + d.lost + ' ไซด์</text>' +
+      '<text class="nm-n" x="24" y="' + (y + 58) + '">✓ ในอำเภอข้างเคียง = อำเภอในเขตของสาขาที่ชนะ (ตามแผนที่เดิม) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
     // ASCII file name: some browsers drop a Thai download name and save the file as "download"
     return { svg: svg, W: W, H: H, name: 'notice-bid-map-' + day.iso + '.png' };
   }
