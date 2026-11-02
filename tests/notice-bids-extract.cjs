@@ -179,3 +179,20 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   assert.match(c2.changesText(r,r),/ข้อมูลตรงกับที่มีอยู่แล้ว/);
   console.log('PASS: notice bids import updates an existing site (บัวใหญ่) instead of adding a row');
 }
+
+// "อุดรธานี.pdf" is the result of 69109247390 = บ้านดุง (3 bidders). The row says 68,000 ราย at ราคากลาง 9 → 4.905, not a
+// 2-decimal price. Our บ้านดุง quotation 340,516.80 at 5.20 was priced on 61,200 ราย, over which the lowest offer
+// divides exactly: 356,887.80 ÷ 1.07 ÷ 61,200 = 5.45, and 654,840 ÷ 1.07 ÷ 61,200 = ราคากลาง 10.00. Not ours → ❌.
+{
+  const bd=ctx.extract(fx('notice-bids-bandung-result.json'),'อุดรธานี.pdf');
+  assert.equal(bd.project_no,'69109247390');
+  assert.deepEqual([...bd.lowest],[356887.8]);
+  const plain=ctx.resultPrice(bd.lowest,68000,9,'บ้านดุง',['']);
+  assert.ok(Math.abs(plain.exact-plain.price)>=0.0005,'68,000 does not divide');
+  const p=ctx.resultPrice(bd.lowest,68000,9,'บ้านดุง',[''],{est:false,ours:false,budget:654840,quotePrices:[5.2],quoteQtys:[61200]});
+  assert.equal(p.price,5.45); assert.equal(p.qty,61200); assert.equal(p.mid,10); assert.equal(p.src,'qty');
+  assert.equal(ctx.isOurWin(bd.lowest,[340516.8],[5.2],p.price),false);
+  // a row whose quantity already divides keeps it (จักราช with its own 78,000)
+  assert.equal(ctx.resultPrice([410623.2],78000,8,'จักราช',[''],{quoteQtys:[61200]}).qty,undefined);
+  console.log('PASS: notice bids result file → quantity of our quotation when the row\'s does not divide (บ้านดุง)');
+}

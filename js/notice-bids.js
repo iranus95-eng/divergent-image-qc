@@ -257,10 +257,22 @@
         var q = total / (1 + VAT) / qp, qr = Math.round(q);
         if (!(qp > 0) || Math.abs(q - qr) > 0.01 || qr < 1000 || qr === qty) return null;
         var m = exactOf(opt.budget, qr);
-        return m.ok && m.price < 100 ? { price: qp, exact: qp, ok: true, per: qr, qty: qr, mid: m.price } : null;
+        return m.ok && m.price < 100 ? { price: qp, exact: qp, ok: true, per: qr, qty: qr, mid: m.price, src: 'price' } : null;
       }).filter(Boolean)[0];
       if (fix) return Object.assign(res, fix);
     }
+    // the quantity our own quotation was priced on (its total ÷ 1.07 ÷ its unit price, whole notices): the lowest offer
+    // divides exactly over it when the row's quantity is wrong (บ้านดุง: 68,000 in the row at ราคากลาง 9 → 4.905;
+    // the quotation 340,516.80 at 5.20 = 61,200 ราย → 356,887.80 ÷ 1.07 ÷ 61,200 = 5.45, ราคากลาง 10.00)
+    var byQuote = function () {
+      return (opt.quoteQtys || []).map(function (qq) {
+        if (!(qq >= 1000) || qq === qty) return null;
+        var w = exactOf(total, qq); if (!w.ok || w.price > mid0 * 2) return null;
+        var m = opt.budget ? exactOf(opt.budget, qq) : null;
+        return Object.assign(w, { per: qq, qty: qq, mid: m && m.ok && m.price < 100 ? m.price : undefined, src: 'qty' });
+      }).filter(Boolean)[0];
+    };
+    var bq = opt.est && byQuote(); if (bq) return Object.assign(res, bq);
     var all = exactOf(total, qty);
     if (all.ok && all.price >= mid0 / 4) return Object.assign(res, all);
     var mon = exactOf(total, qty / 12);
@@ -275,8 +287,18 @@
         return Object.assign(res, one, { item: i, areas: areas });
       }
     }
+    bq = byQuote(); if (bq) return Object.assign(res, bq);
     return Object.assign(res, all);
     function named(i) { var n = nameKey((names || [])[i] || ''); return k && n.indexOf(k) >= 0 ? 1 : 0; }
+  }
+  // the quantity each quotation of the site was priced on: total ÷ 1.07 ÷ unit price, when that is a whole number of notices
+  function quoteQtys(row) {
+    var out = [];
+    quotesOf(row).forEach(function (h) {
+      var t = Number(h.total_amount) || 0;
+      (h.prices || []).forEach(function (p) { var q = t / (1 + VAT) / p, r = Math.round(q); if (t > 0 && p > 0 && Math.abs(q - r) < 0.01 && out.indexOf(r) < 0) out.push(r); });
+    });
+    return out;
   }
   // did we win? The lowest offer in the result file is our own quotation: its total (VAT included) is the same money,
   // for the whole project or for one รายการพิจารณา (ท่าตูม: 406,039.32 = the ท่าตูม quotation, 1 bidder). Without a total
@@ -402,7 +424,7 @@
     quotesOf(row).forEach(function (h) { (h.prices || []).forEach(function (v) { if (qps.indexOf(v) < 0) qps.push(v); }); });
     var qts = quotesOf(row).map(function (h) { return Number(h.total_amount) || 0; });
     var byTotal = isOurWin(d.lowest, qts, [], 0);
-    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps }), price = r.price, total = r.total;
+    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps, quoteQtys: quoteQtys(row) }), price = r.price, total = r.total;
     var patch = { price_bid: price };
     var ours = byTotal || isOurWin(d.lowest, qts, qps, price);
     // only a site with a quotation of ours can be called lost: without one there is nothing to compare
@@ -412,10 +434,13 @@
     var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
       'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
     if (r.qty) {
-      patch.qty = r.qty; patch.mid_price = r.mid;
-      msg += '÷ 1.07 ÷ ' + fmt(price, 2) + ' (ราคาในใบเสนอราคาของไซด์นี้) = ' + fmt(r.qty) + ' ราย/ปี\n' +
-        '⚠ จำนวนรายเดิมประมาณจากราคากลาง ' + fmt(row.mid_price, 2) + ' ได้ ' + fmt(qty) + ' ราย ซึ่งไม่ตรง: วงเงิน ' + fmt(row.budget, 2) +
-        ' ÷ 1.07 ÷ ' + fmt(r.qty) + ' = ราคากลาง ' + fmt(r.mid, 2) + '\nจะบันทึกจำนวน ' + fmt(r.qty) + ' ราย และราคากลาง ' + fmt(r.mid, 2) + ' ด้วย';
+      patch.qty = r.qty; if (r.mid) patch.mid_price = r.mid;
+      msg += (r.src === 'price'
+        ? '÷ 1.07 ÷ ' + fmt(price, 2) + ' (ราคาในใบเสนอราคาของไซด์นี้) = ' + fmt(r.qty) + ' ราย/ปี\n'
+        : '÷ 1.07 ÷ ' + fmt(r.qty) + ' ราย (จำนวนที่ใบเสนอราคาของไซด์นี้ใช้) = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT\n') +
+        '⚠ จำนวนรายเดิม' + (dv.est ? 'ประมาณจากราคากลาง ' + fmt(row.mid_price, 2) + ' ได้ ' : 'ในตาราง ') + fmt(qty) + ' ราย ซึ่งไม่ตรง' +
+        (r.mid ? ': วงเงิน ' + fmt(row.budget, 2) + ' ÷ 1.07 ÷ ' + fmt(r.qty) + ' = ราคากลาง ' + fmt(r.mid, 2) : '') +
+        '\nจะบันทึกจำนวน ' + fmt(r.qty) + ' ราย' + (r.mid ? ' และราคากลาง ' + fmt(r.mid, 2) : '') + ' ด้วย';
     } else if (r.item >= 0) {
       msg += d.lowest.map(function (v, i) {
         return (i === r.item ? '▶ ' : '   ') + (names[i] || 'รายการพิจารณาที่ ' + (i + 1)) + ' ' + fmt(v, 2) + ' บาท' +
