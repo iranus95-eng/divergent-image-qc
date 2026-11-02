@@ -172,7 +172,7 @@
     price: /ราคา/,
     amount: /นวนเงิน/,
     vat: /ภาษี/,
-    total: /รวม.*(เงิน|สิ้น)|ทั้งสิ้น/,
+    total: /รวม.*(เงิน|สิ\S{0,2}น)|ทั\S{0,2}งสิ\S{0,2}น/,
     qty: /^จ\S{0,3}นวน$/,
     number: /^\d{1,3}(,\d{3})+(\.\d+)?$|^\d+(\.\d+)?$/
   };
@@ -184,6 +184,8 @@
     0xF717: 0x0E4C, 0xF718: 0x0E38, 0xF719: 0x0E39, 0xF71A: 0x0E3A };
   function thaiText(s) {
     return String(s || '').replace(/[\uE000-\uF8FF]/g, function (c) { var m = PUA[c.charCodeAt(0)]; return m ? String.fromCharCode(m) : ''; })
+      // some fonts store ่ / ้ as "É" / "Ê" (e.g. กฟส.น้ำพอง): only as a lone glyph or right after a Thai letter
+      .replace(/(^|[\u0E01-\u0E4E])([\u00C9\u00CA])/g, function (m, a, c) { return a + (c === '\u00C9' ? '\u0E48' : '\u0E49'); })
       .replace(/\u0E4D\u0E32/g, '\u0E33')    // ํ + า = ำ
       .replace(/[\u0E50-\u0E59]/g, function (d) { return String(d.charCodeAt(0) - 0x0E50); });   // Thai digits ๐–๙
   }
@@ -196,11 +198,11 @@
     unit: /ต\S{0,2}อ\s*ห\S{0,2}น\S{0,2}วย/,
     amount: /นวนเงิน|ไม\S{0,2}รวมภาษี|^เป็นเงิน/,
     vat: /ภาษี|VAT/i,
-    total: /ทั้งสิ้น/
+    total: /ทั\S{0,2}งสิ\S{0,2}น/
   };
   //  C) รายการที่ | กิจกรรม | จำนวน/ปริมาณงาน (ราย) | ราคากลาง: ต่อหน่วย | รวม | ราคาที่เสนอ: ต่อหน่วย | รวม
   //     the offered columns are blank; รวม / VAT 7% / รวมทั้งสิ้น rows below are filled in the offered รวม column.
-  var SUM = { total: /ทั้งสิ้น/, vat: /ภาษี|VAT/i, amount: /^\d?\s*รวม|ไม\S{0,2}รวมภาษี/ };
+  var SUM = { total: /ทั\S{0,2}งสิ\S{0,2}น/, vat: /ภาษี|VAT/i, amount: /^\d?\s*รวม|ไม\S{0,2}รวมภาษี/ };
   function sumKey(str) {
     if (SUM.total.test(str)) return 'total';
     if (/ไม\S{0,2}รวมภาษี|ก\S{0,2}อนภาษี/.test(str)) return 'amount';   // "ราคารวมก่อนภาษีมูลค่าเพิ่ม" is the sum before VAT

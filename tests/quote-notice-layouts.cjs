@@ -62,10 +62,19 @@ function mid(r){return (r[0]+r[1])/2;}
   assert.ok(mid(t.bounds.amount)>400&&mid(t.bounds.amount)<467,'offered รวม column');
   assert.deepEqual([...t.sums.map(s=>s.key)],['amount','vat','total']);
 }
+// กฟส.น้ำพอง: tone marks stored as "É"/"Ê" and out of place ("รวมทั"+"งสิ"+"Ê"+"น"), the รวมทั้งสิ้น row must still be found
+{
+  const r=rows('quote-notice-namphong.json');
+  assert.equal(r.length,1);
+  assert.equal(r[0].qty,82300);
+  const t=r[0].table;
+  assert.deepEqual([...t.cols],['qty','price','amount']);
+  assert.deepEqual([...t.sums.map(s=>s.key)],['amount','vat','total']);
+}
 for(const f of ['quote-notice-putthaisong.json','quote-notice-sikhoraphum.json'])assert.equal(rows(f)[0].table.perMonth,false);
 // a new job is named after the office's site
 for(const [f,site] of [['quote-notice-putthaisong.json','พุทไธสง'],['quote-notice-dankhunthot.json','ด่านขุนทด'],['quote-notice-sikhoraphum.json','ศีขรภูมิ'],['quote-notice-nakhonratchasima2.json','เมืองนครราชสีมา 2']]){
   const raw=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures',f),'utf8'));
   assert.equal(ctx.officeSite(raw.map(i=>i.str).join(' ')),site);
 }
-console.log('PASS: quote notice layouts (tall header, wrapped รวม(ไม่รวมภาษี) heading, offered column without headings, per-month blank quantity, site name)');
+console.log('PASS: quote notice layouts (misplaced tone marks in รวมทั้งสิ้น, tall header, wrapped รวม(ไม่รวมภาษี) heading, offered column without headings, per-month blank quantity, site name)');
