@@ -8,8 +8,9 @@ const src=fs.readFileSync(path.join(root,'js/notice-bids.js'),'utf8');
 const a=src.indexOf('// ---------------------------------------------------------------- PDF text → fields');
 const b=src.indexOf('// ---------------------------------------------------------------- end of extraction');
 assert.ok(a>0&&b>a,'extraction section not found');
+const w0=src.indexOf('  function won(r)'),w1=src.indexOf('\n',src.indexOf('  function lost(r)'));
 const ctx={};
-vm.runInNewContext(`var VAT=0.07;${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;this.isOurWin=isOurWin;`,ctx);
+vm.runInNewContext(`var VAT=0.07;${src.slice(w0,w1)}\n${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;this.isOurWin=isOurWin;this.won=won;this.lost=lost;`,ctx);
 const fx=n=>JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures',n),'utf8'));
 
 // กฟส.พุทไธสง ปี 2570: announcement (e-GP file name carries the project number) + TOR with marks missing ("การไฟฟาสวนภูมิภาค")
@@ -129,3 +130,9 @@ assert.equal(ctx.isOurWin(res.lowest,[877793.76],[6.33],5.95),false);
 assert.equal(ctx.isOurWin([410623.2],[0],[4.92],4.92),true);
 assert.equal(ctx.isOurWin([410623.2],[],[5.10],4.92),false);
 console.log('PASS: notice bids result file → 🏆 when the lowest offer is our quotation');
+
+// ❌ next to 🏆: "ไม่ชนะประมูล" holds the word "ชนะ" but is not a win
+assert.equal(ctx.won({status:'ชนะประมูล'}),true); assert.equal(ctx.lost({status:'ชนะประมูล'}),false);
+assert.equal(ctx.won({status:'ไม่ชนะประมูล'}),false); assert.equal(ctx.lost({status:'ไม่ชนะประมูล'}),true);
+assert.equal(ctx.won({status:null}),false); assert.equal(ctx.lost({status:'ยกเลิก'}),false);
+console.log('PASS: notice bids won / lost status');

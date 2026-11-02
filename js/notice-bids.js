@@ -387,7 +387,10 @@
     var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps }), price = r.price, total = r.total;
     var patch = { price_bid: price };
     var ours = byTotal || isOurWin(d.lowest, qts, qps, price);
+    // only a site with a quotation of ours can be called lost: without one there is nothing to compare
+    var quoted = qts.some(function (t) { return t > 0; }) || qps.length > 0;
     if (ours && !won(row)) patch.status = 'ชนะประมูล';
+    if (!ours && quoted && !lost(row)) patch.status = 'ไม่ชนะประมูล';
     var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
       'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
     if (r.qty) {
@@ -408,6 +411,8 @@
         (Math.abs(r.exact - price) >= 0.0005 ? '\n⚠ หารไม่ลงตัว (' + r.exact.toFixed(4) + ') จำนวนรายในตารางอาจไม่ตรงกับ TOR' : '');
     }
     if (ours) msg += '\n\n🏆 ราคาต่ำสุดตรงกับใบเสนอราคาของเรา: ' + (won(row) ? 'ไซด์นี้ทำเครื่องหมายชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าชนะประมูล');
+    else if (quoted) msg += '\n\n❌ ราคาต่ำสุดไม่ตรงกับใบเสนอราคาของเรา' + (qts.some(function (t) { return t > 0; }) ? ' (' + qts.filter(function (t) { return t > 0; }).map(function (t) { return fmt(t, 2); }).join(' / ') + ' บาท)' : '') +
+      ': ' + (lost(row) ? 'ไซด์นี้ทำเครื่องหมายไม่ชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าไม่ชนะประมูล' + (won(row) ? ' (แทนเครื่องหมาย 🏆 เดิม)' : ''));
     msg += (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
     if (!confirm(msg)) return;
     try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, patch))); }
@@ -591,7 +596,7 @@
       '.nb-site .nm{display:flex;flex-direction:column;gap:2px}.nb-site small{font-weight:600;font-size:12px;color:#6b5d7a}.nb-site.today{border-color:#3a9a5b;background:#f2fbf5}.nb-site.today small{color:#2d7a47}' +
       '.nb-item.today{border-radius:10px;animation:nbBlink 1s step-end infinite}@keyframes nbBlink{0%{box-shadow:0 0 0 3px #e11d2e}50%{box-shadow:0 0 0 3px transparent}}' +
       '@media (prefers-reduced-motion:reduce){.nb-item.today{animation:none;box-shadow:0 0 0 3px #e11d2e}}' +
-      '.nb-site.past{opacity:.6}.nb-site.won{opacity:1;border-color:#d99a00;background:#fffaeb}.nb-site.won small{color:#8a5a00}' +
+      '.nb-site.past{opacity:.6}.nb-site.won{opacity:1;border-color:#d99a00;background:#fffaeb}.nb-site.won small{color:#8a5a00}.nb-site.lost small{color:#b42318}' +
       '.nb-item{position:relative;display:flex;flex-direction:column}.nb-item .nb-site{padding-right:44px;border-radius:10px 10px 0 0}.nb-item .nb-site .go{display:none}' +
       '.nb-q{border:1px solid #e5dced;border-top:0;border-radius:0 0 10px 10px;background:#f7f3fb;color:#5a2787;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;text-align:left;cursor:pointer}.nb-q:hover{background:#efe6f8}' +
       '.nb-q1{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nb-up{display:block;font-weight:600;font-size:11.5px;color:#4d6b57;margin-top:1px}.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
@@ -674,7 +679,9 @@
     }).sort(function (a, b) { return (a.seq || 1e9) - (b.seq || 1e9) || a.id - b.id; });
   }
   // a site we won is marked by its status ("ชนะประมูล")
-  function won(r) { return String(r.status || '').indexOf('ชนะ') >= 0; }
+  function won(r) { var t = String(r.status || ''); return t.indexOf('ชนะ') >= 0 && !lost(r); }
+  // a result file whose lowest offer is not our quotation marks the site "ไม่ชนะประมูล" (❌)
+  function lost(r) { return /ไม่ชนะ|แพ้/.test(String(r.status || '')); }
   // the site list: auctions still to come (soonest first) and sites without a date on top, then the sites we won, then auctions over without a win (lost) at the bottom
   function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
   // the auction is over once its day is past, or today after the end of its hours ("09.00-12.00 น." ends at 12:00)
@@ -760,9 +767,10 @@
     box.innerHTML = rows.length ? '<div class="nb-list">' + rows.map(function (r, i) {
       var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
       var over = ended(r), now = day === today && !over;
-      var when = day ? (now ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (won(r) ? '' : over ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
+      var when = day ? (now ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (won(r) || lost(r) ? '' : over ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
       if (won(r)) when += ' · 🏆 ชนะประมูล';
-      return '<div class="nb-item' + (now ? ' today' : '') + '"><button class="nb-site' + (over ? ' past' : '') + (won(r) ? ' won' : '') + (now ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
+      else if (lost(r)) when += ' · ❌ ไม่ชนะประมูล';
+      return '<div class="nb-item' + (now ? ' today' : '') + '"><button class="nb-site' + (over ? ' past' : '') + (won(r) ? ' won' : '') + (lost(r) ? ' lost' : '') + (now ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' + quoteBtn(r) +
         '<button class="nb-x" data-nb="del" data-i="' + r.id + '" title="ลบไซด์นี้" aria-label="ลบ ' + esc(r.site || '') + '">🗑</button></div>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
