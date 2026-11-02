@@ -441,10 +441,14 @@
     // only a site with a quotation of ours can be called lost: without one there is nothing to compare
     var quoted = qts.some(function (t) { return t > 0; }) || qps.length > 0;
     if (ours && !won(row)) patch.status = 'ชนะประมูล';
-    if (!ours && quoted && !lost(row)) patch.status = 'ไม่ชนะประมูล';
+    // a site already marked 🏆 that the file says someone else underbid is kept as it is: the lowest bidder can be
+    // disqualified and the job awarded at our quotation (โชคชัย: lowest 4.60 had bad documents, we won at 5.02),
+    // so a re-import must not flip it back to ❌ or overwrite our price
+    var keep = !ours && quoted && won(row);
+    if (!ours && quoted && !lost(row) && !keep) patch.status = 'ไม่ชนะประมูล';
     var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + (named ? ' — ไซด์นี้ยังไม่มีเลขที่โครงการ หาจากชื่อสาขาในไฟล์ และจะบันทึกเลขนี้ให้' : '') + ')\n' +
       'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
-    if (r.qty) {
+    if (r.qty && !keep) {
       patch.qty = r.qty; if (r.mid) patch.mid_price = r.mid;
       msg += (r.src === 'price'
         ? '÷ 1.07 ÷ ' + fmt(price, 2) + ' (ราคาในใบเสนอราคาของไซด์นี้) = ' + fmt(r.qty) + ' ราย/ปี\n'
@@ -466,8 +470,14 @@
     }
     if (ours) msg += '\n\n🏆 ราคาต่ำสุดตรงกับใบเสนอราคาของเรา: ' + (won(row) ? 'ไซด์นี้ทำเครื่องหมายชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าชนะประมูล');
     else if (quoted) msg += '\n\n❌ ราคาต่ำสุดไม่ตรงกับใบเสนอราคาของเรา' + (qts.some(function (t) { return t > 0; }) ? ' (' + qts.filter(function (t) { return t > 0; }).map(function (t) { return fmt(t, 2); }).join(' / ') + ' บาท)' : '') +
-      ': ' + (lost(row) ? 'ไซด์นี้ทำเครื่องหมายไม่ชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าไม่ชนะประมูล' + (won(row) ? ' (แทนเครื่องหมาย 🏆 เดิม)' : ''));
-    msg += (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
+      (keep ? '' : ': ' + (lost(row) ? 'ไซด์นี้ทำเครื่องหมายไม่ชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าไม่ชนะประมูล' + (won(row) ? ' (แทนเครื่องหมาย 🏆 เดิม)' : '')));
+    if (keep) {
+      delete patch.price_bid;
+      msg += '\n\n🏆 แต่ไซด์นี้ทำเครื่องหมายชนะประมูลไว้แล้ว (เช่น ผู้เสนอต่ำสุดถูกตัดสิทธิ์ เราได้งานตามใบเสนอราคา) จึงคง 🏆 และราคาปี70 ' +
+        fmt(row.price_bid, 2) + ' ไว้ตามเดิม ถ้าจริงๆ ไม่ชนะ ให้แก้สถานะในแถวเอง';
+      if (!named) { alert(msg); return; }
+      msg += '\n\nบันทึกเลขที่โครงการ ' + d.project_no + ' ให้ไซด์นี้?';
+    } else msg += (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
     if (!confirm(msg)) return;
     try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, patch))); }
     catch (e) { alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
@@ -484,6 +494,11 @@
   }
 
   // ---------------------------------------------------------------- numbers shown in the table
+  // "N ไซด์ · X ราย/ปี": the ราย we have won, summed live from the rows so it follows every status change
+  function wonSummary() {
+    var w = (st.rows || []).filter(won), qty = w.reduce(function (s, r) { return s + (derived(r).qty || 0); }, 0);
+    return w.length + ' ไซด์' + (qty ? ' · ' + fmt(qty) + ' ราย/ปี' : '');
+  }
   function derived(r) {
     var qty = Number(r.qty) || null, est = false;
     if (!qty && r.budget && r.mid_price) { qty = Math.round(r.budget / (1 + VAT) / r.mid_price); est = true; }
@@ -879,7 +894,7 @@
       '<div id="nbToday" class="nb-today"' + (st.open != null ? ' style="display:none"' : '') + '></div>' +
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '>' +
       '<input id="nbQ" placeholder="ค้นหาไซด์งาน / เลขที่โครงการ" value="' + esc(st.q) + '">' +
-      '<button class="nb-btn won' + (st.wonOnly ? ' on' : '') + '" data-nb="won" title="แสดงเฉพาะไซด์ที่ชนะประมูล">🏆 ชนะประมูล ' + (st.rows || []).filter(won).length + ' ไซด์</button>' +
+      '<button class="nb-btn won' + (st.wonOnly ? ' on' : '') + '" data-nb="won" title="แสดงเฉพาะไซด์ที่ชนะประมูล">🏆 ชนะประมูล ' + wonSummary() + '</button>' +
       '<button class="nb-btn won' + (st.map ? ' on' : '') + '" data-nb="map" title="แผนที่ 5 จังหวัด: ✓ ไซด์ที่ชนะ 📍 รอประมูล">🗺 แผนที่</button>' +
       '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมิน (วันที่มีประมูล ระบบส่งเอง 07:00 และทุก 30 นาที 09:00-12:00, 13:00-16:00)">📣 ส่งเข้า LINE แอดมิน</button><div id="nbOpenSum" class="nb-sum"></div></div>' +
       '<div id="nbMap"></div><div id="nbTable"></div>';
