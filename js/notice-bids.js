@@ -69,6 +69,8 @@
   // ราคาปี70 follows the unit price in the site's quotation (the first one when the rows differ)
   function syncPrices() {
     (st.rows || []).forEach(function (r) {
+      // a site we lost keeps the winner's price read from the result file (สังขะ 4.67), not our quoted 4.97
+      if (lost(r)) return;
       var q = quotesOf(r).filter(function (h) { return h.prices && h.prices.length; })[0];
       if (!q || Number(r.price_bid) === q.prices[0]) return;
       r.price_bid = q.prices[0];
