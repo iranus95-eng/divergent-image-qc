@@ -49,3 +49,10 @@ assert.equal(st('นครราชสีมา/พิมาย'),'');
 assert.equal(mk.off.length,1);
 assert.ok(M.html(rows).includes('nm-svg'));
 console.log('notice-map: ok');
+// the downloaded picture: one SVG document with the title, the date and the legend counts
+const pic=M.pictureSvg(rows,'');
+assert.ok(pic.svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"'));
+assert.ok(pic.svg.includes('แผนที่ไซด์ประมูลแจ้งเตือน 5 จังหวัด'));
+assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์'));
+assert.match(pic.name,/^notice-bid-map-\d{4}-\d{2}-\d{2}\.png$/);
+console.log('notice-map picture: ok');
