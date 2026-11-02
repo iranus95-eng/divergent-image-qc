@@ -10,7 +10,7 @@ const b=src.indexOf('// --------------------------------------------------------
 assert.ok(a>0&&b>a,'extraction section not found');
 const w0=src.indexOf('  function won(r)'),w1=src.indexOf('\n',src.indexOf('  function lost(r)'));
 const ctx={};
-vm.runInNewContext(`var VAT=0.07;${src.slice(w0,w1)}\n${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;this.isOurWin=isOurWin;this.won=won;this.lost=lost;`,ctx);
+vm.runInNewContext(`var VAT=0.07;${src.slice(w0,w1)}\n${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;this.isOurWin=isOurWin;this.won=won;this.lost=lost;this.nameKey=nameKey;`,ctx);
 const fx=n=>JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures',n),'utf8'));
 
 // กฟส.พุทไธสง ปี 2570: announcement (e-GP file name carries the project number) + TOR with marks missing ("การไฟฟาสวนภูมิภาค")
@@ -136,3 +136,15 @@ assert.equal(ctx.won({status:'ชนะประมูล'}),true); assert.equal
 assert.equal(ctx.won({status:'ไม่ชนะประมูล'}),false); assert.equal(ctx.lost({status:'ไม่ชนะประมูล'}),true);
 assert.equal(ctx.won({status:null}),false); assert.equal(ctx.lost({status:'ยกเลิก'}),false);
 console.log('PASS: notice bids won / lost status');
+
+// ศีขรภูมิ (+ สำโรงทาบ, one project 69109094653, 4 bidders): lowest 315,144.96 = 62,400 ราย × 4.72 + VAT; our quotation
+// "ศีขรภูมื" (typo, same nameKey) is 329,166.24 at 4.93 → ❌ ไม่ชนะประมูล
+const sk=ctx.extract(fx('notice-bids-sikhoraphum-result.json'),'ศีขรภูมื5.pdf');
+assert.equal(sk.kind,'result');
+assert.equal(sk.project_no,'69109094653');
+assert.deepEqual([...sk.lowest],[315144.96]);
+const skp=ctx.resultPrice(sk.lowest,62400,8,'ศีขรภูมิ',sk.items.map(x=>x.name));
+assert.equal(skp.price,4.72); assert.equal(skp.item,-1);
+assert.equal(ctx.isOurWin(sk.lowest,[329166.24],[4.93],skp.price),false);
+assert.equal(ctx.nameKey('ศีขรภูมื'),ctx.nameKey('ศีขรภูมิ'));
+console.log('PASS: notice bids result file → ❌ when the lowest offer is not our quotation (ศีขรภูมิ)');
