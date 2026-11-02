@@ -24,8 +24,12 @@ type Row = {
 
 const SUMMARY = 'summary';
 const WON = 'ชนะประมูล';
-// A site we won is marked by its status, as in ตารางประมูลแจ้งเตือน.
-const isWon = (bid: NoticeBid) => String(bid.status || '').includes('ชนะ');
+// A site we won is marked by its status, as in ตารางประมูลแจ้งเตือน. "ไม่ชนะประมูล" (❌, set when a result file shows
+// someone else's lower price) also contains "ชนะ", so it has to be ruled out: เสิงสาง was counted as won.
+const isWon = (bid: NoticeBid) => {
+  const s = String(bid.status || '');
+  return s.includes('ชนะ') && !/ไม่ชนะ|แพ้/.test(s);
+};
 // Same matching as ตารางประมูลแจ้งเตือน: tone marks, spaces and the กฟส./กฟจ. prefix are ignored,
 // and นครราชสีมา is written นม (so "นม3" finds "เมืองนครราชสีมา 3").
 const nameKey = (text: string) =>
