@@ -52,3 +52,23 @@ const shortOnly=ctx.extract([
 ],'x.pdf');
 assert.equal(shortOnly.site,'ครบุรี');
 console.log('PASS: notice bids PDF reading (heading without office is not named "เรื่อง")');
+
+// "การไฟฟ้าส่วนภูมิภาค มีความประสงค์จะประกวดราคา…" is a sentence, not an office; the office is in the heading or signature.
+// "12.00" in "ระหว่างเวลา 09.00 น. ถึง 12.00 น." is not a price per notice: an announcement gives no quantity.
+for (const [f, file, site, office, no, budget, bid] of [
+  ['notice-bids-buriram-announce.json', 'annoudoc_S50631000001_69109012505.pdf', 'บุรีรัมย์', 'กฟจ.บุรีรัมย์', '69109012505', 1438080, '2026-11-09'],
+  ['notice-bids-thatum-announce.json', 'annoudoc_S50632000005_69099736484.pdf', 'ท่าตูม', 'กฟส.ท่าตูม', '69099736484', 652272, '2026-11-02'],
+]) {
+  const d = ctx.extract(fx(f), file);
+  assert.equal(d.kind, 'announce');
+  assert.equal(d.site, site);
+  assert.equal(d.office, office);
+  assert.equal(d.project_no, no);
+  assert.equal(d.budget, budget);
+  assert.equal(d.bid_date, bid);
+  assert.equal(d.bid_time, '09.00-12.00');
+  assert.equal(d.qty, undefined, f + ': no quantity guessed from the bid hours');
+  assert.equal(d.mid_price, undefined, f + ': no price guessed from the bid hours');
+}
+assert.equal(ctx.extract(fx('notice-bids-thatum-announce.json'), 'x.pdf').zone, 'ฉ.3');
+console.log('PASS: notice bids PDF reading (office not taken from "มีความประสงค์จะ…", no price from the bid hours)');
