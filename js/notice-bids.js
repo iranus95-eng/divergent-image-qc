@@ -494,10 +494,10 @@
   }
 
   // ---------------------------------------------------------------- numbers shown in the table
-  // "N ไซด์ · X ราย/ปี": the ราย we have won, summed live from the rows so it follows every status change
+  // "N ไซด์ · X ราย/เดือน": the ราย we have won (ราย/ปี ÷ 12), summed live from the rows so it follows every status change
   function wonSummary() {
     var w = (st.rows || []).filter(won), qty = w.reduce(function (s, r) { return s + (derived(r).qty || 0); }, 0);
-    return w.length + ' ไซด์' + (qty ? ' · ' + fmt(qty) + ' ราย/ปี' : '');
+    return w.length + ' ไซด์' + (qty ? ' · ' + fmt(Math.round(qty / 12)) + ' ราย/เดือน' : '');
   }
   function derived(r) {
     var qty = Number(r.qty) || null, est = false;

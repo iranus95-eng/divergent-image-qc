@@ -53,8 +53,8 @@ console.log('notice-map: ok');
 const pic=M.pictureSvg(rows,'');
 assert.ok(pic.svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"'));
 assert.ok(pic.svg.includes('แผนที่ไซด์ประมูลแจ้งเตือน 5 จังหวัด'));
-assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์ · 120,000 ราย/ปี (10,000 ราย/เดือน)'));
+assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์ · 10,000 ราย/เดือน'));
 // a won row without จำนวนราย: วงเงิน ÷ 1.07 ÷ ราคากลาง
-assert.ok(M.pictureSvg([{site:'พล',status:'ชนะประมูล',budget:667680,mid_price:8}],'').svg.includes('78,000 ราย/ปี'));
+assert.ok(M.pictureSvg([{site:'พล',status:'ชนะประมูล',budget:667680,mid_price:8}],'').svg.includes('6,500 ราย/เดือน'));
 assert.match(pic.name,/^notice-bid-map-\d{4}-\d{2}-\d{2}\.png$/);
 console.log('notice-map picture: ok');
