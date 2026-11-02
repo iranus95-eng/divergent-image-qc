@@ -102,8 +102,8 @@ function buildRows(
               price: bid.mid_price!,
               auction: auction!,
               qty,
-              // ราย/เดือน: the quotation's quantity, else งบประมาณ ÷ ราคากลาง
-              jobs: (qty ?? bid.budget! / bid.mid_price!) / 12,
+              // ราย/เดือน: the quotation's quantity, else งบประมาณ ÷ 1.07 (VAT) ÷ ราคากลาง
+              jobs: (qty ?? bid.budget! / 1.07 / bid.mid_price!) / 12,
             },
       };
     });
