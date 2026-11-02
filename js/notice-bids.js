@@ -58,14 +58,24 @@
       await Promise.all(qs.filter(function (h) { return Number(h.total_amount) > 0; }).map(function (h) {
         return call({ action: 'get', id: h.id }, QUOTE_API).then(function (j) {
           var ps = [];
-          ((j.item && j.item.state && j.item.state.rows) || []).forEach(function (r) { var v = Number(r.price); if (v > 0 && ps.indexOf(v) < 0) ps.push(v); });
+          var rs = (j.item && j.item.state && j.item.state.rows) || [];
+          rs.forEach(function (r) { var v = Number(r.price); if (v > 0 && ps.indexOf(v) < 0) ps.push(v); });
           h.prices = ps;
+          // ราย the quotation was priced on: the typed quantities, else total ÷ 1.07 ÷ price when every row has the same price
+          // (the same reading as หน้าคำนวนต้นทุน, cost-calculator/src/cloud.ts)
+          var typed = rs.map(function (r) { return Number(r.qty); }), t = Number(h.total_amount) || 0;
+          var q = rs.length && typed.every(function (v) { return v > 0; }) ? typed.reduce(function (a, v) { return a + v; }, 0)
+            : rs.length && ps.length === 1 && rs.every(function (r) { return Number(r.price) === ps[0]; }) ? Math.round(t / (1 + VAT) / ps[0]) : 0;
+          if (q > 0) h.qty = q;
           if (j.item && j.item.pdf_b64) h.pdf = j.item.pdf_b64;   // read again for the sub-branches it names (map)
         }, function (e) { console.warn('notice-bids quote', h.id, e); });
       }));
       st.quotes = qs;
     } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; }
-    if (st.rows) { syncPrices(); renderTable(); }
+    if (st.rows) {
+      syncPrices(); renderTable();
+      var wb = document.querySelector('[data-nb="won"]'); if (wb) wb.textContent = '🏆 ชนะประมูล ' + wonSummary();   // units now from the quotations
+    }
     if (st.map) syncBranches();
   }
   // the map ticks the sub-branches of a won site: "กฟส./กฟย./กฟฟ.…" named in the text of its quotation PDF (js/notice-map.js)
@@ -530,8 +540,19 @@
     var w = (st.rows || []).filter(won), qty = w.reduce(function (s, r) { return s + (derived(r).qty || 0); }, 0);
     return w.length + ' ไซด์' + (qty ? ' · ' + fmt(Math.round(qty / 12)) + ' ราย/เดือน' : '');
   }
+  // จำนวนราย/ปี of a site: from its quotation first, else จำนวนราย in the table, else วงเงิน ÷ 1.07 ÷ ราคากลาง
+  function quoteQty(r) {
+    if (!st.quotes || !r.id) return null;
+    var h = quotesOf(r).filter(function (x) { return x.qty > 0; })[0];
+    if (!h) return null;
+    // a quotation priced per month (ราย/เดือน) is taken ×12: when twelve times it is nearer the budget's own estimate
+    var est = r.budget && r.mid_price ? r.budget / (1 + VAT) / r.mid_price : Number(r.qty) || 0;
+    if (!est) return h.qty;
+    var off = function (v) { return Math.abs(Math.log(v / est)); };
+    return off(h.qty * 12) < off(h.qty) ? h.qty * 12 : h.qty;
+  }
   function derived(r) {
-    var qty = Number(r.qty) || null, est = false;
+    var qty = quoteQty(r) || Number(r.qty) || null, est = false;
     if (!qty && r.budget && r.mid_price) { qty = Math.round(r.budget / (1 + VAT) / r.mid_price); est = true; }
     return {
       qty: qty, est: est,
@@ -873,7 +894,7 @@
   function drawMap(open) {
     var mapBox = document.getElementById('nbMap');
     if (arguments.length === 0) open = st.open != null;   // redrawn on its own (sub-branches read): hidden while a site is open
-    if (mapBox) mapBox.innerHTML = st.map && !open && window.NoticeMap ? window.NoticeMap.html(st.rows) : '';
+    if (mapBox) mapBox.innerHTML = st.map && !open && window.NoticeMap ? (window.NoticeMap.setQty(function (r) { return derived(r).qty; }), window.NoticeMap.html(st.rows)) : '';
   }
   // the menu lists the sites by name only; a site's details open when its name is clicked
   function renderTable() {

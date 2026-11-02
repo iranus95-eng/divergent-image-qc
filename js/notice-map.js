@@ -103,6 +103,7 @@
     });
     return out;
   }
+  var QTY = null;      // row → ราย/ปี (NoticeMap.setQty), from the site's quotation when it has one
   var BRANCHES = {};   // row id → sub-branch names from the site's quotation (NoticeMap.setBranches)
 
   // district key → { won: [sites], wait: [sites], lost: [sites], cover: [sites] }
@@ -149,9 +150,10 @@
     // won districts drawn again on top, so their red outline is not hidden under the neighbours' grey edges
     var tops = g.list.filter(function (d) { return state(m[d.key]) === 'won'; }).map(function (d) { return '<path class="nm-wo" d="' + d.path + '"/>'; }).join('');
     var prov = Object.keys(g.prov).map(function (p) { var a = g.prov[p]; return '<text class="nm-p" x="' + Math.round(a.x / a.n) + '" y="' + Math.round(a.y / a.n) + '">' + esc(p) + '</text>'; }).join('');
-    // ราย/ปี of every site we won (also one off the map), the same sum as the 🏆 button: จำนวนราย, else วงเงิน ÷ 1.07 ÷ ราคากลาง
+    // ราย/ปี of every site we won (also one off the map), the same sum as the 🏆 button: the quotation's จำนวนราย
+    // (set by the bid table with setQty), else จำนวนราย, else วงเงิน ÷ 1.07 ÷ ราคากลาง
     var units = (rows || []).filter(won).reduce(function (t, r) {
-      var q = Number(r.qty) || (r.budget && r.mid_price ? Math.round(r.budget / 1.07 / r.mid_price) : 0);
+      var q = (QTY && QTY(r)) || Number(r.qty) || (r.budget && r.mid_price ? Math.round(r.budget / 1.07 / r.mid_price) : 0);
       return t + (q || 0);
     }, 0);
     var count = function (f) { return (rows || []).filter(function (r) { return !cancelled(r) && f(r) && districtsOf(r).length; }).length; };
@@ -264,5 +266,5 @@
     document.head.appendChild(s);
   }
 
-  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER };
+  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, setQty: function (f) { QTY = typeof f === 'function' ? f : null; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER };
 })();
