@@ -387,6 +387,9 @@
   }
   // the result file of an auction: lowest price ÷ 1.07 ÷ ราย/ปี = the winning price per notice before VAT → ราคาปี70
   async function applyResult(d) {
+    // our quotations decide 🏆 / ❌ and the winning price: a file dropped right after the menu opens must wait for them
+    // (they load in the background; ท่าตูม was once read as 50,800 ราย → 7.47 with no 🏆 because they were not in yet)
+    if (!st.quotes) { st.busy = 'กำลังโหลดใบเสนอราคา…'; render(); await (st.quotesP || (st.quotesP = loadQuotes())); st.busy = ''; }
     var name = d.file + (d.project_no ? ' (เลขที่โครงการ ' + d.project_no + ')' : '');
     if (!d.project_no) { alert('ไฟล์ ' + d.file + ': ไม่พบเลขที่โครงการในไฟล์'); return; }
     if (!d.lowest || !d.lowest.length) { alert('ไฟล์ ' + name + ': ไม่พบราคาต่ำสุดที่เสนอ (ไฟล์อาจเป็นภาพสแกน)'); return; }
@@ -877,7 +880,7 @@
     window.scrollTo(0, 0);
     render();
     if (st.rows == null || st.err) load();
-    loadQuotes();
+    st.quotesP = loadQuotes();
     loadPdfJs().catch(function () {});
   }
   window.openNoticeBids = showPage;
