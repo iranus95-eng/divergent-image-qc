@@ -238,10 +238,25 @@
   //     A สว่างแดนดิน + B เจริญศิลป์ + C ส่องดาว): the item named like the row first; the other areas' quantities follow
   //     from the same price when they come out whole
   //  4. otherwise all items over the row's quantity, flagged as not exact
-  function resultPrice(lowest, qty, mid, site, names) {
+  //  0. (before all) a row without its own quantity has it estimated as budget ÷ 1.07 ÷ ราคากลาง, and a wrong ราคากลาง
+  //     (จักราช: 10 in the sheet, 8 in the TOR) still divides exactly (410,623.20 ÷ 1.07 ÷ 62,400 = 6.15). When the price
+  //     typed in the site's quotation splits the money into whole notices that also give a clean ราคากลาง from the budget
+  //     (÷ 4.92 = 78,000 ราย; 667,680 ÷ 1.07 ÷ 78,000 = 8.00), that quantity is the real one.
+  // opt: { est: qty is estimated, budget, quotePrices: unit prices in the site's quotations }
+  function resultPrice(lowest, qty, mid, site, names, opt) {
     var exactOf = function (money, n) { var e = money / (1 + VAT) / n, r = Math.round(e * 100) / 100; return { exact: e, price: r, ok: Math.abs(e - r) < 0.0005 && r > 0 }; };
     var total = lowest.reduce(function (s, v) { return s + v; }, 0), mid0 = Number(mid) || 8;
     var res = { total: total, per: qty, monthly: false, item: -1, areas: null };
+    opt = opt || {};
+    if (opt.est && opt.budget) {
+      var fix = (opt.quotePrices || []).map(function (qp) {
+        var q = total / (1 + VAT) / qp, qr = Math.round(q);
+        if (!(qp > 0) || Math.abs(q - qr) > 0.01 || qr < 1000 || qr === qty) return null;
+        var m = exactOf(opt.budget, qr);
+        return m.ok && m.price < 100 ? { price: qp, exact: qp, ok: true, per: qr, qty: qr, mid: m.price } : null;
+      }).filter(Boolean)[0];
+      if (fix) return Object.assign(res, fix);
+    }
     var all = exactOf(total, qty);
     if (all.ok && all.price >= mid0 / 4) return Object.assign(res, all);
     var mon = exactOf(total, qty / 12);
@@ -353,10 +368,18 @@
     var qty = derived(row).qty;
     if (!qty) { alert(row.site + ': ยังไม่มีจำนวนราย/ปี (หรือวงเงิน + ราคากลาง) จึงคำนวณราคาต่อรายไม่ได้'); return; }
     var names = (d.items || []).map(function (x) { return x.name; });
-    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names), price = r.price, total = r.total;
+    var dv = derived(row), qps = [];
+    quotesOf(row).forEach(function (h) { (h.prices || []).forEach(function (v) { if (qps.indexOf(v) < 0) qps.push(v); }); });
+    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, budget: Number(row.budget) || 0, quotePrices: qps }), price = r.price, total = r.total;
+    var patch = { price_bid: price };
     var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
       'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
-    if (r.item >= 0) {
+    if (r.qty) {
+      patch.qty = r.qty; patch.mid_price = r.mid;
+      msg += '÷ 1.07 ÷ ' + fmt(price, 2) + ' (ราคาในใบเสนอราคาของไซด์นี้) = ' + fmt(r.qty) + ' ราย/ปี\n' +
+        '⚠ จำนวนรายเดิมประมาณจากราคากลาง ' + fmt(row.mid_price, 2) + ' ได้ ' + fmt(qty) + ' ราย ซึ่งไม่ตรง: วงเงิน ' + fmt(row.budget, 2) +
+        ' ÷ 1.07 ÷ ' + fmt(r.qty) + ' = ราคากลาง ' + fmt(r.mid, 2) + '\nจะบันทึกจำนวน ' + fmt(r.qty) + ' ราย และราคากลาง ' + fmt(r.mid, 2) + ' ด้วย';
+    } else if (r.item >= 0) {
       msg += d.lowest.map(function (v, i) {
         return (i === r.item ? '▶ ' : '   ') + (names[i] || 'รายการพิจารณาที่ ' + (i + 1)) + ' ' + fmt(v, 2) + ' บาท' +
           (r.areas[i] ? ' = ' + fmt(r.areas[i]) + ' ราย × ' + fmt(price, 2) : '');
@@ -370,7 +393,7 @@
     }
     msg += (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
     if (!confirm(msg)) return;
-    try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, { price_bid: price }))); }
+    try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, patch))); }
     catch (e) { alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
     st.busy = '';
   }

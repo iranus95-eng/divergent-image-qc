@@ -98,3 +98,16 @@ assert.equal(nm2.price,4.62); assert.equal(nm2.monthly,true);
 const odd=ctx.resultPrice([100000,50000],77760,10,'x');
 assert.equal(odd.item,-1); assert.ok(Math.abs(odd.exact-odd.price)>=0.0005);
 console.log('PASS: notice bids result file → price per notice (multi-area result, row quantity of one area)');
+
+// จักราช: no quantity in the row, ราคากลาง 10 in the sheet (8 in the TOR). 410,623.20 ÷ 1.07 ÷ 62,400 (estimated from 10)
+// = 6.15 divides too, but the site's quotation says 4.92 → 78,000 ราย, and 667,680 ÷ 1.07 ÷ 78,000 = 8.00
+const jk=ctx.extract(fx('notice-bids-chakkarat-result.json'),'จักราจ5.pdf');
+assert.equal(jk.kind,'result');
+assert.equal(jk.project_no,'69099708279');
+assert.deepEqual([...jk.lowest],[410623.2]);
+const jkp=ctx.resultPrice(jk.lowest,62400,10,'จักราช',[''],{est:true,budget:667680,quotePrices:[4.92]});
+assert.equal(jkp.price,4.92); assert.equal(jkp.qty,78000); assert.equal(jkp.mid,8);
+// without a quotation, or with the row's own quantity, the reading is unchanged
+assert.equal(ctx.resultPrice(jk.lowest,62400,10,'จักราช',[''],{est:true,budget:667680,quotePrices:[]}).price,6.15);
+assert.equal(ctx.resultPrice(jk.lowest,62400,10,'จักราช',[''],{est:false,budget:667680,quotePrices:[4.92]}).price,6.15);
+console.log('PASS: notice bids result file → quantity from the site quotation when the ราคากลาง was wrong (จักราช)');
