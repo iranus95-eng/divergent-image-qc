@@ -149,7 +149,8 @@
       : (/รายละเอียดประกอบ|ปริมาณงาน|ขอบเขตของงาน|ราคากลาง\s*\(/.test(F) ? 'tor' : 'other');
     // office: "การไฟฟ้าส่วนภูมิภาคสาขาพุทไธสง" (marks may be missing), or the short "กฟส.พุทไธสง"
     // the heading "ประกาศการไฟฟ้าส่วนภูมิภาค เรื่อง ประกวดราคา…" names no office: skip words that are not a name
-    var NOT_NAME = /^(เรื่อง|ประกาศ|ประกวด|ว่าด้วย|โดย|เขต)/;
+    // nor the sentence "การไฟฟ้าส่วนภูมิภาค มีความประสงค์จะประกวดราคา… / จะชี้แจง…" (กฟจ.บุรีรัมย์ names its office only in the signature)
+    var NOT_NAME = /^(เรื่อง|ประกาศ|ประกวด|ว่าด้วย|โดย|เขต|มีความ|จะ)/;
     var re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(สาขา|จังหวัด|อำเภอ|อ\S{0,2}เภอ)?\s*([ก-๎]+(?:\s?\d)?)/g, m, all = head + ' ' + F;
     while ((m = re.exec(all)) && NOT_NAME.test(m[2]) && !m[1]) {}
     if (m) { out.site = m[2].replace(/(และ|ขอ|มี|จะ)$/, ''); out.office = (/จังหวัด/.test(m[1] || '') ? 'กฟจ.' : 'กฟส.') + out.site; }
@@ -217,7 +218,8 @@
         if (Math.abs(pp - rr) < 0.0005 && rr > 0 && rr < 100) out.mid_price = rr;
       }
     }
-    if (!out.qty && out.budget && /ราคากลาง/.test(F)) {
+    // an announcement never states the price per notice: "12.00" there is the closing hour ("09.00 น. ถึง 12.00 น."), not a price
+    if (!out.qty && out.budget && /ราคากลาง/.test(F) && out.kind !== 'announce') {
       var cands = F.match(/(?:^|[^\d,.])(\d{1,2}\.\d{2})(?![\d,])/g) || [];
       cands.some(function (c) {
         var pr = Number(c.replace(/[^\d.]/g, '')); if (!(pr > 0 && pr < 100)) return false;
