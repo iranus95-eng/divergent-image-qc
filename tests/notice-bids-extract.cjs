@@ -113,8 +113,8 @@ assert.equal(ctx.resultPrice(jk.lowest,62400,10,'จักราช',[''],{est:t
 assert.equal(ctx.resultPrice(jk.lowest,62400,10,'จักราช',[''],{est:false,budget:667680,quotePrices:[4.92]}).price,6.15);
 console.log('PASS: notice bids result file → quantity from the site quotation when the ราคากลาง was wrong (จักราช)');
 
-// "สังขะ5.pdf" is the result of project 69099736484 (ท่าตูม): its lowest offer 406,039.32 is our ท่าตูม quotation → we won (🏆)
-const tt=ctx.extract(fx('notice-bids-sangkha-result.json'),'สังขะ5.pdf');
+// the first "สังขะ5.pdf" sent was the result of project 69099736484 (ท่าตูม): its lowest offer 406,039.32 is our ท่าตูม quotation → we won (🏆)
+const tt=ctx.extract(fx('notice-bids-thatum-result.json'),'สังขะ5.pdf');
 assert.equal(tt.kind,'result');
 assert.equal(tt.project_no,'69099736484');
 assert.deepEqual([...tt.lowest],[406039.32]);
@@ -148,3 +148,14 @@ assert.equal(skp.price,4.72); assert.equal(skp.item,-1);
 assert.equal(ctx.isOurWin(sk.lowest,[329166.24],[4.93],skp.price),false);
 assert.equal(ctx.nameKey('ศีขรภูมื'),ctx.nameKey('ศีขรภูมิ'));
 console.log('PASS: notice bids result file → ❌ when the lowest offer is not our quotation (ศีขรภูมิ)');
+
+// the real สังขะ result (69109223982, 5 bidders): a round 510,000.00 against our 542,425.80 at 4.97 → ❌.
+// 102,000 ราย (estimated from ราคากลาง 8) → 4.67 per notice, not a whole split: flagged, and no quantity "fix" from 4.97
+const sg=ctx.extract(fx('notice-bids-sangkha-result.json'),'สังขะ5.pdf');
+assert.equal(sg.project_no,'69109223982');
+assert.deepEqual([...sg.lowest],[510000]);
+assert.equal(ctx.isOurWin(sg.lowest,[542425.80],[],0),false);
+const sgp=ctx.resultPrice(sg.lowest,102000,8,'สังขะ',[''],{est:true,ours:false,budget:873120,quotePrices:[4.97]});
+assert.equal(sgp.price,4.67); assert.equal(sgp.qty,undefined); assert.ok(Math.abs(sgp.exact-sgp.price)>=0.0005);
+assert.equal(ctx.isOurWin(sg.lowest,[542425.80],[4.97],sgp.price),false);
+console.log('PASS: notice bids result file → ❌ สังขะ (round lowest offer, not exact per notice)');
