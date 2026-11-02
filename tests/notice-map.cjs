@@ -58,3 +58,25 @@ assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์ · 10,000
 assert.ok(M.pictureSvg([{site:'พล',status:'ชนะประมูล',budget:667680,mid_price:8}],'').svg.includes('6,500 ราย/เดือน'));
 assert.match(pic.name,/^notice-bid-map-\d{4}-\d{2}-\d{2}\.png$/);
 console.log('notice-map picture: ok');
+
+// sub-branches named in a quotation: pdf.js text of the น้ำพอง quotation (marks dropped/replaced, words cut in pieces)
+const np='การไฟฟ้า กฟส.|นํ|Ê| |าพอง||พื|Ê|นที|É| |ระบบจําหน่าย ... พื้นที่โซน B กฟส.เขาสวนกวาง พืÊนทีÉ ... โซน C กฟส.อุบลรัตน์ขออนุมัติ กฟฟ.ในสังกัด';
+const names=M.branchNames(np);
+assert.deepEqual(JSON.parse(JSON.stringify(M.districtsOfNames(names,'ขอนแก่น').map(d=>d.n))),['น้ำพอง','เขาสวนกวาง','อุบลรัตน์']);
+// the longest name wins (พลับพลาชัย, not พล); a name in two provinces goes to the site's province; กฟจ.<province> is its เมือง
+const dn=(t,p)=>JSON.parse(JSON.stringify(M.districtsOfNames(M.branchNames(t),p).map(d=>d.p+'/'+d.n)));
+assert.deepEqual(dn('กฟส.พลับพลาชัย ','บุรีรัมย์'),['บุรีรัมย์/พลับพลาชัย']);
+assert.deepEqual(dn('กฟส.เฉลิมพระเกียรติ ','นครราชสีมา'),['นครราชสีมา/เฉลิมพระเกียรติ']);
+assert.deepEqual(dn('กฟจ.นครราชสีมา ','นครราชสีมา'),['นครราชสีมา/เมืองนครราชสีมา']);
+assert.deepEqual(dn('กฟส.จอหอ','นครราชสีมา'),['นครราชสีมา/เมืองนครราชสีมา']);
+// a won site's quotation branches replace the old-map COVER guess; not won → nothing extra
+M.setBranches({1:['ปะคำพื้นที่']});
+const mb=M.marks([{id:1,site:'นางรอง',status:'ชนะประมูล'},{id:2,site:'ชุมแพ',status:'ชนะประมูล'},{id:3,site:'พล',status:'ไม่ชนะประมูล'}]);
+assert.equal(M.state(mb.m['บุรีรัมย์/ปะคำ']),'won');
+assert.equal(M.state(mb.m['ขอนแก่น/ภูผาม่าน']),'won');   // ชุมแพ: no branches read → COVER
+M.setBranches({2:['ชุมแพ','สีชมพู']});
+const mc=M.marks([{id:2,site:'ชุมแพ',status:'ชนะประมูล'}]);
+assert.equal(M.state(mc.m['ขอนแก่น/สีชมพู']),'won');
+assert.equal(M.state(mc.m['ขอนแก่น/ภูผาม่าน']),'');
+M.setBranches({});
+console.log('notice-map branches: ok');
