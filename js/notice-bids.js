@@ -150,7 +150,7 @@
     // office: "การไฟฟ้าส่วนภูมิภาคสาขาพุทไธสง" (marks may be missing), or the short "กฟส.พุทไธสง"
     // the heading "ประกาศการไฟฟ้าส่วนภูมิภาค เรื่อง ประกวดราคา…" names no office: skip words that are not a name
     // nor the sentence "การไฟฟ้าส่วนภูมิภาค มีความประสงค์จะประกวดราคา… / จะชี้แจง…" (กฟจ.บุรีรัมย์ names its office only in the signature)
-    var NOT_NAME = /^(เรื่อง|ประกาศ|ประกวด|ว่าด้วย|โดย|เขต|มีความ|จะ)/;
+    var NOT_NAME = /^(เรื่อง|ประกาศ|ประกวด|ว่าด้วย|โดย|เขต|มีความ|จะ|ชื่อ)/;   // e-GP result: "หน่วยงาน : การไฟฟ้าส่วนภูมิภาค / ชื่อโครงการ : …"
     var re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(สาขา|จังหวัด|อำเภอ|อ\S{0,2}เภอ)?\s*([ก-๎]+(?:\s?\d)?)/g, m, all = head + ' ' + F;
     while ((m = re.exec(all)) && NOT_NAME.test(m[2]) && !m[1]) {}
     if (m) { out.site = m[2].replace(/(และ|ขอ|มี|จะ)$/, ''); out.office = (/จังหวัด/.test(m[1] || '') ? 'กฟจ.' : 'กฟส.') + out.site; }
@@ -165,9 +165,8 @@
       out.kind = 'result';
       m = F.match(/เลขที่โครงการ\s*:?\s*(\d{11})/); if (m) out.project_no = m[1];
       // the item may carry a description before its price ("รายการพิจารณาที่ 1 เหมาบุคคลภายนอก… 49,434.00")
-      out.lowest = []; var re0 = /รายการพิจารณาที่\s*\d+[\s\S]{0,200}?(\d{1,3}(?:,\d{3})*\.\d{2})/g;
-      while ((m = re0.exec(F))) out.lowest.push(amount(m[1]));
-      out.lowest = out.lowest.filter(Boolean);
+      out.lowest = []; out.items = []; var re0 = /รายการพิจารณาที่\s*\d+\s*([\s\S]{0,200}?)\s*(\d{1,3}(?:,\d{3})*\.\d{2})/g;
+      while ((m = re0.exec(F))) { var v0 = amount(m[2]); if (v0) { out.lowest.push(v0); out.items.push({ name: m[1].trim(), lowest: v0 }); } }
       return out;
     }
     // document no. "ฉ.๓ พธ.(พ.)๐๓๐/๒๕๖๙" → zone ฉ.3
@@ -230,6 +229,62 @@
     }
     out.text = T;
     return out;
+  }
+  // the price per notice won in a result file. lowest: the lowest offer (VAT included) of each รายการพิจารณา; qty: ราย/ปี of
+  // the row; mid: its ราคากลาง; site: its name. The price must divide the money into whole notices:
+  //  1. all items together over the row's quantity (one office, or the TOR quantity covers every area)
+  //  2. the same, per month (นม.2: 49,434 = 10,000 ราย/เดือน × 4.62 + VAT)
+  //  3. one item alone over the row's quantity (สว่างแดนดิน: the TOR row holds พื้นที่ A only, 77,760 ราย; the file has
+  //     A สว่างแดนดิน + B เจริญศิลป์ + C ส่องดาว): the item named like the row first; the other areas' quantities follow
+  //     from the same price when they come out whole
+  //  4. otherwise all items over the row's quantity, flagged as not exact
+  //  0. (before all) a row without its own quantity has it estimated as budget ÷ 1.07 ÷ ราคากลาง, and a wrong ราคากลาง
+  //     (จักราช: 10 in the sheet, 8 in the TOR) still divides exactly (410,623.20 ÷ 1.07 ÷ 62,400 = 6.15). When the price
+  //     typed in the site's quotation splits the money into whole notices that also give a clean ราคากลาง from the budget
+  //     (÷ 4.92 = 78,000 ราย; 667,680 ÷ 1.07 ÷ 78,000 = 8.00), that quantity is the real one.
+  //     The same when the lowest offer is our own quotation (its total is the same money, ours: true): the row's quantity
+  //     may be wrong too (ท่าตูม: 50,800 ราย at ราคากลาง 12 in the row; 406,039.32 ÷ 1.07 ÷ 4.98 = 76,200 ราย at 8.00).
+  // opt: { est: qty is estimated, ours: the lowest offer is our quotation's total, budget, quotePrices: unit prices in the site's quotations }
+  function resultPrice(lowest, qty, mid, site, names, opt) {
+    var exactOf = function (money, n) { var e = money / (1 + VAT) / n, r = Math.round(e * 100) / 100; return { exact: e, price: r, ok: Math.abs(e - r) < 0.0005 && r > 0 }; };
+    var total = lowest.reduce(function (s, v) { return s + v; }, 0), mid0 = Number(mid) || 8;
+    var res = { total: total, per: qty, monthly: false, item: -1, areas: null };
+    opt = opt || {};
+    if ((opt.est || opt.ours) && opt.budget) {
+      var fix = (opt.quotePrices || []).map(function (qp) {
+        var q = total / (1 + VAT) / qp, qr = Math.round(q);
+        if (!(qp > 0) || Math.abs(q - qr) > 0.01 || qr < 1000 || qr === qty) return null;
+        var m = exactOf(opt.budget, qr);
+        return m.ok && m.price < 100 ? { price: qp, exact: qp, ok: true, per: qr, qty: qr, mid: m.price } : null;
+      }).filter(Boolean)[0];
+      if (fix) return Object.assign(res, fix);
+    }
+    var all = exactOf(total, qty);
+    if (all.ok && all.price >= mid0 / 4) return Object.assign(res, all);
+    var mon = exactOf(total, qty / 12);
+    if (all.exact < mid0 / 4 && mon.exact <= mid0) return Object.assign(res, mon, { per: qty / 12, monthly: true });
+    if (lowest.length > 1) {
+      var k = nameKey(site), order = lowest.map(function (_, i) { return i; });
+      order.sort(function (a, b) { return named(b) - named(a); });
+      for (var j = 0; j < order.length; j++) {
+        var i = order[j], one = exactOf(lowest[i], qty);
+        if (!one.ok || one.price > mid0 * 1.5 || one.price < mid0 / 4) continue;
+        var areas = lowest.map(function (v) { var q = v / (1 + VAT) / one.price; return Math.abs(q - Math.round(q)) < 0.01 ? Math.round(q) : null; });
+        return Object.assign(res, one, { item: i, areas: areas });
+      }
+    }
+    return Object.assign(res, all);
+    function named(i) { var n = nameKey((names || [])[i] || ''); return k && n.indexOf(k) >= 0 ? 1 : 0; }
+  }
+  // did we win? The lowest offer in the result file is our own quotation: its total (VAT included) is the same money,
+  // for the whole project or for one รายการพิจารณา (ท่าตูม: 406,039.32 = the ท่าตูม quotation, 1 bidder). Without a total
+  // in the quotation, its unit price equal to the winning price per notice is enough.
+  function isOurWin(lowest, quoteTotals, quotePrices, price) {
+    var total = lowest.reduce(function (s, v) { return s + v; }, 0), near = function (a, b) { return Math.abs(a - b) < 0.015; };
+    var byTotal = (quoteTotals || []).some(function (t) { return t > 0 && (near(t, total) || lowest.some(function (v) { return near(t, v); })); });
+    if (byTotal) return true;
+    if ((quoteTotals || []).some(function (t) { return t > 0; })) return false;
+    return price > 0 && (quotePrices || []).some(function (q) { return near(q, price); });
   }
   // announcement + TOR of the same office become one row; announcement wins for dates/money, TOR for quantities
   function mergeDocs(docs) {
@@ -310,7 +365,20 @@
     docs = docs.filter(function (d) { return d.kind !== 'result'; });
     for (var k = 0; k < results.length; k++) await applyResult(results[k]);
     if (!docs.length) { render(); return; }
-    mergeDocs(docs).forEach(function (r) { r.target = matchRow(r); st.pending.push(r); });
+    // a site already in the table is updated in place at once (บัวใหญ่ from the sheet + its announcement and TOR):
+    // no review card, no second row. Only a site not in the table waits on a card to be added.
+    if (st.rows == null || st.err) await load();
+    var notes = [];
+    var merged = mergeDocs(docs);
+    for (var n = 0; n < merged.length; n++) {
+      var r = merged[n];
+      r.target = st.err ? 0 : matchRow(r);
+      st.pending.push(r);
+      if (!r.target) continue;
+      var before = Object.assign({}, (st.rows || []).filter(function (x) { return x.id === r.target; })[0]);
+      if (await confirmPending(st.pending.length - 1, true)) notes.push(changesText(before, (st.rows || []).filter(function (x) { return x.id === r.target; })[0] || {}));
+    }
+    if (notes.length) alert('อัปเดตไซด์ที่มีอยู่แล้ว (ไม่เพิ่มแถวใหม่)\n\n' + notes.join('\n\n'));
     if (docs.length && !docs.some(function (d) { return d.site || d.budget || d.qty; }))
       alert('ไม่พบข้อมูลในไฟล์ (ไฟล์อาจเป็นภาพสแกน) กรุณากรอกเอง');
     render();
@@ -324,19 +392,43 @@
     if (!row) { alert('ไฟล์ ' + name + ': ไม่พบไซด์ที่มีเลขที่โครงการนี้ในตาราง'); return; }
     var qty = derived(row).qty;
     if (!qty) { alert(row.site + ': ยังไม่มีจำนวนราย/ปี (หรือวงเงิน + ราคากลาง) จึงคำนวณราคาต่อรายไม่ได้'); return; }
-    var total = d.lowest.reduce(function (s, v) { return s + v; }, 0);
-    // some offices price the job per month (นม.2: 49,434 = 10,000 ราย/เดือน × 4.62 + VAT): a per-year reading far below
-    // the ราคากลาง means the file holds the monthly price
-    var mid = Number(row.mid_price) || 8, monthly = total / (1 + VAT) / qty < mid / 4 && total / (1 + VAT) / (qty / 12) <= mid;
-    var per = monthly ? qty / 12 : qty;
-    var exact = total / (1 + VAT) / per, price = Math.round(exact * 100) / 100;
+    var names = (d.items || []).map(function (x) { return x.name; });
+    var dv = derived(row), qps = [];
+    quotesOf(row).forEach(function (h) { (h.prices || []).forEach(function (v) { if (qps.indexOf(v) < 0) qps.push(v); }); });
+    var qts = quotesOf(row).map(function (h) { return Number(h.total_amount) || 0; });
+    var byTotal = isOurWin(d.lowest, qts, [], 0);
+    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps }), price = r.price, total = r.total;
+    var patch = { price_bid: price };
+    var ours = byTotal || isOurWin(d.lowest, qts, qps, price);
+    // only a site with a quotation of ours can be called lost: without one there is nothing to compare
+    var quoted = qts.some(function (t) { return t > 0; }) || qps.length > 0;
+    if (ours && !won(row)) patch.status = 'ชนะประมูล';
+    if (!ours && quoted && !lost(row)) patch.status = 'ไม่ชนะประมูล';
     var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
-      'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (monthly ? ' เป็นราคาต่อเดือน' : '') + '\n' +
-      '÷ 1.07 ÷ ' + fmt(per) + (monthly ? ' ราย/เดือน' : ' ราย') + ' = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT' +
-      (Math.abs(exact - price) >= 0.0005 ? '\n⚠ หารไม่ลงตัว (' + exact.toFixed(4) + ') จำนวนรายในตารางอาจไม่ตรงกับ TOR' : '') +
-      (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
+      'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
+    if (r.qty) {
+      patch.qty = r.qty; patch.mid_price = r.mid;
+      msg += '÷ 1.07 ÷ ' + fmt(price, 2) + ' (ราคาในใบเสนอราคาของไซด์นี้) = ' + fmt(r.qty) + ' ราย/ปี\n' +
+        '⚠ จำนวนรายเดิมประมาณจากราคากลาง ' + fmt(row.mid_price, 2) + ' ได้ ' + fmt(qty) + ' ราย ซึ่งไม่ตรง: วงเงิน ' + fmt(row.budget, 2) +
+        ' ÷ 1.07 ÷ ' + fmt(r.qty) + ' = ราคากลาง ' + fmt(r.mid, 2) + '\nจะบันทึกจำนวน ' + fmt(r.qty) + ' ราย และราคากลาง ' + fmt(r.mid, 2) + ' ด้วย';
+    } else if (r.item >= 0) {
+      msg += d.lowest.map(function (v, i) {
+        return (i === r.item ? '▶ ' : '   ') + (names[i] || 'รายการพิจารณาที่ ' + (i + 1)) + ' ' + fmt(v, 2) + ' บาท' +
+          (r.areas[i] ? ' = ' + fmt(r.areas[i]) + ' ราย × ' + fmt(price, 2) : '');
+      }).join('\n') + '\n' +
+        fmt(d.lowest[r.item], 2) + ' ÷ 1.07 ÷ ' + fmt(qty) + ' ราย = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT' +
+        '\n(จำนวนรายในตารางตรงกับรายการพิจารณาที่ ' + (r.item + 1) + ' เท่านั้น' +
+        (r.areas.every(Boolean) ? ' ทั้งโครงการ ' + fmt(r.areas.reduce(function (s, v) { return s + v; }, 0)) + ' ราย' : '') + ')';
+    } else {
+      msg += '÷ 1.07 ÷ ' + fmt(r.per) + (r.monthly ? ' ราย/เดือน' : ' ราย') + ' = ' + fmt(price, 2) + ' บาท/ราย ก่อน VAT' +
+        (Math.abs(r.exact - price) >= 0.0005 ? '\n⚠ หารไม่ลงตัว (' + r.exact.toFixed(4) + ') จำนวนรายในตารางอาจไม่ตรงกับ TOR' : '');
+    }
+    if (ours) msg += '\n\n🏆 ราคาต่ำสุดตรงกับใบเสนอราคาของเรา: ' + (won(row) ? 'ไซด์นี้ทำเครื่องหมายชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าชนะประมูล');
+    else if (quoted) msg += '\n\n❌ ราคาต่ำสุดไม่ตรงกับใบเสนอราคาของเรา' + (qts.some(function (t) { return t > 0; }) ? ' (' + qts.filter(function (t) { return t > 0; }).map(function (t) { return fmt(t, 2); }).join(' / ') + ' บาท)' : '') +
+      ': ' + (lost(row) ? 'ไซด์นี้ทำเครื่องหมายไม่ชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าไม่ชนะประมูล' + (won(row) ? ' (แทนเครื่องหมาย 🏆 เดิม)' : ''));
+    msg += (row.price_bid == null ? '' : Number(row.price_bid) === price ? '\n\nตรงกับราคาปี70 ที่มีอยู่แล้ว' : '\n\nราคาปี70 เดิม ' + fmt(row.price_bid, 2) + ' จะถูกแทนที่') + '\n\nใส่ ' + fmt(price, 2) + ' ในช่องราคาปี70?';
     if (!confirm(msg)) return;
-    try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, { price_bid: price }))); }
+    try { st.busy = 'กำลังบันทึก…'; render(); upsertLocal(await saveRow(Object.assign({}, row, patch))); }
     catch (e) { alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
     st.busy = '';
   }
@@ -389,8 +481,20 @@
     })[0] || null;
   }
   function dupText(d) { return '"' + (d.zone ? d.zone + ' ' : '') + (d.site || '') + '"' + (d.project_no ? ' (เลขที่โครงการ ' + d.project_no + ')' : ''); }
-  async function confirmPending(i) {
-    var r = st.pending[i]; if (!r) return;
+  // what an update changed, for the note after an import ("วงเงิน: – → 975,840")
+  var LABELS = { zone: 'เขต', office: 'สาขา', project_no: 'เลขที่โครงการ', budget: 'วงเงิน', qty: 'จำนวนราย/ปี', mid_price: 'ราคากลาง', bid_date: 'วันที่เสนอราคา',
+    bid_time: 'เวลา', method: 'วิธี', doc_no: 'เลขที่เอกสาร', announce_date: 'วันที่ประกาศ' };
+  function changesText(a, b) {
+    var show = function (k, v) { return v == null || v === '' ? '–' : /date/.test(k) ? thaiDate(v) : NUMS[k] ? fmt(Number(v), k === 'mid_price' ? 2 : null) : String(v); };
+    var lines = Object.keys(LABELS).filter(function (k) { return show(k, a[k]) !== show(k, b[k]); })
+      .map(function (k) { return '• ' + LABELS[k] + ': ' + show(k, a[k]) + ' → ' + show(k, b[k]); });
+    return (b.site || a.site || '') + (lines.length ? '\n' + lines.join('\n') : ' (ข้อมูลตรงกับที่มีอยู่แล้ว)');
+  }
+  // quiet: the import updating a site it found in the table (returns true once saved)
+  async function confirmPending(i, quiet) {
+    var r = st.pending[i]; if (!r) return false;
+    // the table did not load: a new row could duplicate a site that is there
+    if (!r.target && (st.rows == null || st.err)) { alert('ยังโหลดตารางไม่สำเร็จ จึงยังเช็กไม่ได้ว่าไซด์นี้มีอยู่แล้วหรือไม่ ลองโหลดใหม่ก่อนบันทึก'); return false; }
     var dup = duplicateOf(r.site, r.project_no, r.target || 0);
     if (dup && !r.target && !confirm('ไซด์นี้มีอยู่ในตารางแล้ว: ' + dupText(dup) + '\nถ้าจะอัปเดตแถวเดิม ให้กดยกเลิก แล้วเลือก "แทนแถว" ในช่องบันทึกลง\n\nต้องการเพิ่มเป็นแถวใหม่ซ้ำอีกแถวหรือไม่?')) return;
     if (dup && r.target && !confirm('ข้อมูลนี้ซ้ำกับอีกแถวในตาราง: ' + dupText(dup) + '\nต้องการบันทึกต่อหรือไม่?')) return;
@@ -406,8 +510,11 @@
       var item = await saveRow(row);
       st.pending.splice(i, 1);
       upsertLocal(item);
+      st.busy = ''; if (!quiet) render();
+      return true;
     } catch (e) { alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
     st.busy = ''; render();
+    return false;
   }
   function upsertLocal(item) {
     if (!item) return;
@@ -517,7 +624,7 @@
       '.nb-site .nm{display:flex;flex-direction:column;gap:2px}.nb-site small{font-weight:600;font-size:12px;color:#6b5d7a}.nb-site.today{border-color:#3a9a5b;background:#f2fbf5}.nb-site.today small{color:#2d7a47}' +
       '.nb-item.today{border-radius:10px;animation:nbBlink 1s step-end infinite}@keyframes nbBlink{0%{box-shadow:0 0 0 3px #e11d2e}50%{box-shadow:0 0 0 3px transparent}}' +
       '@media (prefers-reduced-motion:reduce){.nb-item.today{animation:none;box-shadow:0 0 0 3px #e11d2e}}' +
-      '.nb-site.past{opacity:.6}.nb-site.won{opacity:1;border-color:#d99a00;background:#fffaeb}.nb-site.won small{color:#8a5a00}' +
+      '.nb-site.past{opacity:.6}.nb-site.won{opacity:1;border-color:#d99a00;background:#fffaeb}.nb-site.won small{color:#8a5a00}.nb-site.lost small{color:#b42318}' +
       '.nb-item{position:relative;display:flex;flex-direction:column}.nb-item .nb-site{padding-right:44px;border-radius:10px 10px 0 0}.nb-item .nb-site .go{display:none}' +
       '.nb-q{border:1px solid #e5dced;border-top:0;border-radius:0 0 10px 10px;background:#f7f3fb;color:#5a2787;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;text-align:left;cursor:pointer}.nb-q:hover{background:#efe6f8}' +
       '.nb-q1{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nb-up{display:block;font-weight:600;font-size:11.5px;color:#4d6b57;margin-top:1px}.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
@@ -600,7 +707,9 @@
     }).sort(function (a, b) { return (a.seq || 1e9) - (b.seq || 1e9) || a.id - b.id; });
   }
   // a site we won is marked by its status ("ชนะประมูล")
-  function won(r) { return String(r.status || '').indexOf('ชนะ') >= 0; }
+  function won(r) { var t = String(r.status || ''); return t.indexOf('ชนะ') >= 0 && !lost(r); }
+  // a result file whose lowest offer is not our quotation marks the site "ไม่ชนะประมูล" (❌)
+  function lost(r) { return /ไม่ชนะ|แพ้/.test(String(r.status || '')); }
   // the site list: auctions still to come (soonest first) and sites without a date on top, then the sites we won, then auctions over without a win (lost) at the bottom
   function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
   // the auction is over once its day is past, or today after the end of its hours ("09.00-12.00 น." ends at 12:00)
@@ -686,9 +795,10 @@
     box.innerHTML = rows.length ? '<div class="nb-list">' + rows.map(function (r, i) {
       var day = r.bid_date ? String(r.bid_date).slice(0, 10) : '';
       var over = ended(r), now = day === today && !over;
-      var when = day ? (now ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (won(r) ? '' : over ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
+      var when = day ? (now ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (won(r) || lost(r) ? '' : over ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
       if (won(r)) when += ' · 🏆 ชนะประมูล';
-      return '<div class="nb-item' + (now ? ' today' : '') + '"><button class="nb-site' + (over ? ' past' : '') + (won(r) ? ' won' : '') + (now ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
+      else if (lost(r)) when += ' · ❌ ไม่ชนะประมูล';
+      return '<div class="nb-item' + (now ? ' today' : '') + '"><button class="nb-site' + (over ? ' past' : '') + (won(r) ? ' won' : '') + (lost(r) ? ' lost' : '') + (now ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' + quoteBtn(r) +
         '<button class="nb-x" data-nb="del" data-i="' + r.id + '" title="ลบไซด์นี้" aria-label="ลบ ' + esc(r.site || '') + '">🗑</button></div>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
