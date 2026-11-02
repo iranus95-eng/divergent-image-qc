@@ -365,7 +365,20 @@
     docs = docs.filter(function (d) { return d.kind !== 'result'; });
     for (var k = 0; k < results.length; k++) await applyResult(results[k]);
     if (!docs.length) { render(); return; }
-    mergeDocs(docs).forEach(function (r) { r.target = matchRow(r); st.pending.push(r); });
+    // a site already in the table is updated in place at once (บัวใหญ่ from the sheet + its announcement and TOR):
+    // no review card, no second row. Only a site not in the table waits on a card to be added.
+    if (st.rows == null || st.err) await load();
+    var notes = [];
+    var merged = mergeDocs(docs);
+    for (var n = 0; n < merged.length; n++) {
+      var r = merged[n];
+      r.target = st.err ? 0 : matchRow(r);
+      st.pending.push(r);
+      if (!r.target) continue;
+      var before = Object.assign({}, (st.rows || []).filter(function (x) { return x.id === r.target; })[0]);
+      if (await confirmPending(st.pending.length - 1, true)) notes.push(changesText(before, (st.rows || []).filter(function (x) { return x.id === r.target; })[0] || {}));
+    }
+    if (notes.length) alert('อัปเดตไซด์ที่มีอยู่แล้ว (ไม่เพิ่มแถวใหม่)\n\n' + notes.join('\n\n'));
     if (docs.length && !docs.some(function (d) { return d.site || d.budget || d.qty; }))
       alert('ไม่พบข้อมูลในไฟล์ (ไฟล์อาจเป็นภาพสแกน) กรุณากรอกเอง');
     render();
@@ -468,8 +481,20 @@
     })[0] || null;
   }
   function dupText(d) { return '"' + (d.zone ? d.zone + ' ' : '') + (d.site || '') + '"' + (d.project_no ? ' (เลขที่โครงการ ' + d.project_no + ')' : ''); }
-  async function confirmPending(i) {
-    var r = st.pending[i]; if (!r) return;
+  // what an update changed, for the note after an import ("วงเงิน: – → 975,840")
+  var LABELS = { zone: 'เขต', office: 'สาขา', project_no: 'เลขที่โครงการ', budget: 'วงเงิน', qty: 'จำนวนราย/ปี', mid_price: 'ราคากลาง', bid_date: 'วันที่เสนอราคา',
+    bid_time: 'เวลา', method: 'วิธี', doc_no: 'เลขที่เอกสาร', announce_date: 'วันที่ประกาศ' };
+  function changesText(a, b) {
+    var show = function (k, v) { return v == null || v === '' ? '–' : /date/.test(k) ? thaiDate(v) : NUMS[k] ? fmt(Number(v), k === 'mid_price' ? 2 : null) : String(v); };
+    var lines = Object.keys(LABELS).filter(function (k) { return show(k, a[k]) !== show(k, b[k]); })
+      .map(function (k) { return '• ' + LABELS[k] + ': ' + show(k, a[k]) + ' → ' + show(k, b[k]); });
+    return (b.site || a.site || '') + (lines.length ? '\n' + lines.join('\n') : ' (ข้อมูลตรงกับที่มีอยู่แล้ว)');
+  }
+  // quiet: the import updating a site it found in the table (returns true once saved)
+  async function confirmPending(i, quiet) {
+    var r = st.pending[i]; if (!r) return false;
+    // the table did not load: a new row could duplicate a site that is there
+    if (!r.target && (st.rows == null || st.err)) { alert('ยังโหลดตารางไม่สำเร็จ จึงยังเช็กไม่ได้ว่าไซด์นี้มีอยู่แล้วหรือไม่ ลองโหลดใหม่ก่อนบันทึก'); return false; }
     var dup = duplicateOf(r.site, r.project_no, r.target || 0);
     if (dup && !r.target && !confirm('ไซด์นี้มีอยู่ในตารางแล้ว: ' + dupText(dup) + '\nถ้าจะอัปเดตแถวเดิม ให้กดยกเลิก แล้วเลือก "แทนแถว" ในช่องบันทึกลง\n\nต้องการเพิ่มเป็นแถวใหม่ซ้ำอีกแถวหรือไม่?')) return;
     if (dup && r.target && !confirm('ข้อมูลนี้ซ้ำกับอีกแถวในตาราง: ' + dupText(dup) + '\nต้องการบันทึกต่อหรือไม่?')) return;
@@ -485,8 +510,11 @@
       var item = await saveRow(row);
       st.pending.splice(i, 1);
       upsertLocal(item);
+      st.busy = ''; if (!quiet) render();
+      return true;
     } catch (e) { alert('บันทึกไม่สำเร็จ: ' + (e.message || e)); }
     st.busy = ''; render();
+    return false;
   }
   function upsertLocal(item) {
     if (!item) return;

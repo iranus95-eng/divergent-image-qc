@@ -159,3 +159,23 @@ const sgp=ctx.resultPrice(sg.lowest,102000,8,'สังขะ',[''],{est:true,ou
 assert.equal(sgp.price,4.67); assert.equal(sgp.qty,undefined); assert.ok(Math.abs(sgp.exact-sgp.price)>=0.0005);
 assert.equal(ctx.isOurWin(sg.lowest,[542425.80],[4.97],sgp.price),false);
 console.log('PASS: notice bids result file → ❌ สังขะ (round lowest offer, not exact per notice)');
+
+// บัวใหญ่ is already a row (from the sheet, name only): its announcement + TOR update that row, never a second one
+{
+  const grab=(from,to)=>{const i=src.indexOf(from),j=src.indexOf(to,i);assert.ok(i>0&&j>i,from);return src.slice(i,j);};
+  const more=[grab('  function fmt(','\n',),grab('  function thaiDate(','\n'),grab('  function matchRow(r)','  // ----------------------------------------------------------------'),
+    grab('  var NUMS =','\n'),grab('  var LABELS =','  // quiet:')].join('\n');
+  const c2={st:{rows:[{id:43,site:'หนองบัวแดง'},{id:73,site:'บัวใหญ่'}]}};
+  vm.runInNewContext(`var VAT=0.07;${src.slice(a,b)}\n${more};this.extract=extract;this.mergeDocs=mergeDocs;this.matchRow=matchRow;this.changesText=changesText;`,c2);
+  const ann=c2.extract(fx('notice-bids-buayai-announce.json'),'annoudoc_S50630000009_69109083561.pdf');
+  const tor=c2.extract(fx('notice-bids-buayai-tor.json'),'Attach_TOR_6.pdf');
+  const rows=c2.mergeDocs([ann,tor]);
+  assert.equal(rows.length,1);
+  const r=rows[0];
+  assert.deepEqual([r.site,r.zone,r.project_no,r.budget,r.qty,r.mid_price,r.bid_date],['บัวใหญ่','ฉ.3','69109083561',975840,114000,8,'2026-11-10']);
+  assert.equal(c2.matchRow(r),73,'บัวใหญ่ goes to the existing row, not หนองบัวแดง, not a new one');
+  const note=c2.changesText({site:'บัวใหญ่'},Object.assign({site:'บัวใหญ่'},r));
+  assert.match(note,/วงเงิน: – → 975,840/); assert.match(note,/จำนวนราย\/ปี: – → 114,000/); assert.match(note,/วันที่เสนอราคา: – → 10\/11\/2569/);
+  assert.match(c2.changesText(r,r),/ข้อมูลตรงกับที่มีอยู่แล้ว/);
+  console.log('PASS: notice bids import updates an existing site (บัวใหญ่) instead of adding a row');
+}
