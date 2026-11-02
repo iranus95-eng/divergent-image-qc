@@ -196,3 +196,17 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   assert.equal(ctx.resultPrice([410623.2],78000,8,'จักราช',[''],{quoteQtys:[61200]}).qty,undefined);
   console.log('PASS: notice bids result file → quantity of our quotation when the row\'s does not divide (บ้านดุง)');
 }
+
+// นครราชสีมา 2 keeps 10,000 ราย/เดือน with ราคากลาง 96 (8 × 12): 49,434 ÷ 1.07 ÷ 10,000 = 4.62 is our quoted price,
+// not a "too low" yearly reading to turn into a monthly 55.44
+{
+  const n2=ctx.extract(fx('notice-bids-nm2-result.json'),'นม2.pdf');
+  assert.equal(n2.project_no,'69099737588'); assert.deepEqual([...n2.lowest],[49434]);
+  const p=ctx.resultPrice(n2.lowest,10000,96,'นครราชสีมา 2',[''],{est:false,ours:true,budget:1027200,quotePrices:[4.62],quoteQtys:[10000,120000]});
+  assert.equal(p.price,4.62); assert.equal(p.monthly,false);
+  // เมืองนครราชสีมา 3: the row has no project number; the result names the office in its title
+  const n3=ctx.extract(fx('notice-bids-nm3-result.json'),'นม3.pdf');
+  assert.equal(n3.project_no,'69109003396'); assert.deepEqual([...n3.lowest],[892380]);
+  assert.match(ctx.nameKey(n3.site),/นครราชสมา3/);
+  console.log('PASS: notice bids result file → นครราชสีมา 2 per-month row, เมืองนครราชสีมา 3 found by name');
+}

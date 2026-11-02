@@ -274,6 +274,9 @@
     };
     var bq = opt.est && byQuote(); if (bq) return Object.assign(res, bq);
     var all = exactOf(total, qty);
+    // our quoted price itself: the row's ราคากลาง can be per notice per year (นครราชสีมา 2: 10,000 ราย/เดือน, ราคากลาง 96 =
+    // 8 × 12), which would make 4.62 look "too low" and send the reading to a monthly 55.44
+    if (all.ok && (opt.quotePrices || []).some(function (p) { return Math.abs(p - all.price) < 0.005; })) return Object.assign(res, all);
     if (all.ok && all.price >= mid0 / 4) return Object.assign(res, all);
     var mon = exactOf(total, qty / 12);
     if (all.exact < mid0 / 4 && mon.exact <= mid0) return Object.assign(res, mon, { per: qty / 12, monthly: true });
@@ -416,6 +419,13 @@
     if (!d.project_no) { alert('ไฟล์ ' + d.file + ': ไม่พบเลขที่โครงการในไฟล์'); return; }
     if (!d.lowest || !d.lowest.length) { alert('ไฟล์ ' + name + ': ไม่พบราคาต่ำสุดที่เสนอ (ไฟล์อาจเป็นภาพสแกน)'); return; }
     var row = (st.rows || []).filter(function (x) { return String(x.project_no || '').trim() === d.project_no; })[0];
+    // a row without its project number yet (เมืองนครราชสีมา 3): the office named in the project title, and the number is saved
+    var named = null;
+    if (!row && d.site) {
+      var mid = matchRow({ site: d.site });
+      named = (st.rows || []).filter(function (x) { return x.id === mid && !String(x.project_no || '').trim(); })[0] || null;
+      row = named;
+    }
     if (!row) { alert('ไฟล์ ' + name + ': ไม่พบไซด์ที่มีเลขที่โครงการนี้ในตาราง'); return; }
     var qty = derived(row).qty;
     if (!qty) { alert(row.site + ': ยังไม่มีจำนวนราย/ปี (หรือวงเงิน + ราคากลาง) จึงคำนวณราคาต่อรายไม่ได้'); return; }
@@ -426,12 +436,13 @@
     var byTotal = isOurWin(d.lowest, qts, [], 0);
     var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps, quoteQtys: quoteQtys(row) }), price = r.price, total = r.total;
     var patch = { price_bid: price };
+    if (named) patch.project_no = d.project_no;
     var ours = byTotal || isOurWin(d.lowest, qts, qps, price);
     // only a site with a quotation of ours can be called lost: without one there is nothing to compare
     var quoted = qts.some(function (t) { return t > 0; }) || qps.length > 0;
     if (ours && !won(row)) patch.status = 'ชนะประมูล';
     if (!ours && quoted && !lost(row)) patch.status = 'ไม่ชนะประมูล';
-    var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + ')\n' +
+    var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + (named ? ' — ไซด์นี้ยังไม่มีเลขที่โครงการ หาจากชื่อสาขาในไฟล์ และจะบันทึกเลขนี้ให้' : '') + ')\n' +
       'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
     if (r.qty) {
       patch.qty = r.qty; if (r.mid) patch.mid_price = r.mid;
