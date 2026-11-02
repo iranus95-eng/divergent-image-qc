@@ -60,11 +60,42 @@
           var ps = [];
           ((j.item && j.item.state && j.item.state.rows) || []).forEach(function (r) { var v = Number(r.price); if (v > 0 && ps.indexOf(v) < 0) ps.push(v); });
           h.prices = ps;
+          if (j.item && j.item.pdf_b64) h.pdf = j.item.pdf_b64;   // read again for the sub-branches it names (map)
         }, function (e) { console.warn('notice-bids quote', h.id, e); });
       }));
       st.quotes = qs;
     } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; }
     if (st.rows) { syncPrices(); renderTable(); }
+    if (st.map) syncBranches();
+  }
+  // the map ticks the sub-branches of a won site: "กฟส./กฟย./กฟฟ.…" named in the text of its quotation PDF (js/notice-map.js)
+  async function quoteBranches(h) {
+    if (h.branches) return h.branches;
+    if (!h.pdf || !window.NoticeMap) return [];
+    var lib = await loadPdfJs(), bin = atob(h.pdf), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var pdf = await lib.getDocument({ data: bytes }).promise, text = '';
+    for (var n = 1; n <= Math.min(pdf.numPages, 8); n++) text += (await (await pdf.getPage(n)).getTextContent()).items.map(function (x) { return x.str; }).join('') + '\n';
+    h.branches = window.NoticeMap.branchNames((h.title || '') + '\n' + thaiText(text));   // the job title can name them too (นางรอง / ปะคำ)
+    return h.branches;
+  }
+  var branchesBusy = false;
+  async function syncBranches() {
+    if (branchesBusy || !st.quotes || !st.rows || !window.NoticeMap) return;
+    branchesBusy = true;
+    try {
+      var map = {};
+      for (var r of st.rows.filter(won)) {
+        var names = [];
+        for (var h of quotesOf(r)) {
+          try { (await quoteBranches(h)).forEach(function (x) { if (names.indexOf(x) < 0) names.push(x); }); }
+          catch (e) { console.warn('notice-bids branches', h.id, e); h.branches = []; }
+        }
+        if (names.length) map[r.id] = names;
+      }
+      var key = JSON.stringify(map);
+      if (key !== st.branchKey) { st.branchKey = key; window.NoticeMap.setBranches(map); drawMap(); }
+    } finally { branchesBusy = false; }
   }
   // ราคาปี70 follows the unit price in the site's quotation (the first one when the rows differ)
   function syncPrices() {
@@ -839,6 +870,11 @@
         '</span>';
     }
   }
+  function drawMap(open) {
+    var mapBox = document.getElementById('nbMap');
+    if (arguments.length === 0) open = st.open != null;   // redrawn on its own (sub-branches read): hidden while a site is open
+    if (mapBox) mapBox.innerHTML = st.map && !open && window.NoticeMap ? window.NoticeMap.html(st.rows) : '';
+  }
   // the menu lists the sites by name only; a site's details open when its name is clicked
   function renderTable() {
     var box = document.getElementById('nbTable'); if (!box) return;
@@ -846,8 +882,8 @@
     if (st.err) { box.innerHTML = '<div class="nb-empty">โหลดตารางไม่สำเร็จ: ' + esc(st.err) + ' <button class="nb-btn soft" data-nb="reload">ลองใหม่</button></div>'; return; }
     var open = st.open != null ? (st.rows || []).filter(function (x) { return x.id === st.open; })[0] : null;
     // the map of the 5 provinces follows the rows: drawn again with the list every time a status changes (js/notice-map.js)
-    var mapBox = document.getElementById('nbMap');
-    if (mapBox) mapBox.innerHTML = st.map && !open && window.NoticeMap ? window.NoticeMap.html(st.rows) : '';
+    drawMap(open);
+    if (st.map && !open) syncBranches();   // a site just marked won gets its sub-branches (read once per quotation)
     if (open) { box.innerHTML = detailHtml(open); return; }
     st.open = null; st.endedKey = endedKey();
     renderSummary();

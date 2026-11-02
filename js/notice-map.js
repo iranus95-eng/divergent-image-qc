@@ -68,6 +68,43 @@
     return out;
   }
 
+  // ---------------------------------------------------------------- sub-branches named in our quotation
+  // "กฟส.นําพอง", "กฟย.ภูผาม่าน", "กฟฟ.เขาสวนกวาง": the offices a quotation covers, read from its PDF text by js/notice-bids.js.
+  // PDF fonts drop, reorder or replace tone marks (นําพอง for น้ำพอง, "É"/"Ê" in place of ่/้) and pdf.js cuts words into pieces,
+  // so each name is taken as the Thai letters after "กฟ?." with everything else dropped, then compared without marks.
+  function bare(s) { return String(s || '').replace(/\u0E4D\u0E32/g, '\u0E33').replace(/\u0E33/g, '\u0E32').replace(/[^\u0E01-\u0E30\u0E32\u0E33\u0E40-\u0E46]/g, ''); }
+  function branchNames(text) {
+    var out = [], re = /กฟ[สยฟจอ]\s*\./g, t = String(text || ''), m;
+    while ((m = re.exec(t))) {
+      var n = bare(t.slice(m.index + m[0].length, m.index + m[0].length + 40)).slice(0, 20);
+      if (n.length >= 2 && out.indexOf(n) < 0) out.push(n);
+    }
+    return out;
+  }
+  // the districts those names start with (the longest: พลับพลาชัย, not พล); a name found in two provinces
+  // (เฉลิมพระเกียรติ) goes to the province of the site
+  function districtsOfNames(names, prov) {
+    var g = data(); if (!g) return [];
+    if (!g.bare) {
+      g.bare = g.list.map(function (d) { return { b: bare(d.n), d: d }; });
+      Object.keys(ALIAS).forEach(function (k) { (g.byName[ALIAS[k]] || []).forEach(function (d) { g.bare.push({ b: bare(k), d: d }); }); });
+    }
+    var out = [];
+    (names || []).forEach(function (n) {
+      var b = bare(n), best = 0, hit = [];
+      [b, bare('เมือง') + b].forEach(function (s) {
+        g.bare.forEach(function (x) {
+          if (x.b.length < 2 || s.indexOf(x.b) !== 0) return;
+          if (x.b.length > best) { best = x.b.length; hit = [x.d]; } else if (x.b.length === best && hit.indexOf(x.d) < 0) hit.push(x.d);
+        });
+      });
+      if (hit.length > 1 && prov) hit = hit.filter(function (d) { return d.p === prov; });
+      hit.forEach(function (d) { if (out.indexOf(d) < 0) out.push(d); });
+    });
+    return out;
+  }
+  var BRANCHES = {};   // row id → sub-branch names from the site's quotation (NoticeMap.setBranches)
+
   // district key → { won: [sites], wait: [sites], lost: [sites], cover: [sites] }
   function marks(rows) {
     var g = data(), m = {}, off = [];
@@ -77,10 +114,12 @@
       var ds = districtsOf(r), site = r.site || '';
       if (!ds.length) { off.push(r); return; }
       var kind = won(r) ? 'won' : lost(r) ? 'lost' : 'wait';
-      ds.forEach(function (d) {
-        add(d, kind, site);
-        if (kind === 'won') (COVER[d.key] || []).forEach(function (k) { if (g.byKey[k]) add(g.byKey[k], 'cover', site); });
-      });
+      ds.forEach(function (d) { add(d, kind, site); });
+      if (kind !== 'won') return;
+      // a won site's other offices: the sub-branches in its quotation, else the districts the old map showed (COVER)
+      var sub = districtsOfNames(BRANCHES[r.id], ds[0].p).filter(function (d) { return ds.indexOf(d) < 0; });
+      if (sub.length) sub.forEach(function (d) { add(d, 'cover', site); });
+      else ds.forEach(function (d) { (COVER[d.key] || []).forEach(function (k) { if (g.byKey[k]) add(g.byKey[k], 'cover', site); }); });
     });
     return { m: m, off: off };
   }
@@ -99,7 +138,7 @@
     var shapes = '', labels = '', signs = '';
     g.list.forEach(function (d) {
       var e = m[d.key], s = state(e), x = Math.round(d.xy[0]), y = Math.round(d.xy[1]);
-      var tip = d.n + ' (' + d.p + ')' + (e ? [['won', '✓ ชนะประมูล'], ['cover', '✓ ในเขตของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
+      var tip = d.n + ' (' + d.p + ')' + (e ? [['won', '✓ ชนะประมูล'], ['cover', '✓ สาขาย่อยของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
         .filter(function (k) { return e[k[0]].length; }).map(function (k) { return '\n' + k[1] + ': ' + e[k[0]].join(', '); }).join('') : '');
       shapes += '<path class="nm-d' + (s === 'won' ? ' won' : '') + '" fill="' + (s === 'won' ? '#e3f4e6' : FILL[d.p] || '#fff') + '" d="' + d.path + '"><title>' + esc(tip) + '</title></path>';
       labels += '<text class="nm-l" x="' + x + '" y="' + y + '">' + esc(d.n) + '</text>';
@@ -135,7 +174,7 @@
       '<div class="nm-legend"><span><svg viewBox="-10 -10 20 20">' + check(0, 1) + '</svg> ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</span>' +
       '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> รอประมูล / รอผล ' + d.wait + ' ไซด์</span>' +
       '<span><svg viewBox="-10 -10 20 20">' + cross(0, 0) + '</svg> ไม่ชนะ ' + d.lost + ' ไซด์</span>' +
-      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • ✓ ในอำเภอข้างเคียง = อำเภอในเขตของสาขาที่ชนะ (ตามแผนที่เดิม) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
+      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • ✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
       (d.off ? ' • ไซด์นอก 5 จังหวัดนี้ ' + d.off + ' ไซด์ไม่อยู่บนแผนที่' : '') +
       ' • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</small></div></div>';
   }
@@ -177,7 +216,7 @@
       check(32, y) + '<text class="nm-g" x="48" y="' + (y + 5) + '">ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</text>' +
       pin(32, y + 37) + '<text class="nm-g" x="48" y="' + (y + 33) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
       cross(292, y + 28) + '<text class="nm-g" x="308" y="' + (y + 33) + '">ไม่ชนะ ' + d.lost + ' ไซด์</text>' +
-      '<text class="nm-n" x="24" y="' + (y + 58) + '">✓ ในอำเภอข้างเคียง = อำเภอในเขตของสาขาที่ชนะ (ตามแผนที่เดิม) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
+      '<text class="nm-n" x="24" y="' + (y + 58) + '">✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
     // ASCII file name: some browsers drop a Thai download name and save the file as "download"
     return { svg: svg, W: W, H: H, name: 'notice-bid-map-' + day.iso + '.png' };
   }
@@ -225,5 +264,5 @@
     document.head.appendChild(s);
   }
 
-  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER };
+  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER };
 })();
