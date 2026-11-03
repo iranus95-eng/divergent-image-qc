@@ -48,6 +48,17 @@ assert.equal(st('นครราชสีมา/บัวใหญ่'),'wait');
 assert.equal(st('นครราชสีมา/พิมาย'),'');
 assert.equal(mk.off.length,1);
 assert.ok(M.html(rows).includes('nm-svg'));
+// waiting sites are not pinned (user, 3 พ.ย. 69) unless picked with 📍 เป้าหมาย in the list (setFocus)
+const pins=h=>(h.match(/class="nm-pin"/g)||[]).length;
+const aimRows=rows.map((r,i)=>Object.assign({id:i+1},r));
+assert.equal(pins(M.html(aimRows)),0);
+M.setFocus(6);   // บัวใหญ่, waiting
+assert.equal(pins(M.html(aimRows)),2);   // the district and the legend
+assert.ok(M.html(aimRows).includes('เป้าหมาย: บัวใหญ่'));
+assert.ok(M.pictureSvg(aimRows,'').svg.includes('เป้าหมาย: บัวใหญ่'));
+M.setFocus(1);   // a won site gets no pin
+assert.equal(pins(M.html(aimRows)),0);
+M.setFocus(null);
 console.log('notice-map: ok');
 // the downloaded picture: one SVG document with the title, the date and the legend counts
 const pic=M.pictureSvg(rows,'');
