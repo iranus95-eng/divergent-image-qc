@@ -210,3 +210,27 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   assert.match(ctx.nameKey(n3.site),/นครราชสมา3/);
   console.log('PASS: notice bids result file → นครราชสีมา 2 per-month row, เมืองนครราชสีมา 3 found by name');
 }
+
+// กฟส.พุทไธสง result file (2026-11-03): the lowest offer 372,103.20 is our quotation. Some browsers got this file's tone marks
+// wrong, and it was read as a plain document (no 🏆/❌): it must be read as a result file however the marks come out
+{
+  const items=fx('notice-bids-putthaisong-result.json');
+  const damage={
+    clean:s=>s,
+    'É/Ê for ่/้':s=>s.replace(/่/g,'É').replace(/้/g,'Ê'),
+    'tone marks lost':s=>s.replace(/[่้๊๋]/g,''),
+    'every mark lost':s=>s.replace(/[ัิ-ฺ็-๎]/g,''),
+    'marks cut into spaces':s=>s.replace(/[่้]/g,' '),
+  };
+  for(const [k,f] of Object.entries(damage)){
+    const d=ctx.extract(items.map(i=>({...i,str:f(i.str)})),'พุทไธสง.pdf');
+    assert.equal(d.kind,'result',k);
+    assert.equal(d.project_no,'69099738828',k);
+    assert.deepEqual([...d.lowest],[372103.2],k);
+    assert.equal(ctx.nameKey(d.site),ctx.nameKey('พุทไธสง'),k);
+    assert.equal(ctx.isOurWin(d.lowest,[372103.2],[4.83],0),true,k);
+    const p=ctx.resultPrice(d.lowest,72000,8,d.site,d.items.map(x=>x.name),{});
+    assert.equal(p.price,4.83,k);
+  }
+  console.log('PASS: notice bids result file with damaged tone marks (พุทไธสง) → 🏆 at 4.83');
+}

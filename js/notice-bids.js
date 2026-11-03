@@ -181,6 +181,12 @@
     return yr + '-' + ('0' + (mi + 1)).slice(-2) + '-' + ('0' + Number(d)).slice(-2);
   }
   function amount(s) { var n = Number(String(s || '').replace(/[,\s]/g, '').replace(/\.-?$/, '')); return isFinite(n) && n > 0 ? n : null; }
+  // the text with every mark dropped (tone marks, vowels above/below, and the junk some fonts give in their place: "É"/"Ê")
+  // and ำ read as า, for reading words whose marks a PDF got wrong ("ข้อมูล" → "ขอมล", "ต่ำสุด" → "ตาสด")
+  function bareText(s) {
+    return String(s || '').replace(/\u0E4D\u0E32/g, '\u0E32').replace(/\u0E33/g, '\u0E32')
+      .replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').replace(/[^\x20-\x7E\u0E01-\u0E30\u0E32\u0E40-\u0E46\u0E50-\u0E59\s]/g, '');
+  }
   // tone marks get lost in some PDFs ("การไฟฟาสวนภูมิภาค"): compare names without them
   function nameKey(s) { return String(s || '').replace(/[ัิ-ฺ็-๎\s.]/g, '').replace(/^(กฟส|กฟจ|กฟอ)/, ''); }
 
@@ -204,12 +210,24 @@
     m = ids.length ? [0, ids[ids.length - 1]] : F.match(/เลขที่โครงการ\s*:?\s*(\d{11})/);
     if (m) out.project_no = m[1];
     // e-GP "สรุปข้อมูลการเสนอราคาเบื้องต้น": the lowest price offered (VAT included) of each รายการพิจารณา
-    if (/สรุปข้อมูลการเสนอราคา|ราคาต่ำสุดที่เสนอ/.test(F)) {
+    // Some browsers get this file's tone marks wrong ("É"/"Ê" for ่/้, or none: พุทไธสง 2026-11-03 was read as a plain
+    // document, so no 🏆/❌): the file is also recognised, and read, on its text without marks (B: "สรปขอมลการเสนอราคา")
+    var B = bareText(F), B0 = B.replace(/\s+/g, '');
+    if (/สรุปข้อมูลการเสนอราคา|ราคาต่ำสุดที่เสนอ/.test(F) || /สรปขอมลการเสนอราคา|ราคาตาสดทเสนอ|การเสนอราคาเบองตน/.test(B0)) {
       out.kind = 'result';
-      m = F.match(/เลขที่โครงการ\s*:?\s*(\d{11})/); if (m) out.project_no = m[1];
+      m = F.match(/เลขที่โครงการ\s*:?\s*(\d{11})/) || B.match(/เลขท\s*โครงการ\s*:?\s*(\d{11})/) || F.match(/(?:^|\D)(\d{11})(?!\d)/); if (m) out.project_no = m[1];
+      // the office of the project title ("…รับผิดชอบของ กฟส.พุทไธสง และกฟย.ในสังกัด"), without marks when they are damaged
+      m = F.match(/กฟ([สจ])\.\s*([ก-๎]+)/);
+      var mb = B.match(/กฟ([สจ])\s*\.\s*([ก-ฮะาเ-ๆ]+)/);
+      if (m && mb && bareText(m[2]) === mb[2]) { out.site = m[2]; out.office = 'กฟ' + m[1] + '.' + m[2]; }
+      else if (mb && mb[2].length >= 2) { out.site = mb[2]; out.office = 'กฟ' + mb[1] + '.' + mb[2]; }
       // the item may carry a description before its price ("รายการพิจารณาที่ 1 เหมาบุคคลภายนอก… 49,434.00")
       out.lowest = []; out.items = []; var re0 = /รายการพิจารณาที่\s*\d+\s*([\s\S]{0,200}?)\s*(\d{1,3}(?:,\d{3})*\.\d{2})/g;
       while ((m = re0.exec(F))) { var v0 = amount(m[2]); if (v0) { out.lowest.push(v0); out.items.push({ name: m[1].trim(), lowest: v0 }); } }
+      if (!out.lowest.length) {
+        re0 = /รายการพจารณาท\s*\d+\s*([\s\S]{0,200}?)\s*(\d{1,3}(?:,\d{3})*\.\d{2})/g;
+        while ((m = re0.exec(B))) { var v1 = amount(m[2]); if (v1) { out.lowest.push(v1); out.items.push({ name: m[1].trim(), lowest: v1 }); } }
+      }
       return out;
     }
     // document no. "ฉ.๓ พธ.(พ.)๐๓๐/๒๕๖๙" → zone ฉ.3
@@ -437,14 +455,22 @@
     // no review card, no second row. Only a site not in the table waits on a card to be added.
     if (st.rows == null || st.err) await load();
     var notes = [];
-    var merged = mergeDocs(docs);
+    var merged = mergeDocs(docs), kindOf = {};
+    docs.forEach(function (d) { kindOf[d.file] = d.kind; });
     for (var n = 0; n < merged.length; n++) {
       var r = merged[n];
       r.target = st.err ? 0 : matchRow(r);
       st.pending.push(r);
       if (!r.target) continue;
       var before = Object.assign({}, (st.rows || []).filter(function (x) { return x.id === r.target; })[0]);
-      if (await confirmPending(st.pending.length - 1, true)) notes.push(changesText(before, (st.rows || []).filter(function (x) { return x.id === r.target; })[0] || {}));
+      if (!(await confirmPending(st.pending.length - 1, true))) continue;
+      var txt = changesText(before, (st.rows || []).filter(function (x) { return x.id === r.target; })[0] || {});
+      // a file that is neither announcement, TOR nor a result file the reader knows, and changed nothing: say so, instead of
+      // a bare "ข้อมูลตรงกับที่มีอยู่แล้ว" that leaves the user waiting for 🏆/❌ (พุทไธสง 2026-11-03)
+      if (r.files.every(function (f) { return kindOf[f] === 'other'; }) && !/\n•/.test(txt))
+        txt += '\n⚠ ไฟล์ ' + r.files.join(', ') + ' ไม่ใช่ไฟล์ "สรุปข้อมูลการเสนอราคาเบื้องต้น" ที่ระบบอ่านออก จึงยังไม่ได้บอกผลชนะ/แพ้' +
+          '\nถ้าเป็นไฟล์ผลประมูล ให้ดาวน์โหลดจาก e-GP ใหม่ (อย่าสั่งพิมพ์/บันทึกจากหน้าดู PDF) แล้ววางอีกครั้ง หรือกด 🏆 ในแถวเอง';
+      notes.push(txt);
     }
     if (notes.length) alert('อัปเดตไซด์ที่มีอยู่แล้ว (ไม่เพิ่มแถวใหม่)\n\n' + notes.join('\n\n'));
     if (docs.length && !docs.some(function (d) { return d.site || d.budget || d.qty; }))
