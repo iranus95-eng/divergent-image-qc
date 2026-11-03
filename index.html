@@ -1847,6 +1847,8 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       .payroll-period-note{margin:0 0 12px;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5}
       .payroll-period-note.is-open{background:#eef8f1;color:#1d6b3d;border:1px solid #cfe9d8}
       .payroll-period-note.is-closed{background:#fff6e8;color:#8a5a12;border:1px solid #f1dcb4}
+      #payrollWorkspace .payroll-close-period-btn{background:#fff3f0;color:#a2361b;border:1px solid #f0c9bd}
+      #payrollWorkspace .payroll-close-period-btn:disabled{opacity:.6;cursor:wait}
       @media (max-width:760px){#payrollWorkspace .payroll-tools{grid-template-columns:1fr}}
       </style>
       <div class="payroll-head">
@@ -1854,6 +1856,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
           <button class="money-report-btn" onclick="openMoneyReport('payroll')">🖨️ พิมพ์รายงาน</button>
           <button class="payroll-btn payroll-btn-secondary" onclick="openKBankPayroll()">🏦 เตรียมไฟล์ KBank</button>
+          <button class="payroll-btn payroll-btn-secondary payroll-close-period-btn" id="payrollClosePeriodBtn" style="display:none" onclick="closePayrollPeriod()">🔒 ปิดรอบ</button>
           <button class="primary-admin-btn" id="payrollAddBtn" onclick="openPayrollEmployee()">+ เพิ่มพนักงาน</button>
         </div>
       </div>
@@ -2141,8 +2144,28 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       const sel=document.getElementById("payrollMonthSelect");
       if(sel&&payrollPeriodsInfo.length){sel.innerHTML=payrollPeriodsInfo.map(p=>`<option value="${escapeHtml(p.source_month)}">${escapeHtml(payrollMonthLabel(p.source_month))}${p.status==="OPEN"?" • รอบปัจจุบัน":" • ปิดรอบแล้ว"}</option>`).join("");sel.value=month;}
       const note=document.getElementById("payrollPeriodNote");
-      if(note&&month){note.hidden=false;if(open){note.className="payroll-period-note is-open";note.textContent=`รอบ ${payrollMonthLabel(month)} • เปิดรับรายการ รวมเบิกเงินล่วงหน้าที่อนุมัติตั้งแต่วันที่ 4 • ปิดรอบอัตโนมัติหลังวันที่ 3 ของเดือนถัดไป`;}else{note.className="payroll-period-note is-closed";note.textContent=`รอบ ${payrollMonthLabel(month)} ปิดรอบแล้ว • ดูได้อย่างเดียว แก้ไขไม่ได้`;}}
+      if(note&&month){note.hidden=false;if(open){note.className="payroll-period-note is-open";note.textContent=`รอบ ${payrollMonthLabel(month)} • เปิดรับรายการ รวมเบิกเงินล่วงหน้าที่อนุมัติตั้งแต่เริ่มรอบ • กดปิดรอบได้เอง หรือปิดอัตโนมัติหลังวันที่ 3 ของเดือนถัดไป`;}else{note.className="payroll-period-note is-closed";note.textContent=`รอบ ${payrollMonthLabel(month)} ปิดรอบแล้ว • ดูได้อย่างเดียว แก้ไขไม่ได้`;}}
       const add=document.getElementById("payrollAddBtn");if(add)add.style.display=payrollCanManage?"":"none";
+      const close=document.getElementById("payrollClosePeriodBtn");if(close)close.style.display=payrollCanManage&&open&&month===payrollCurrentMonth?"":"none";
+    }
+    // ปิดรอบ: the closed batch stays as read-only history in the month list; the next batch starts as a blank form
+    // (same employees, sites, rates and bank accounts, with no work, special pay or deductions).
+    async function closePayrollPeriod(){
+      const month=payrollCurrentMonth;if(!month||!payrollCanManage)return;
+      if(!window.confirm(`ปิดรอบ ${payrollMonthLabel(month)} ใช่หรือไม่?\n\n• ข้อมูลรอบนี้จะถูกเก็บไว้ ดูย้อนหลังได้จากช่องเลือกรอบ แต่แก้ไขไม่ได้อีก\n• รอบถัดไปจะเริ่มด้วยแบบฟอร์มเปล่า (รายชื่อพนักงาน ไซด์งาน เรต และบัญชีเดิม ไม่มีจำนวนราย เงินพิเศษ หรือรายการหัก)\n• เบิกเงินล่วงหน้าที่อนุมัติแล้วในรอบนี้จะย้ายไปเก็บในเมนูเบิกเงินล่วงหน้า ส่วนที่อนุมัติหลังจากนี้จะเข้ารอบใหม่`))return;
+      const btn=document.getElementById("payrollClosePeriodBtn"),st=document.getElementById("payrollStatus");
+      if(btn)btn.disabled=true;if(st)st.textContent=`กำลังปิดรอบ ${payrollMonthLabel(month)}...`;
+      try{
+        const d=await payrollApi("close_period",{source_month:month});
+        try{localStorage.removeItem(PAYROLL_CACHE_KEY)}catch(_){}
+        payrollSelectedMonth="";payrollEmployees=[];payrollPeriodsInfo=[];payrollCurrentMonth=d.opened||"";payrollPage=1;
+        await loadPayrollEmployees(true);
+        if(st)st.textContent=`ปิดรอบ ${payrollMonthLabel(d.closed)} แล้ว • เริ่มรอบ ${payrollMonthLabel(d.opened)} ด้วยแบบฟอร์มเปล่า ${Number(d.rows||0).toLocaleString("th-TH")} รายการ`;
+      }catch(e){
+        const m=String(e?.message||e);
+        const msg={PAYROLL_NEXT_PERIOD_TOO_EARLY:"ยังเปิดรอบถัดไปไม่ได้ (เปิดล่วงหน้าได้ไม่เกิน 1 เดือน)",PAYROLL_NEXT_PERIOD_EXISTS:"มีรอบถัดไปอยู่แล้ว",PAYROLL_PERIOD_CHANGED:"รอบปัจจุบันเปลี่ยนไปแล้ว กรุณารีเฟรช",PAYROLL_PERIOD_NOT_OPEN:"รอบนี้ปิดไปแล้ว",PAYROLL_MANAGE_DENIED:"ไม่มีสิทธิ์ปิดรอบ"}[m]||m;
+        if(st)st.textContent="ปิดรอบไม่สำเร็จ: "+msg;
+      }finally{if(btn)btn.disabled=false;}
     }
     async function changePayrollMonth(v){payrollSelectedMonth=(v&&v!==payrollCurrentMonth)?v:"";payrollEmployees=[];payrollPage=1;const b=document.getElementById("payrollBody");if(b)b.innerHTML='<tr><td colspan="16" style="padding:18px;text-align:center">กำลังโหลดรอบ '+escapeHtml(payrollMonthLabel(v))+'...</td></tr>';await loadPayrollEmployees(true);}
     function schedulePayrollFilter(){clearTimeout(payrollFilterTimer);payrollFilterTimer=setTimeout(()=>{payrollPage=1;filterPayrollEmployees()},120)}

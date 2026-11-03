@@ -3,7 +3,25 @@
   'use strict';
   const API='https://neauzvqroaszvqffahkv.functions.supabase.co/employee-advance-web-api';
   const SESSION_KEYS=['divergent_fallback_session_token','divergent_web_session_token_v1'];
-  let currentStatus='ALL';
+  let currentStatus='CURRENT';
+  // รอบ (shared with จัดการเงินเดือน): the main list holds pending requests plus those approved in the current payroll round.
+  // ปิดรอบ closes the payroll round; its approved requests then move to the 📦 archive tab, leaving only pending ones.
+  let round={code:'',startsAt:0,canClose:false};
+  const NOTES={CURRENT:'รอบปัจจุบัน: คำขอที่รออนุมัติ และที่อนุมัติแล้วในรอบนี้ • กดปิดรอบแล้วรายการที่อนุมัติจะย้ายไปเก็บ เหลือแค่รออนุมัติ',APPROVED:'📦 รายการที่อนุมัติแล้วของรอบที่ปิดไปแล้ว (เก็บไว้ดูย้อนหลัง)',REJECTED:'📦 รายการที่ไม่อนุมัติ (เก็บไว้ดูย้อนหลัง)'};
+  function roundLabel(code){const m={'มค':'มกราคม','กพ':'กุมภาพันธ์','มีค':'มีนาคม','เมย':'เมษายน','พค':'พฤษภาคม','มิย':'มิถุนายน','กค':'กรกฎาคม','สค':'สิงหาคม','กย':'กันยายน','ตค':'ตุลาคม','พย':'พฤศจิกายน','ธค':'ธันวาคม'};const r=String(code||'').match(/^(\D+)(\d{2})$/);return r&&m[r[1]]?`${m[r[1]]} 25${r[2]}`:String(code||'');}
+  async function loadRound(){
+    try{
+      if(typeof window.webListApi!=='function')throw new Error('NO_LIST_API');
+      const d=await window.webListApi('payroll',{fresh:true});
+      const p=(d.periods||[]).find(x=>x.source_month===d.current_month)||null;
+      round={code:d.current_month||'',startsAt:p&&p.starts_at?new Date(p.starts_at).getTime():0,canClose:!!(d.can_manage&&p&&p.status==='OPEN'&&typeof window.payrollApi==='function')};
+    }catch(e){console.warn('advance round',e);round={code:'',startsAt:0,canClose:false};}
+    const b=document.getElementById('advClosePeriodBtn');if(b)b.style.display=round.canClose?'':'none';
+    const lab=document.getElementById('advRoundLabel');if(lab)lab.textContent=round.code?`รอบ ${roundLabel(round.code)}`:'';
+  }
+  function inCurrentRound(x){if(!round.startsAt)return false;const t=new Date(x.approved_at||x.created_at).getTime();return t>=round.startsAt;}
+  function pick(x){if(currentStatus==='CURRENT')return x.status==='PENDING'||(x.status==='APPROVED'&&inCurrentRound(x));if(currentStatus==='APPROVED')return x.status==='APPROVED'&&!inCurrentRound(x);return x.status!=='PENDING'&&x.status!=='APPROVED';}
+  function regroup(list){const groups=new Map();for(const r of list){const k=String(r.site_name||'ไม่ระบุไซต์');if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);}return {sites:[...groups.entries()].map(([site_name,items])=>({site_name,employee_count:items.length,total_amount:items.reduce((a,x)=>a+Number(x.requested_amount||0),0),items})),totals:{count:list.length,total_amount:list.reduce((a,x)=>a+Number(x.requested_amount||0),0)}};}
 
   function money(v){return Number(v||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
@@ -29,6 +47,7 @@
       .adv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
       .adv-head h2{margin:0;font-size:28px}.adv-head p{margin:6px 0 0;color:#6b7280}
       .adv-refresh{background:#2563eb!important}
+      .adv-close-period{background:#fff3f0!important;color:#a2361b!important;border:1px solid #f0c9bd!important}.adv-close-period:disabled{opacity:.6;cursor:wait}
       .adv-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
       .adv-tab{background:#fff!important;color:#334155!important;border:1px solid #dbe3ef!important;padding:9px 14px!important}
       .adv-tab.active{background:#2563eb!important;color:#fff!important;border-color:#2563eb!important}
@@ -60,13 +79,14 @@
     }
     if(!document.getElementById('employeeAdvanceWorkspace')){
       const w=document.createElement('section');w.className='payroll-workspace';w.id='employeeAdvanceWorkspace';w.innerHTML=`
-        <div class="adv-head"><div><h2>พนักงานเบิกเงินล่วงหน้า</h2><p>ตรวจสอบคำขอ แยกตามไซต์งาน • เมื่ออนุมัติจะบันทึกยอดเข้าเงินเดือนอัตโนมัติ</p></div><button class="adv-refresh" onclick="window.EmployeeAdvance.reload()">↻ รีเฟรช</button></div>
+        <div class="adv-head"><div><h2>พนักงานเบิกเงินล่วงหน้า</h2><p>ตรวจสอบคำขอ แยกตามไซต์งาน • เมื่ออนุมัติจะบันทึกยอดเข้าเงินเดือนอัตโนมัติ</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span id="advRoundLabel" class="adv-note" style="font-weight:800"></span><button id="advClosePeriodBtn" class="adv-close-period" style="display:none" onclick="window.EmployeeAdvance.closePeriod()">🔒 ปิดรอบ</button><button class="adv-refresh" onclick="window.EmployeeAdvance.reload()">↻ รีเฟรช</button></div></div>
         <div id="advError" class="adv-error"></div>
-        <div class="adv-tabs"><button class="adv-tab active" data-status="ALL">ทั้งหมด</button><button class="adv-tab" data-status="PENDING">รออนุมัติ</button><button class="adv-tab" data-status="APPROVED">อนุมัติแล้ว</button><button class="adv-tab" data-status="REJECTED">ไม่อนุมัติ</button></div>
-        <div class="adv-kpis"><div class="adv-kpi"><span>จำนวนรายการ</span><b id="advCount">0</b></div><div class="adv-kpi"><span>ยอดรวมทั้งหมด</span><b id="advTotal">0.00</b></div><div class="adv-kpi"><span>รออนุมัติ</span><b id="advPending">0</b></div><div class="adv-kpi"><span>อนุมัติแล้ว</span><b id="advApproved">0</b></div></div>
+        <div class="adv-tabs"><button class="adv-tab active" data-status="CURRENT">รอบปัจจุบัน</button><button class="adv-tab adv-tab-archive" data-status="APPROVED">📦 ที่เก็บ • อนุมัติแล้ว</button><button class="adv-tab adv-tab-archive" data-status="REJECTED">📦 ที่เก็บ • ไม่อนุมัติ</button></div>
+        <div id="advListNote" class="adv-note" style="margin:-4px 0 12px"></div>
+        <div class="adv-kpis"><div class="adv-kpi"><span>จำนวนรายการ</span><b id="advCount">0</b></div><div class="adv-kpi"><span>ยอดรวม</span><b id="advTotal">0.00</b></div></div>
         <div id="advContent" class="adv-loading">กำลังโหลดข้อมูล...</div>`;
       const main=document.querySelector('.main-content')||document.querySelector('main')||document.body;main.appendChild(w);
-      w.querySelectorAll('.adv-tab').forEach(b=>b.addEventListener('click',()=>{currentStatus=b.dataset.status||'ALL';w.querySelectorAll('.adv-tab').forEach(x=>x.classList.toggle('active',x===b));reload();}));
+      w.querySelectorAll('.adv-tab').forEach(b=>b.addEventListener('click',()=>{currentStatus=b.dataset.status||'CURRENT';w.querySelectorAll('.adv-tab').forEach(x=>x.classList.toggle('active',x===b));reload();}));
     }
     syncVisibility();
   }
@@ -85,12 +105,12 @@
   async function open(){if(window.DivergentAuth&&window.DivergentAuth.requireAccess&&!window.DivergentAuth.requireAccess('payroll','เมนูพนักงานเบิกเงินล่วงหน้า'))return;hideOthers();window.scrollTo(0,0);await reload();}
 
   function render(data){
-    document.getElementById('advCount').textContent=String(data.totals?.count||0);document.getElementById('advTotal').textContent=money(data.totals?.total_amount||0)+' บาท';document.getElementById('advPending').textContent=String(data.totals?.pending||0);document.getElementById('advApproved').textContent=String(data.totals?.approved||0);
-    const root=document.getElementById('advContent');if(!data.sites||!data.sites.length){root.className='adv-empty';root.innerHTML='ยังไม่มีรายการเบิกเงินล่วงหน้า';return;}
+    document.getElementById('advCount').textContent=String(data.totals?.count||0);document.getElementById('advTotal').textContent=money(data.totals?.total_amount||0)+' บาท';const pe=document.getElementById('advPending');if(pe)pe.textContent=String(data.totals?.pending||0);const ap=document.getElementById('advApproved');if(ap)ap.textContent=String(data.totals?.approved||0);
+    const root=document.getElementById('advContent');if(!data.sites||!data.sites.length){root.className='adv-empty';root.innerHTML=currentStatus==='CURRENT'?'ไม่มีคำขอในรอบนี้':'ยังไม่มีรายการในที่เก็บ';return;}
     root.className='';root.innerHTML=data.sites.map(g=>`<div class="adv-site"><div class="adv-site-head"><div class="adv-site-title">📍 ไซต์งาน: ${esc(g.site_name)} <span class="adv-note">(${g.employee_count} รายการ)</span></div><div class="adv-site-total">รวม ${money(g.total_amount)} บาท</div></div><div class="adv-table-wrap"><table class="adv-table"><thead><tr><th>#</th><th>ชื่อพนักงาน</th><th>จำนวนเงิน</th><th>วันที่ขอ</th><th>เหตุผล</th><th>LINE</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${g.items.map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.employee_name)}</b><div class="adv-note">${esc(x.request_code||'')}</div></td><td><b>${money(x.requested_amount)} บาท</b></td><td>${new Date(x.created_at).toLocaleString('th-TH')}</td><td>${esc(x.request_note||'-')}</td><td>${lineDelivery(x)}</td><td><span class="${statusClass(x.status)}">${statusLabel(x.status)}</span></td><td><div class="adv-actions">${x.status==='PENDING'?`<button class="adv-approve" onclick="window.EmployeeAdvance.approve(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}',${Number(x.requested_amount)})">อนุมัติ</button><button class="adv-reject" onclick="window.EmployeeAdvance.reject(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}')">ไม่อนุมัติ</button>`:(x.status==='APPROVED'&&x.line_delivery_status!=='SENT'?`<button class="adv-retry-line" onclick="window.EmployeeAdvance.retryLine(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}')">ส่ง LINE ซ้ำ</button>`:'')}<button class="adv-delete" title="ลบรายการ" onclick="window.EmployeeAdvance.remove(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}',${Number(x.requested_amount)},'${esc(x.status)}')">🗑 ลบ</button></div></td></tr>`).join('')}</tbody></table></div></div>`).join('');
   }
 
-  async function reload(){const err=document.getElementById('advError');if(err){err.style.display='none';err.textContent='';}const root=document.getElementById('advContent');if(root){root.className='adv-loading';root.innerHTML='กำลังโหลดข้อมูล...';}try{render(await call({action:'list',status:currentStatus}));}catch(e){if(err){err.textContent=e.message||String(e);err.style.display='block';}if(root){root.className='adv-empty';root.innerHTML='โหลดข้อมูลไม่สำเร็จ';}}}
+  async function reload(){const err=document.getElementById('advError');if(err){err.style.display='none';err.textContent='';}const root=document.getElementById('advContent');if(root){root.className='adv-loading';root.innerHTML='กำลังโหลดข้อมูล...';}const note=document.getElementById('advListNote');if(note)note.textContent=NOTES[currentStatus]||'';try{const [d]=await Promise.all([call({action:'list',status:'ALL'}),loadRound()]);render(regroup((d.requests||[]).filter(pick)));}catch(e){if(err){err.textContent=e.message||String(e);err.style.display='block';}if(root){root.className='adv-empty';root.innerHTML='โหลดข้อมูลไม่สำเร็จ';}}}
 
   async function approve(id,name,amount){if(!confirm(`ยืนยันอนุมัติยอด ${money(amount)} บาท ของ ${name}?\n\nระบบจะบันทึกยอดนี้ลงคอลัมน์เบิกล่วงหน้าในเงินเดือนอัตโนมัติ`))return;try{const j=await call({action:'approve',request_id:id});let msg=`อนุมัติเรียบร้อย\nยอดเบิกล่วงหน้าในเงินเดือนปัจจุบัน: ${money(j.approval?.advance_deduction||0)} บาท`;if(j.line?.ok)msg+='\nส่งข้อความ LINE ให้พนักงานแล้ว';else msg+=`\nLINE: ${j.line?.reason||'ยังไม่ได้ส่ง'}`;alert(msg);await reload();}catch(e){alert('อนุมัติไม่สำเร็จ: '+(e.message||e));}}
 
@@ -115,7 +135,22 @@
     }
   }
 
-  window.EmployeeAdvance={open,reload,approve,reject,retryLine,remove};window.openEmployeeAdvanceManagement=open;
+  async function closePeriod(){
+    if(!round.canClose||!round.code)return;
+    if(!confirm(`ปิดรอบ ${roundLabel(round.code)} ใช่หรือไม่?\n\n• รายการเบิกที่อนุมัติแล้วในรอบนี้จะย้ายไปเก็บที่แท็บ 📦 ที่เก็บ เหลือแค่รายการรออนุมัติ\n• เงินเดือนรอบนี้จะปิดด้วย (ดูย้อนหลังได้ แก้ไขไม่ได้) และรอบถัดไปเริ่มด้วยแบบฟอร์มเปล่า\n• เบิกเงินที่อนุมัติหลังจากนี้จะเข้ารอบใหม่`))return;
+    const b=document.getElementById('advClosePeriodBtn');if(b)b.disabled=true;
+    try{
+      const j=await window.payrollApi('close_period',{source_month:round.code});
+      try{localStorage.removeItem('divergent_payroll_list_cache_v4')}catch(_){}
+      alert(`ปิดรอบ ${roundLabel(j.closed)} แล้ว\nเริ่มรอบ ${roundLabel(j.opened)}`);
+      await reload();
+    }catch(e){
+      const m=String(e.message||e);
+      alert('ปิดรอบไม่สำเร็จ: '+({PAYROLL_NEXT_PERIOD_TOO_EARLY:'ยังเปิดรอบถัดไปไม่ได้ (เปิดล่วงหน้าได้ไม่เกิน 1 เดือน)',PAYROLL_NEXT_PERIOD_EXISTS:'มีรอบถัดไปอยู่แล้ว',PAYROLL_PERIOD_CHANGED:'รอบปัจจุบันเปลี่ยนไปแล้ว กรุณารีเฟรช',PAYROLL_PERIOD_NOT_OPEN:'รอบนี้ปิดไปแล้ว',PAYROLL_MANAGE_DENIED:'ไม่มีสิทธิ์ปิดรอบ'}[m]||m));
+    }finally{if(b)b.disabled=false;}
+  }
+
+  window.EmployeeAdvance={open,reload,approve,reject,retryLine,remove,closePeriod};window.openEmployeeAdvanceManagement=open;
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',build);else build();window.addEventListener('divergent:permissions',syncVisibility);
 })();
 
