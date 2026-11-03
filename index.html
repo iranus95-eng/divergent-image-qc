@@ -2152,7 +2152,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     // (same employees, sites, rates and bank accounts, with no work, special pay or deductions).
     async function closePayrollPeriod(){
       const month=payrollCurrentMonth;if(!month||!payrollCanManage)return;
-      if(!window.confirm(`ปิดรอบ ${payrollMonthLabel(month)} ใช่หรือไม่?\n\n• ข้อมูลรอบนี้จะถูกเก็บไว้ ดูย้อนหลังได้จากช่องเลือกรอบ แต่แก้ไขไม่ได้อีก\n• รอบถัดไปจะเริ่มด้วยแบบฟอร์มเปล่า (รายชื่อพนักงาน ไซด์งาน เรต และบัญชีเดิม ไม่มีจำนวนราย เงินพิเศษ หรือรายการหัก)\n• เบิกเงินล่วงหน้าที่อนุมัติหลังจากนี้จะเข้ารอบใหม่`))return;
+      if(!window.confirm(`ปิดรอบ ${payrollMonthLabel(month)} ใช่หรือไม่?\n\n• ข้อมูลรอบนี้จะถูกเก็บไว้ ดูย้อนหลังได้จากช่องเลือกรอบ แต่แก้ไขไม่ได้อีก\n• รอบถัดไปจะเริ่มด้วยแบบฟอร์มเปล่า (รายชื่อพนักงาน ไซด์งาน เรต และบัญชีเดิม ไม่มีจำนวนราย เงินพิเศษ หรือรายการหัก)\n• เบิกเงินล่วงหน้าที่อนุมัติแล้วในรอบนี้จะย้ายไปเก็บในเมนูเบิกเงินล่วงหน้า ส่วนที่อนุมัติหลังจากนี้จะเข้ารอบใหม่`))return;
       const btn=document.getElementById("payrollClosePeriodBtn"),st=document.getElementById("payrollStatus");
       if(btn)btn.disabled=true;if(st)st.textContent=`กำลังปิดรอบ ${payrollMonthLabel(month)}...`;
       try{
