@@ -98,4 +98,10 @@ M.setBranches({});
 assert.equal(M.state(M.marks([{id:85,site:'ท่าตูม',status:'ชนะประมูล'}]).m['สุรินทร์/ชุมพลบุรี']),'won');
 // แคนดง is ticked with สตึก
 assert.equal(M.state(M.marks([{id:5,site:'สตึก',status:'ชนะประมูล'}]).m['บุรีรัมย์/แคนดง']),'won');
+// ละหานทราย, โนนดินแดง, เฉลิมพระเกียรติ (บุรีรัมย์, not the one in นครราชสีมา) with นางรอง or ประโคนชัย
+for (const site of ['นางรอง','ประโคนชัย']) {
+  const mm=M.marks([{id:2,site,status:'ชนะประมูล'}]).m;
+  for (const k of ['บุรีรัมย์/ละหานทราย','บุรีรัมย์/โนนดินแดง','บุรีรัมย์/เฉลิมพระเกียรติ']) assert.equal(M.state(mm[k]),'won',site+' '+k);
+  assert.equal(M.state(mm['นครราชสีมา/เฉลิมพระเกียรติ']),'');
+}
 console.log('notice-map branches: ok');
