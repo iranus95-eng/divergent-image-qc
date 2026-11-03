@@ -96,4 +96,6 @@ M.setBranches({});
   assert.equal(M.state(pt.m['บุรีรัมย์/บ้านใหม่ไชยพจน์']),'won'); }
 // ชุมพลบุรี is ticked with ท่าตูม
 assert.equal(M.state(M.marks([{id:85,site:'ท่าตูม',status:'ชนะประมูล'}]).m['สุรินทร์/ชุมพลบุรี']),'won');
+// แคนดง is ticked with สตึก
+assert.equal(M.state(M.marks([{id:5,site:'สตึก',status:'ชนะประมูล'}]).m['บุรีรัมย์/แคนดง']),'won');
 console.log('notice-map branches: ok');
