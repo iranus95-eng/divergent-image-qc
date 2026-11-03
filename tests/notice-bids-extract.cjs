@@ -234,3 +234,21 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   }
   console.log('PASS: notice bids result file with damaged tone marks (พุทไธสง) → 🏆 at 4.83');
 }
+
+// กฟส.หนองกี่ "ประกาศผู้ชนะการเสนอราคา" (2026-10-30): read as a result of one item with the winner's name, not as an
+// announcement (it changed nothing). File renamed by the user, so no project number: the site is found by its office.
+{
+  const d=ctx.extract(fx('notice-bids-nongki-winner.json'),'หนองกี่.pdf');
+  assert.equal(d.kind,'result');
+  assert.ok(d.winner_announce);
+  assert.equal(d.site,'หนองกี่');
+  assert.equal(d.winner,'ห้างหุ้นส่วนจำกัด ชิดชล กรุ๊ป');
+  assert.deepEqual(JSON.parse(JSON.stringify(d.lowest)),[371497.16]);
+  assert.equal(d.project_no,undefined);
+  assert.equal(ctx.extract(fx('notice-bids-nongki-winner.json'),'dwnt_69099718750_6d5afb28.pdf').project_no,'69099718750');
+  // 371,497.16 ÷ 1.07 ÷ 66,768 ราย = 5.20, and no quotation of ours has that total
+  const r=ctx.resultPrice(d.lowest,66768,null,'หนองกี่',[''],{budget:534144});
+  assert.equal(r.price,5.2);
+  assert.equal(ctx.isOurWin(d.lowest,[],[],r.price),false);
+  console.log('PASS: notice bids ประกาศผู้ชนะ (หนองกี่) → result with the winner, ราคา 5.20');
+}

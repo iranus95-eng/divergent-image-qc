@@ -230,6 +230,20 @@
       }
       return out;
     }
+    // the office's "ประกาศผู้ชนะการเสนอราคา": names the winner and its total (VAT included). Read as a result file of one
+    // รายการพิจารณา, so it gives 🏆/❌ and the winning price like "สรุปข้อมูลการเสนอราคาเบื้องต้น" (หนองกี่ 2026-11-03 was
+    // read as an announcement and changed nothing). It carries no project number: the site is found by its office.
+    if (/ประกาศผู้ชนะการเสนอราคา/.test(F) || /ประกาศผชนะการเสนอราคา/.test(B0)) {
+      var mw = F.match(/ได้แก่\s*(.{2,80}?)\s*(?:ซึ่งเป็นผู้เสนอราคา|โดยเสนอราคา|เสนอราคาเป็นเงิน)/);
+      var mt = F.match(/(?:เป็นเงินทั้งสิ้น|ราคาทั้งสิ้น|เป็นเงิน)\s*(\d{1,3}(?:,\d{3})*\.\d{2})/);
+      if (mt) {
+        out.kind = 'result'; out.winner_announce = true;
+        if (mw) out.winner = mw[1].replace(/\s+/g, ' ').trim();
+        out.lowest = [amount(mt[1])]; out.items = [{ name: '', lowest: out.lowest[0] }];
+        if (!ids.length) delete out.project_no;   // an 11-digit number in the text is not the project's
+        return out;
+      }
+    }
     // document no. "ฉ.๓ พธ.(พ.)๐๓๐/๒๕๖๙" → zone ฉ.3
     m = F.match(/เลขที่\s*(ฉ\.\s*\d\s*\S+?\/\d{4})/);
     if (m) out.doc_no = m[1].replace(/\s+/g, ' ').replace(/^ฉ\. /, 'ฉ.');
@@ -483,14 +497,15 @@
     // (they load in the background; ท่าตูม was once read as 50,800 ราย → 7.47 with no 🏆 because they were not in yet)
     if (!st.quotes) { st.busy = 'กำลังโหลดใบเสนอราคา…'; render(); await (st.quotesP || (st.quotesP = loadQuotes())); st.busy = ''; }
     var name = d.file + (d.project_no ? ' (เลขที่โครงการ ' + d.project_no + ')' : '');
-    if (!d.project_no) { alert('ไฟล์ ' + d.file + ': ไม่พบเลขที่โครงการในไฟล์'); return; }
+    // ประกาศผู้ชนะ has no project number in its text (only in the e-GP file name): it is matched by its office
+    if (!d.project_no && !(d.winner_announce && d.site)) { alert('ไฟล์ ' + d.file + ': ไม่พบเลขที่โครงการในไฟล์'); return; }
     if (!d.lowest || !d.lowest.length) { alert('ไฟล์ ' + name + ': ไม่พบราคาต่ำสุดที่เสนอ (ไฟล์อาจเป็นภาพสแกน)'); return; }
-    var row = (st.rows || []).filter(function (x) { return String(x.project_no || '').trim() === d.project_no; })[0];
+    var row = d.project_no ? (st.rows || []).filter(function (x) { return String(x.project_no || '').trim() === d.project_no; })[0] : null;
     // a row without its project number yet (เมืองนครราชสีมา 3): the office named in the project title, and the number is saved
     var named = null;
     if (!row && d.site) {
       var mid = matchRow({ site: d.site });
-      named = (st.rows || []).filter(function (x) { return x.id === mid && !String(x.project_no || '').trim(); })[0] || null;
+      named = (st.rows || []).filter(function (x) { return x.id === mid && (!d.project_no || !String(x.project_no || '').trim()); })[0] || null;
       row = named;
     }
     if (!row) { alert('ไฟล์ ' + name + ': ไม่พบไซด์ที่มีเลขที่โครงการนี้ในตาราง'); return; }
@@ -503,18 +518,23 @@
     var byTotal = isOurWin(d.lowest, qts, [], 0);
     var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps, quoteQtys: quoteQtys(row) }), price = r.price, total = r.total;
     var patch = { price_bid: price };
-    if (named) patch.project_no = d.project_no;
+    if (named && d.project_no && !String(named.project_no || '').trim()) patch.project_no = d.project_no;
     var ours = byTotal || isOurWin(d.lowest, qts, qps, price);
     // only a site with a quotation of ours can be called lost: without one there is nothing to compare
-    var quoted = qts.some(function (t) { return t > 0; }) || qps.length > 0;
+    // ประกาศผู้ชนะ names the winner: an offer that is not our quotation is someone else's win, quotation or not (หนองกี่)
+    var quoted = qts.some(function (t) { return t > 0; }) || qps.length > 0 || !!d.winner_announce;
     if (ours && !won(row)) patch.status = 'ชนะประมูล';
     // a site already marked 🏆 that the file says someone else underbid is kept as it is: the lowest bidder can be
     // disqualified and the job awarded at our quotation (โชคชัย: lowest 4.60 had bad documents, we won at 5.02),
     // so a re-import must not flip it back to ❌ or overwrite our price
-    var keep = !ours && quoted && won(row);
+    // ประกาศผู้ชนะ is the final award, so it is not kept that way
+    var keep = !ours && quoted && won(row) && !d.winner_announce;
     if (!ours && quoted && !lost(row) && !keep) patch.status = 'ไม่ชนะประมูล';
-    var msg = row.site + ' (เลขที่โครงการ ' + d.project_no + (named ? ' — ไซด์นี้ยังไม่มีเลขที่โครงการ หาจากชื่อสาขาในไฟล์ และจะบันทึกเลขนี้ให้' : '') + ')\n' +
-      'ราคาต่ำสุดที่เสนอ ' + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
+    var msg = row.site + (d.project_no
+        ? ' (เลขที่โครงการ ' + d.project_no + (patch.project_no ? ' — ไซด์นี้ยังไม่มีเลขที่โครงการ หาจากชื่อสาขาในไฟล์ และจะบันทึกเลขนี้ให้' : named ? ' — หาจากชื่อสาขาในไฟล์' : '') + ')'
+        : ' (ประกาศผู้ชนะ: หาไซด์จากชื่อสาขาในไฟล์)') + '\n' +
+      (d.winner ? 'ผู้ชนะ: ' + d.winner + '\n' : '') +
+      (d.winner_announce ? 'ราคาที่ชนะ ' : 'ราคาต่ำสุดที่เสนอ ') + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
     if (r.qty && !keep) {
       patch.qty = r.qty; if (r.mid) patch.mid_price = r.mid;
       msg += (r.src === 'price'
@@ -536,7 +556,7 @@
         (Math.abs(r.exact - price) >= 0.0005 ? '\n⚠ หารไม่ลงตัว (' + r.exact.toFixed(4) + ') จำนวนรายในตารางอาจไม่ตรงกับ TOR' : '');
     }
     if (ours) msg += '\n\n🏆 ราคาต่ำสุดตรงกับใบเสนอราคาของเรา: ' + (won(row) ? 'ไซด์นี้ทำเครื่องหมายชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าชนะประมูล');
-    else if (quoted) msg += '\n\n❌ ราคาต่ำสุดไม่ตรงกับใบเสนอราคาของเรา' + (qts.some(function (t) { return t > 0; }) ? ' (' + qts.filter(function (t) { return t > 0; }).map(function (t) { return fmt(t, 2); }).join(' / ') + ' บาท)' : '') +
+    else if (quoted) msg += '\n\n❌ ' + (d.winner_announce ? 'ผู้ชนะไม่ใช่เรา: ราคาที่ชนะไม่ตรงกับใบเสนอราคาของเรา' + (qts.some(function (t) { return t > 0; }) ? '' : ' (ไซด์นี้ไม่มีใบเสนอราคาของเรา)') : 'ราคาต่ำสุดไม่ตรงกับใบเสนอราคาของเรา') + (qts.some(function (t) { return t > 0; }) ? ' (' + qts.filter(function (t) { return t > 0; }).map(function (t) { return fmt(t, 2); }).join(' / ') + ' บาท)' : '') +
       (keep ? '' : ': ' + (lost(row) ? 'ไซด์นี้ทำเครื่องหมายไม่ชนะประมูลไว้แล้ว' : 'จะทำเครื่องหมายว่าไม่ชนะประมูล' + (won(row) ? ' (แทนเครื่องหมาย 🏆 เดิม)' : '')));
     if (keep) {
       delete patch.price_bid;
