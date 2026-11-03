@@ -17,7 +17,7 @@
   var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';
   var QUOTE_API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';   // เสนอราคาแจ้งเตือน jobs are named after these sites
   var VAT = 0.07;
-  var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', wonOnly: false, map: false, open: null, quotes: null };   // quotes: saved เสนอราคาแจ้งเตือน jobs   // open: id of the site whose details are shown
+  var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', wonOnly: false, map: false, aim: null, open: null, quotes: null };   // aim: id of the waiting site pinned on the map (📍 เป้าหมาย)   // quotes: saved เสนอราคาแจ้งเตือน jobs   // open: id of the site whose details are shown
 
   // ---------------------------------------------------------------- server
   async function token() {
@@ -782,6 +782,7 @@
       '.nb-item{position:relative;display:flex;flex-direction:column}.nb-item .nb-site{padding-right:44px;border-radius:10px 10px 0 0}.nb-item .nb-site .go{display:none}' +
       '.nb-q{border:1px solid #e5dced;border-top:0;border-radius:0 0 10px 10px;background:#f7f3fb;color:#5a2787;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;text-align:left;cursor:pointer}.nb-q:hover{background:#efe6f8}' +
       '.nb-q1{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nb-up{display:block;font-weight:600;font-size:11.5px;color:#4d6b57;margin-top:1px}.nb-q.ok{background:#e9f7ee;color:#2d7a47}.nb-q.ok:hover{background:#dcf1e3}.nb-q.big{border:1px solid #e5dced;border-radius:9px;font-size:14px;padding:8px 13px}' +
+      '.nb-foot{display:flex}.nb-foot .nb-q{flex:1;min-width:0;border-radius:0 0 0 10px}.nb-aim{flex:none;border:1px solid #e5dced;border-top:0;border-left:1px solid #f6c84c;border-radius:0 0 10px 0;background:#fff7ec;color:#c2410c;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;cursor:pointer;white-space:nowrap}.nb-aim:hover{background:#ffedd5}.nb-aim.on{background:#f2581c;border-color:#f2581c;color:#fff}' +
       '.nb-x{position:absolute;top:24px;right:8px;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:15px;opacity:.45;padding:6px;border-radius:8px}.nb-x:hover{opacity:1;background:#fbecec}' +
       '.nb-count{margin-top:10px;color:#6b5d7a;font-weight:700}' +
       '.nb-sum{display:flex;flex-direction:column;border:1px solid #f0c36d;background:#fff8e6;color:#8a5b00;border-radius:9px;padding:5px 12px;font-weight:700;line-height:1.3}.nb-sum small{font-size:12px;font-weight:600}' +
@@ -824,6 +825,14 @@
       if (a === 'back') { st.open = null; render(); }
       if (a === 'won') { st.wonOnly = !st.wonOnly; render(); }
       if (a === 'map') { st.map = !st.map; render(); }
+      // 📍 เป้าหมาย on a waiting site: open the map with only that site pinned (pressed again: unpinned)
+      if (a === 'aim') {
+        st.aim = st.aim === i ? null : i;
+        if (st.aim != null) st.map = true;
+        render();
+        var mb = document.getElementById('nbMap');
+        if (st.aim != null && mb && mb.scrollIntoView) mb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       if (a === 'setwon') {
         var wr = (st.rows || []).filter(function (x) { return x.id === i; })[0];
         if (wr) { cellChanged(i, 'status', won(wr) ? '' : 'ชนะประมูล'); render(); }
@@ -865,6 +874,14 @@
   function won(r) { var t = String(r.status || ''); return t.indexOf('ชนะ') >= 0 && !lost(r); }
   // a result file whose lowest offer is not our quotation marks the site "ไม่ชนะประมูล" (❌)
   function lost(r) { return /ไม่ชนะ|แพ้/.test(String(r.status || '')); }
+  // still waiting for its auction or result (the sites the map used to pin): not won, not lost, not cancelled
+  function waiting(r) { return !won(r) && !lost(r) && String(r.status || '').indexOf('ยกเลิก') < 0; }
+  // 📍 เป้าหมาย: pins this one site on the map (the map no longer pins every waiting site)
+  function aimBtn(r) {
+    if (!waiting(r)) return '';
+    var on = st.aim === r.id && st.map;
+    return '<button class="nb-aim' + (on ? ' on' : '') + '" data-nb="aim" data-i="' + r.id + '" title="' + (on ? 'เอาหมุดออกจากแผนที่' : 'ปักหมุดไซด์นี้บนแผนที่') + '">📍 เป้าหมาย</button>';
+  }
   // the site list: auctions still to come (soonest first) and sites without a date on top, then the sites we won, then auctions over without a win (lost) at the bottom
   function todayIso() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }   // Bangkok calendar day
   // the auction is over once its day is past, or today after the end of its hours ("09.00-12.00 น." ends at 12:00)
@@ -940,7 +957,7 @@
   function drawMap(open) {
     var mapBox = document.getElementById('nbMap');
     if (arguments.length === 0) open = st.open != null;   // redrawn on its own (sub-branches read): hidden while a site is open
-    if (mapBox) mapBox.innerHTML = st.map && !open && window.NoticeMap ? (window.NoticeMap.setQty(function (r) { return derived(r).qty; }), window.NoticeMap.html(st.rows)) : '';
+    if (mapBox) mapBox.innerHTML = st.map && !open && window.NoticeMap ? (window.NoticeMap.setQty(function (r) { return derived(r).qty; }), window.NoticeMap.setFocus && window.NoticeMap.setFocus(st.aim), window.NoticeMap.html(st.rows)) : '';
   }
   // the menu lists the sites by name only; a site's details open when its name is clicked
   function renderTable() {
@@ -962,7 +979,8 @@
       if (won(r)) when += ' · 🏆 ชนะประมูล';
       else if (lost(r)) when += ' · ❌ ไม่ชนะประมูล';
       return '<div class="nb-item' + (now ? ' today' : '') + '"><button class="nb-site' + (over ? ' past' : '') + (won(r) ? ' won' : '') + (lost(r) ? ' lost' : '') + (now ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
-        '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' + quoteBtn(r) +
+        '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' +
+        (waiting(r) ? '<div class="nb-foot">' + quoteBtn(r) + aimBtn(r) + '</div>' : quoteBtn(r)) +
         '<button class="nb-x" data-nb="del" data-i="' + r.id + '" title="ลบไซด์นี้" aria-label="ลบ ' + esc(r.site || '') + '">🗑</button></div>';
     }).join('') + '</div><div class="nb-count">รวม ' + rows.length + ' ไซด์</div>' : '<div class="nb-empty">ยังไม่มีข้อมูล</div>';
   }
@@ -998,7 +1016,7 @@
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '>' +
       '<input id="nbQ" placeholder="ค้นหาไซด์งาน / เลขที่โครงการ" value="' + esc(st.q) + '">' +
       '<button class="nb-btn won' + (st.wonOnly ? ' on' : '') + '" data-nb="won" title="แสดงเฉพาะไซด์ที่ชนะประมูล">🏆 ชนะประมูล ' + wonSummary() + '</button>' +
-      '<button class="nb-btn won' + (st.map ? ' on' : '') + '" data-nb="map" title="แผนที่ 5 จังหวัด: ✓ ไซด์ที่ชนะ 📍 รอประมูล">🗺 แผนที่</button>' +
+      '<button class="nb-btn won' + (st.map ? ' on' : '') + '" data-nb="map" title="แผนที่ 5 จังหวัด: ✓ ไซด์ที่ชนะ • กด 📍 เป้าหมาย ที่ไซด์รอประมูลเพื่อปักหมุด">🗺 แผนที่</button>' +
       '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมิน (วันที่มีประมูล ระบบส่งเอง 07:00 และทุก 30 นาที 09:00-12:00, 13:00-16:00)">📣 ส่งเข้า LINE แอดมิน</button><div id="nbOpenSum" class="nb-sum"></div></div>' +
       '<div id="nbMap"></div><div id="nbTable"></div>';
     renderTable();

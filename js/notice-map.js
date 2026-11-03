@@ -2,7 +2,8 @@
  * The district map of the 5 provinces (ขอนแก่น ชัยภูมิ นครราชสีมา บุรีรัมย์ สุรินทร์), drawn from the rows of ตารางประมูลแจ้งเตือน,
  * so it follows the table every time a result changes:
  *  - ✓ green  : a site we won (status "ชนะประมูล"), plus the districts its office also serves (COVER, from the map we used before)
- *  - 📍 orange : a site still waiting for its auction or result (no status yet)
+ *  - 📍 orange : only the site picked with its "📍 เป้าหมาย" button in the site list (NoticeMap.setFocus); the other sites
+ *                 still waiting for their auction or result are not marked (user, 3 พ.ย. 69), only named in the tooltip
  *  - ✕ grey   : a site we did not win (status "ไม่ชนะประมูล"), when nothing else is marked there
  * Boundaries: js/notice-map-data.js (window.NOTICE_MAP_DATA). Used by js/notice-bids.js: NoticeMap.html(rows).
  */
@@ -115,6 +116,7 @@
   }
   var QTY = null;      // row → ราย/ปี (NoticeMap.setQty), from the site's quotation when it has one
   var BRANCHES = {};   // row id → sub-branch names from the site's quotation (NoticeMap.setBranches)
+  var FOCUS = null;    // id of the waiting site picked with "📍 เป้าหมาย" in the list (NoticeMap.setFocus): the only one pinned
 
   // district key → { won: [sites], wait: [sites], lost: [sites], cover: [sites] }
   function marks(rows) {
@@ -147,6 +149,12 @@
   function draw(rows) {
     var g = data(); if (!g) return null;
     var mk = marks(rows), m = mk.m;
+    var focus = {}, aim = '';
+    (rows || []).forEach(function (r) {
+      if (FOCUS == null || r.id !== FOCUS || cancelled(r) || won(r) || lost(r)) return;
+      var ds = districtsOf(r); if (ds.length) aim = r.site || '';
+      ds.forEach(function (d) { focus[d.key] = 1; });
+    });
     var shapes = '', labels = '', signs = '';
     g.list.forEach(function (d) {
       var e = m[d.key], s = state(e), x = Math.round(d.xy[0]), y = Math.round(d.xy[1]);
@@ -155,7 +163,7 @@
       shapes += '<path class="nm-d' + (s === 'won' ? ' won' : '') + '" fill="' + (s === 'won' ? '#e3f4e6' : FILL[d.p] || '#fff') + '" d="' + d.path + '"><title>' + esc(tip) + '</title></path>';
       labels += '<text class="nm-l" x="' + x + '" y="' + y + '">' + esc(d.n) + '</text>';
       if (s === 'won') signs += check(x, y + 13);
-      else if (s === 'wait') signs += pin(x, y - 9);
+      else if (s === 'wait' && focus[d.key]) signs += pin(x, y - 9);
       else if (s === 'lost') signs += cross(x, y + 12);
     });
     // won districts drawn again on top, so their red outline is not hidden under the neighbours' grey edges
@@ -170,7 +178,7 @@
     var count = function (f) { return (rows || []).filter(function (r) { return !cancelled(r) && f(r) && districtsOf(r).length; }).length; };
     return {
       body: shapes + tops + '<g class="nm-prov">' + prov + '</g><g>' + labels + '</g>' + signs, H: g.H, off: mk.off.length,
-      won: count(won), units: units, lost: count(lost), wait: count(function (r) { return !won(r) && !lost(r); })
+      won: count(won), units: units, aim: aim, lost: count(lost), wait: count(function (r) { return !won(r) && !lost(r); })
     };
   }
 
@@ -185,9 +193,10 @@
     return '<div class="nm-wrap"><div class="nm-top"><button type="button" class="nm-dl" data-nm="dl" title="บันทึกแผนที่ตามสถานะตอนนี้เป็นรูป PNG">⬇ ดาวน์โหลดแผนที่ (PNG)</button></div>' +
       '<div class="nm-scroll"><svg class="nm-svg" viewBox="0 0 ' + W + ' ' + d.H + '" role="img" aria-label="แผนที่ไซด์ประมูล 5 จังหวัด">' + d.body + '</svg></div>' +
       '<div class="nm-legend"><span><svg viewBox="-10 -10 20 20">' + check(0, 1) + '</svg> ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</span>' +
-      '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> รอประมูล / รอผล ' + d.wait + ' ไซด์</span>' +
+      '<span>รอประมูล / รอผล ' + d.wait + ' ไซด์</span>' +
+      (d.aim ? '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> เป้าหมาย: ' + esc(d.aim) + '</span>' : '') +
       '<span><svg viewBox="-10 -10 20 20">' + cross(0, 0) + '</svg> ไม่ชนะ ' + d.lost + ' ไซด์</span>' +
-      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • ✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
+      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • กด 📍 เป้าหมาย ที่ไซด์รอประมูลในรายการเพื่อปักหมุดไซด์นั้นบนแผนที่ • ✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
       (d.off ? ' • ไซด์นอก 5 จังหวัดนี้ ' + d.off + ' ไซด์ไม่อยู่บนแผนที่' : '') +
       ' • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</small></div></div>';
   }
@@ -227,7 +236,8 @@
       '<text class="nm-s" x="24" y="58">ขอนแก่น • ชัยภูมิ • นครราชสีมา • บุรีรัมย์ • สุรินทร์ | ข้อมูล ณ ' + day.th + '</text>' +
       '<g transform="translate(0 ' + top + ')">' + d.body + '</g>' +
       check(32, y) + '<text class="nm-g" x="48" y="' + (y + 5) + '">ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</text>' +
-      pin(32, y + 37) + '<text class="nm-g" x="48" y="' + (y + 33) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
+      '<text class="nm-g" x="24" y="' + (y + 33) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
+      (d.aim ? pin(522, y + 37) + '<text class="nm-g" x="538" y="' + (y + 33) + '">เป้าหมาย: ' + esc(d.aim) + '</text>' : '') +
       cross(292, y + 28) + '<text class="nm-g" x="308" y="' + (y + 33) + '">ไม่ชนะ ' + d.lost + ' ไซด์</text>' +
       '<text class="nm-n" x="24" y="' + (y + 58) + '">✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
     // ASCII file name: some browsers drop a Thai download name and save the file as "download"
@@ -277,5 +287,5 @@
     document.head.appendChild(s);
   }
 
-  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, setQty: function (f) { QTY = typeof f === 'function' ? f : null; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER, ALSO: ALSO };
+  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, setQty: function (f) { QTY = typeof f === 'function' ? f : null; }, setFocus: function (id) { FOCUS = id == null ? null : id; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER, ALSO: ALSO };
 })();
