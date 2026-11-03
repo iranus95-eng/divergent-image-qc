@@ -21,6 +21,11 @@
     'ขอนแก่น/พล': ['ขอนแก่น/แวงใหญ่', 'ขอนแก่น/แวงน้อย'],
     'นครราชสีมา/เมืองนครราชสีมา': ['นครราชสีมา/ขามทะเลสอ', 'นครราชสีมา/เฉลิมพระเกียรติ']
   };
+  // offices staff confirmed belong to a site, ticked with it when won even if its quotation does not name them
+  // (พลับพลาชัย is part of ประโคนชัย: LINE ใบแจ้งเตือน, 2 พ.ย. 69)
+  var ALSO = {
+    'บุรีรัมย์/ประโคนชัย': ['บุรีรัมย์/พลับพลาชัย']
+  };
   // a site named after a tambon, not a district
   var ALIAS = { 'จอหอ': 'เมืองนครราชสีมา', 'หมูสี': 'ปากช่อง' };
   var FILL = { 'ขอนแก่น': '#fdf1f1', 'ชัยภูมิ': '#eff6ec', 'นครราชสีมา': '#fdf7ee', 'บุรีรัมย์': '#ecf3fc', 'สุรินทร์': '#f3effb' };
@@ -121,6 +126,7 @@
       var sub = districtsOfNames(BRANCHES[r.id], ds[0].p).filter(function (d) { return ds.indexOf(d) < 0; });
       if (sub.length) sub.forEach(function (d) { add(d, 'cover', site); });
       else ds.forEach(function (d) { (COVER[d.key] || []).forEach(function (k) { if (g.byKey[k]) add(g.byKey[k], 'cover', site); }); });
+      ds.forEach(function (d) { (ALSO[d.key] || []).forEach(function (k) { if (g.byKey[k]) add(g.byKey[k], 'cover', site); }); });
     });
     return { m: m, off: off };
   }
@@ -266,5 +272,5 @@
     document.head.appendChild(s);
   }
 
-  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, setQty: function (f) { QTY = typeof f === 'function' ? f : null; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER };
+  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, setQty: function (f) { QTY = typeof f === 'function' ? f : null; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER, ALSO: ALSO };
 })();
