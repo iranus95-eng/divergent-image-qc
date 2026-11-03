@@ -83,4 +83,15 @@ const mc=M.marks([{id:2,site:'ชุมแพ',status:'ชนะประมู�
 assert.equal(M.state(mc.m['ขอนแก่น/สีชมพู']),'won');
 assert.equal(M.state(mc.m['ขอนแก่น/ภูผาม่าน']),'');
 M.setBranches({});
+// พลับพลาชัย is ticked with ประโคนชัย, also when the quotation names other sub-branches
+{ const pk=M.marks([{id:40,site:'ประโคนชัย',status:'ชนะประมูล'}]);
+  assert.equal(M.state(pk.m['บุรีรัมย์/พลับพลาชัย']),'won');
+  M.setBranches({40:['บ้านกรวด']});
+  assert.equal(M.state(M.marks([{id:40,site:'ประโคนชัย',status:'ชนะประมูล'}]).m['บุรีรัมย์/พลับพลาชัย']),'won');
+  M.setBranches({});
+  assert.equal(M.state(M.marks([{id:40,site:'ประโคนชัย',status:null}]).m['บุรีรัมย์/พลับพลาชัย']),''); }
+// นาโพธิ์ and บ้านใหม่ไชยพจน์ are ticked with พุทไธสง
+{ const pt=M.marks([{id:31,site:'พุทไธสง',status:'ชนะประมูล'}]);
+  assert.equal(M.state(pt.m['บุรีรัมย์/นาโพธิ์']),'won');
+  assert.equal(M.state(pt.m['บุรีรัมย์/บ้านใหม่ไชยพจน์']),'won'); }
 console.log('notice-map branches: ok');
