@@ -3,7 +3,7 @@
   'use strict';
   const API='https://neauzvqroaszvqffahkv.functions.supabase.co/employee-advance-web-api';
   const SESSION_KEYS=['divergent_fallback_session_token','divergent_web_session_token_v1'];
-  let currentStatus='ALL';
+  let currentStatus='PENDING'; // main list shows only requests waiting for approval; decided ones live in the archive tabs
 
   function money(v){return Number(v||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
@@ -62,11 +62,12 @@
       const w=document.createElement('section');w.className='payroll-workspace';w.id='employeeAdvanceWorkspace';w.innerHTML=`
         <div class="adv-head"><div><h2>พนักงานเบิกเงินล่วงหน้า</h2><p>ตรวจสอบคำขอ แยกตามไซต์งาน • เมื่ออนุมัติจะบันทึกยอดเข้าเงินเดือนอัตโนมัติ</p></div><button class="adv-refresh" onclick="window.EmployeeAdvance.reload()">↻ รีเฟรช</button></div>
         <div id="advError" class="adv-error"></div>
-        <div class="adv-tabs"><button class="adv-tab active" data-status="ALL">ทั้งหมด</button><button class="adv-tab" data-status="PENDING">รออนุมัติ</button><button class="adv-tab" data-status="APPROVED">อนุมัติแล้ว</button><button class="adv-tab" data-status="REJECTED">ไม่อนุมัติ</button></div>
-        <div class="adv-kpis"><div class="adv-kpi"><span>จำนวนรายการ</span><b id="advCount">0</b></div><div class="adv-kpi"><span>ยอดรวมทั้งหมด</span><b id="advTotal">0.00</b></div><div class="adv-kpi"><span>รออนุมัติ</span><b id="advPending">0</b></div><div class="adv-kpi"><span>อนุมัติแล้ว</span><b id="advApproved">0</b></div></div>
+        <div class="adv-tabs"><button class="adv-tab active" data-status="PENDING">รออนุมัติ</button><button class="adv-tab adv-tab-archive" data-status="APPROVED">📦 ที่เก็บ • อนุมัติแล้ว</button><button class="adv-tab adv-tab-archive" data-status="REJECTED">📦 ที่เก็บ • ไม่อนุมัติ</button></div>
+        <div id="advListNote" class="adv-note" style="margin:-4px 0 12px">แสดงเฉพาะคำขอที่รออนุมัติ • อนุมัติแล้วรายการจะย้ายไปเก็บที่แท็บ 📦 ที่เก็บ</div>
+        <div class="adv-kpis"><div class="adv-kpi"><span>จำนวนรายการ</span><b id="advCount">0</b></div><div class="adv-kpi"><span>ยอดรวม</span><b id="advTotal">0.00</b></div></div>
         <div id="advContent" class="adv-loading">กำลังโหลดข้อมูล...</div>`;
       const main=document.querySelector('.main-content')||document.querySelector('main')||document.body;main.appendChild(w);
-      w.querySelectorAll('.adv-tab').forEach(b=>b.addEventListener('click',()=>{currentStatus=b.dataset.status||'ALL';w.querySelectorAll('.adv-tab').forEach(x=>x.classList.toggle('active',x===b));reload();}));
+      w.querySelectorAll('.adv-tab').forEach(b=>b.addEventListener('click',()=>{currentStatus=b.dataset.status||'PENDING';const note=document.getElementById('advListNote');if(note)note.textContent=currentStatus==='PENDING'?'แสดงเฉพาะคำขอที่รออนุมัติ • อนุมัติแล้วรายการจะย้ายไปเก็บที่แท็บ 📦 ที่เก็บ':(currentStatus==='APPROVED'?'รายการที่อนุมัติแล้ว (เก็บไว้ดูย้อนหลัง)':'รายการที่ไม่อนุมัติ (เก็บไว้ดูย้อนหลัง)');w.querySelectorAll('.adv-tab').forEach(x=>x.classList.toggle('active',x===b));reload();}));
     }
     syncVisibility();
   }
@@ -85,8 +86,8 @@
   async function open(){if(window.DivergentAuth&&window.DivergentAuth.requireAccess&&!window.DivergentAuth.requireAccess('payroll','เมนูพนักงานเบิกเงินล่วงหน้า'))return;hideOthers();window.scrollTo(0,0);await reload();}
 
   function render(data){
-    document.getElementById('advCount').textContent=String(data.totals?.count||0);document.getElementById('advTotal').textContent=money(data.totals?.total_amount||0)+' บาท';document.getElementById('advPending').textContent=String(data.totals?.pending||0);document.getElementById('advApproved').textContent=String(data.totals?.approved||0);
-    const root=document.getElementById('advContent');if(!data.sites||!data.sites.length){root.className='adv-empty';root.innerHTML='ยังไม่มีรายการเบิกเงินล่วงหน้า';return;}
+    document.getElementById('advCount').textContent=String(data.totals?.count||0);document.getElementById('advTotal').textContent=money(data.totals?.total_amount||0)+' บาท';const pe=document.getElementById('advPending');if(pe)pe.textContent=String(data.totals?.pending||0);const ap=document.getElementById('advApproved');if(ap)ap.textContent=String(data.totals?.approved||0);
+    const root=document.getElementById('advContent');if(!data.sites||!data.sites.length){root.className='adv-empty';root.innerHTML=currentStatus==='PENDING'?'ไม่มีคำขอที่รออนุมัติ':'ยังไม่มีรายการในที่เก็บ';return;}
     root.className='';root.innerHTML=data.sites.map(g=>`<div class="adv-site"><div class="adv-site-head"><div class="adv-site-title">📍 ไซต์งาน: ${esc(g.site_name)} <span class="adv-note">(${g.employee_count} รายการ)</span></div><div class="adv-site-total">รวม ${money(g.total_amount)} บาท</div></div><div class="adv-table-wrap"><table class="adv-table"><thead><tr><th>#</th><th>ชื่อพนักงาน</th><th>จำนวนเงิน</th><th>วันที่ขอ</th><th>เหตุผล</th><th>LINE</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${g.items.map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.employee_name)}</b><div class="adv-note">${esc(x.request_code||'')}</div></td><td><b>${money(x.requested_amount)} บาท</b></td><td>${new Date(x.created_at).toLocaleString('th-TH')}</td><td>${esc(x.request_note||'-')}</td><td>${lineDelivery(x)}</td><td><span class="${statusClass(x.status)}">${statusLabel(x.status)}</span></td><td><div class="adv-actions">${x.status==='PENDING'?`<button class="adv-approve" onclick="window.EmployeeAdvance.approve(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}',${Number(x.requested_amount)})">อนุมัติ</button><button class="adv-reject" onclick="window.EmployeeAdvance.reject(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}')">ไม่อนุมัติ</button>`:(x.status==='APPROVED'&&x.line_delivery_status!=='SENT'?`<button class="adv-retry-line" onclick="window.EmployeeAdvance.retryLine(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}')">ส่ง LINE ซ้ำ</button>`:'')}<button class="adv-delete" title="ลบรายการ" onclick="window.EmployeeAdvance.remove(${Number(x.id)},'${esc(x.employee_name).replace(/'/g,'&#39;')}',${Number(x.requested_amount)},'${esc(x.status)}')">🗑 ลบ</button></div></td></tr>`).join('')}</tbody></table></div></div>`).join('');
   }
 
