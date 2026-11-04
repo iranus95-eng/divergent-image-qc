@@ -54,10 +54,15 @@ const aimRows=rows.map((r,i)=>Object.assign({id:i+1},r));
 assert.equal(pins(M.html(aimRows)),0);
 M.setFocus(6);   // บัวใหญ่, waiting
 assert.equal(pins(M.html(aimRows)),2);   // the district and the legend
-assert.ok(M.html(aimRows).includes('เป้าหมาย: บัวใหญ่'));
-assert.ok(M.pictureSvg(aimRows,'').svg.includes('เป้าหมาย: บัวใหญ่'));
-M.setFocus(1);   // a won site gets no pin
+assert.ok(M.html(aimRows).includes('เป้าหมาย 1 ไซด์: บัวใหญ่'));
+assert.ok(M.pictureSvg(aimRows,'').svg.includes('เป้าหมาย 1 ไซด์: บัวใหญ่'));
+M.setFocus([1]);   // a won site gets no pin
 assert.equal(pins(M.html(aimRows)),0);
+// several sites at once (user, 4 พ.ย. 69): บัวใหญ่ and นม1 (waiting), the won one is still skipped
+const many=[{id:1,site:'บัวใหญ่'},{id:2,site:'ท่าตูม'},{id:3,site:'พล',status:'ชนะประมูล'},{id:4,site:'สตึก'}];
+M.setFocus([1,2,3]);
+assert.equal(pins(M.html(many)),3);   // บัวใหญ่, ท่าตูม and the legend; สตึก not picked, พล won
+assert.ok(M.html(many).includes('เป้าหมาย 2 ไซด์: บัวใหญ่, ท่าตูม'));
 M.setFocus(null);
 console.log('notice-map: ok');
 // the downloaded picture: one SVG document with the title, the date and the legend counts

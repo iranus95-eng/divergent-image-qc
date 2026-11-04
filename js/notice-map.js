@@ -2,7 +2,7 @@
  * The district map of the 5 provinces (ขอนแก่น ชัยภูมิ นครราชสีมา บุรีรัมย์ สุรินทร์), drawn from the rows of ตารางประมูลแจ้งเตือน,
  * so it follows the table every time a result changes:
  *  - ✓ green  : a site we won (status "ชนะประมูล"), plus the districts its office also serves (COVER, from the map we used before)
- *  - 📍 orange : only the site picked with its "📍 เป้าหมาย" button in the site list (NoticeMap.setFocus); the other sites
+ *  - 📍 orange : only the sites picked with their "📍 เป้าหมาย" buttons (several at once) in the site list (NoticeMap.setFocus); the other sites
  *                 still waiting for their auction or result are not marked (user, 3 พ.ย. 69), only named in the tooltip
  *  - ✕ grey   : a site we did not win (status "ไม่ชนะประมูล"), when nothing else is marked there
  * Boundaries: js/notice-map-data.js (window.NOTICE_MAP_DATA). Used by js/notice-bids.js: NoticeMap.html(rows).
@@ -116,7 +116,7 @@
   }
   var QTY = null;      // row → ราย/ปี (NoticeMap.setQty), from the site's quotation when it has one
   var BRANCHES = {};   // row id → sub-branch names from the site's quotation (NoticeMap.setBranches)
-  var FOCUS = null;    // id of the waiting site picked with "📍 เป้าหมาย" in the list (NoticeMap.setFocus): the only one pinned
+  var FOCUS = [];      // ids of the waiting sites picked with "📍 เป้าหมาย" in the list (NoticeMap.setFocus): the only ones pinned
 
   // district key → { won: [sites], wait: [sites], lost: [sites], cover: [sites] }
   function marks(rows) {
@@ -149,10 +149,10 @@
   function draw(rows) {
     var g = data(); if (!g) return null;
     var mk = marks(rows), m = mk.m;
-    var focus = {}, aim = '';
+    var focus = {}, aim = [];
     (rows || []).forEach(function (r) {
-      if (FOCUS == null || r.id !== FOCUS || cancelled(r) || won(r) || lost(r)) return;
-      var ds = districtsOf(r); if (ds.length) aim = r.site || '';
+      if (FOCUS.indexOf(r.id) < 0 || cancelled(r) || won(r) || lost(r)) return;
+      var ds = districtsOf(r); if (ds.length) aim.push(r.site || '');
       ds.forEach(function (d) { focus[d.key] = 1; });
     });
     var shapes = '', labels = '', signs = '';
@@ -182,6 +182,7 @@
     };
   }
 
+  function short(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
   function n0(v) { return Math.round(v).toLocaleString('en-US'); }
   // per month, like the 🏆 button (units is ราย/ปี)
   function unitsText(u) { return u ? ' · ' + n0(u / 12) + ' ราย/เดือน' : ''; }
@@ -194,9 +195,10 @@
       '<div class="nm-scroll"><svg class="nm-svg" viewBox="0 0 ' + W + ' ' + d.H + '" role="img" aria-label="แผนที่ไซด์ประมูล 5 จังหวัด">' + d.body + '</svg></div>' +
       '<div class="nm-legend"><span><svg viewBox="-10 -10 20 20">' + check(0, 1) + '</svg> ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</span>' +
       '<span>รอประมูล / รอผล ' + d.wait + ' ไซด์</span>' +
-      (d.aim ? '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> เป้าหมาย: ' + esc(d.aim) + '</span>' : '') +
+      (d.aim.length ? '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> เป้าหมาย ' + d.aim.length + ' ไซด์: ' + esc(d.aim.join(', ')) +
+        ' <button type="button" class="nm-clr" data-nb="aimclear" title="เอาหมุดเป้าหมายออกทั้งหมด">ล้าง</button></span>' : '') +
       '<span><svg viewBox="-10 -10 20 20">' + cross(0, 0) + '</svg> ไม่ชนะ ' + d.lost + ' ไซด์</span>' +
-      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • กด 📍 เป้าหมาย ที่ไซด์รอประมูลในรายการเพื่อปักหมุดไซด์นั้นบนแผนที่ • ✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
+      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • กด 📍 เป้าหมาย ที่ไซด์รอประมูลในรายการเพื่อปักหมุดบนแผนที่ (เลือกได้หลายไซด์) • ✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
       (d.off ? ' • ไซด์นอก 5 จังหวัดนี้ ' + d.off + ' ไซด์ไม่อยู่บนแผนที่' : '') +
       ' • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</small></div></div>';
   }
@@ -237,7 +239,7 @@
       '<g transform="translate(0 ' + top + ')">' + d.body + '</g>' +
       check(32, y) + '<text class="nm-g" x="48" y="' + (y + 5) + '">ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</text>' +
       '<text class="nm-g" x="24" y="' + (y + 33) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
-      (d.aim ? pin(522, y + 37) + '<text class="nm-g" x="538" y="' + (y + 33) + '">เป้าหมาย: ' + esc(d.aim) + '</text>' : '') +
+      (d.aim.length ? pin(522, y + 37) + '<text class="nm-g" x="538" y="' + (y + 33) + '">เป้าหมาย ' + d.aim.length + ' ไซด์: ' + esc(short(d.aim.join(', '), 44)) + '</text>' : '') +
       cross(292, y + 28) + '<text class="nm-g" x="308" y="' + (y + 33) + '">ไม่ชนะ ' + d.lost + ' ไซด์</text>' +
       '<text class="nm-n" x="24" y="' + (y + 58) + '">✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
     // ASCII file name: some browsers drop a Thai download name and save the file as "download"
@@ -283,9 +285,9 @@
       '.nm-pin{pointer-events:none}.nm-pin path{fill:#f2581c;stroke:#f6c84c;stroke-width:1.6}.nm-pin circle{fill:#fff}' +
       '.nm-legend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin-top:8px;font-size:13px;color:#3b2252}.nm-legend span{display:inline-flex;align-items:center;gap:6px;font-weight:700}' +
       '.nm-top{display:flex;justify-content:flex-end;margin-bottom:6px}.nm-dl{border:0;border-radius:9px;padding:8px 13px;font:inherit;font-weight:800;cursor:pointer;background:#4b2378;color:#fff}.nm-dl:disabled{opacity:.5}' +
-      '.nm-legend svg{width:18px;height:18px}.nm-legend small{flex-basis:100%;color:#776a86}.nm-empty{padding:16px;color:#776a86}';
+      '.nm-legend svg{width:18px;height:18px}.nm-legend small{flex-basis:100%;color:#776a86}.nm-clr{border:1px solid #e5dced;border-radius:8px;background:#fff;color:#5a2787;font:inherit;font-size:12px;font-weight:700;padding:1px 8px;cursor:pointer}.nm-empty{padding:16px;color:#776a86}';
     document.head.appendChild(s);
   }
 
-  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, setQty: function (f) { QTY = typeof f === 'function' ? f : null; }, setFocus: function (id) { FOCUS = id == null ? null : id; }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER, ALSO: ALSO };
+  window.NoticeMap = { html: function (rows) { style(); return html(rows); }, setBranches: function (b) { BRANCHES = b || {}; }, setQty: function (f) { QTY = typeof f === 'function' ? f : null; }, setFocus: function (ids) { FOCUS = ids == null ? [] : [].concat(ids); }, branchNames: branchNames, districtsOfNames: districtsOfNames, download: download, pictureSvg: pictureSvg, districtsOf: districtsOf, marks: marks, state: state, COVER: COVER, ALSO: ALSO };
 })();
