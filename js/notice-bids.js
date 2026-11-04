@@ -17,7 +17,11 @@
   var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api';
   var QUOTE_API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/quote-notice-api';   // เสนอราคาแจ้งเตือน jobs are named after these sites
   var VAT = 0.07;
-  var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', wonOnly: false, map: false, aim: null, open: null, quotes: null };   // aim: id of the waiting site pinned on the map (📍 เป้าหมาย)   // quotes: saved เสนอราคาแจ้งเตือน jobs   // open: id of the site whose details are shown
+  var st = { rows: null, err: '', busy: '', pending: [], zone: '', q: '', wonOnly: false, map: false, aim: loadAim(), open: null, quotes: null };   // aim: ids of the waiting sites pinned on the map (📍 เป้าหมาย), kept in this browser   // quotes: saved เสนอราคาแจ้งเตือน jobs   // open: id of the site whose details are shown
+
+  // the sites picked with 📍 เป้าหมาย, remembered in this browser only (a convenience, not shared data)
+  function loadAim() { try { var a = JSON.parse(localStorage.getItem('nb_aim_v1') || '[]'); return Array.isArray(a) ? a.filter(function (x) { return typeof x === 'number'; }) : []; } catch (_) { return []; } }
+  function saveAim() { try { localStorage.setItem('nb_aim_v1', JSON.stringify(st.aim)); } catch (_) {} }
 
   // ---------------------------------------------------------------- server
   async function token() {
@@ -825,14 +829,17 @@
       if (a === 'back') { st.open = null; render(); }
       if (a === 'won') { st.wonOnly = !st.wonOnly; render(); }
       if (a === 'map') { st.map = !st.map; render(); }
-      // 📍 เป้าหมาย on a waiting site: open the map with only that site pinned (pressed again: unpinned)
+      // 📍 เป้าหมาย on a waiting site: pins it on the map, together with the other sites picked (pressed again: unpinned)
       if (a === 'aim') {
-        st.aim = st.aim === i ? null : i;
-        if (st.aim != null) st.map = true;
+        var ai = st.aim.indexOf(i), added = ai < 0;
+        if (added) st.aim.push(i); else st.aim.splice(ai, 1);
+        saveAim();
+        if (added) st.map = true;
         render();
         var mb = document.getElementById('nbMap');
-        if (st.aim != null && mb && mb.scrollIntoView) mb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (added && st.aim.length === 1 && mb && mb.scrollIntoView) mb.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+      if (a === 'aimclear') { st.aim = []; saveAim(); render(); }
       if (a === 'setwon') {
         var wr = (st.rows || []).filter(function (x) { return x.id === i; })[0];
         if (wr) { cellChanged(i, 'status', won(wr) ? '' : 'ชนะประมูล'); render(); }
@@ -876,10 +883,10 @@
   function lost(r) { return /ไม่ชนะ|แพ้/.test(String(r.status || '')); }
   // still waiting for its auction or result (the sites the map used to pin): not won, not lost, not cancelled
   function waiting(r) { return !won(r) && !lost(r) && String(r.status || '').indexOf('ยกเลิก') < 0; }
-  // 📍 เป้าหมาย: pins this one site on the map (the map no longer pins every waiting site)
+  // 📍 เป้าหมาย: pins this site on the map; several sites can be picked (the map no longer pins every waiting site)
   function aimBtn(r) {
     if (!waiting(r)) return '';
-    var on = st.aim === r.id && st.map;
+    var on = st.aim.indexOf(r.id) >= 0;
     return '<button class="nb-aim' + (on ? ' on' : '') + '" data-nb="aim" data-i="' + r.id + '" title="' + (on ? 'เอาหมุดออกจากแผนที่' : 'ปักหมุดไซด์นี้บนแผนที่') + '">📍 เป้าหมาย</button>';
   }
   // the site list: auctions still to come (soonest first) and sites without a date on top, then the sites we won, then auctions over without a win (lost) at the bottom
