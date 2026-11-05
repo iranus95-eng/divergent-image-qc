@@ -663,6 +663,8 @@
     if (base && base.project_no && !r.project_no) delete row.project_no;
     // updating a row: the name already in the table stays (a misread heading once renamed บ้านไผ่ to "เรื่อง")
     if (base && base.site) { row.site = base.site; if (base.office) row.office = base.office; }
+    // a cancelled site announced again (a new auction day) is open again: its ยกเลิก goes
+    if (base && /ยกเลิก/.test(String(base.status || '')) && r.bid_date && String(r.bid_date).slice(0, 10) !== String(base.bid_date || '').slice(0, 10)) row.status = '';
     try {
       st.busy = 'กำลังบันทึก…'; render();
       var item = await saveRow(row);
@@ -882,7 +884,10 @@
   // a result file whose lowest offer is not our quotation marks the site "ไม่ชนะประมูล" (❌)
   function lost(r) { return /ไม่ชนะ|แพ้/.test(String(r.status || '')); }
   // still waiting for its auction or result (the sites the map used to pin): not won, not lost, not cancelled
-  function waiting(r) { return !won(r) && !lost(r) && String(r.status || '').indexOf('ยกเลิก') < 0; }
+  // ยกเลิก holds only until the site is announced again: a cancelled row with an auction still to come (พิมาย, cancelled,
+  // then re-announced for 9 พ.ย. 69) is waiting again, so it gets its 📍 เป้าหมาย and its pin
+  function cancelled(r) { return String(r.status || '').indexOf('ยกเลิก') >= 0 && !(r.bid_date && !ended(r)); }
+  function waiting(r) { return !won(r) && !lost(r) && !cancelled(r); }
   // 📍 เป้าหมาย: pins this site on the map; several sites can be picked (the map no longer pins every waiting site)
   function aimBtn(r) {
     if (!waiting(r)) return '';
@@ -947,7 +952,7 @@
     var sum = document.getElementById('nbOpenSum');
     if (sum) {
       // still up for grabs: an auction still to come (not past, not won, not cancelled); sites without a date add no ราย yet
-      var ahead = rows.filter(function (r) { return r.bid_date && !ended(r) && !won(r) && String(r.status || '').indexOf('ยกเลิก') < 0; });
+      var ahead = rows.filter(function (r) { return r.bid_date && !ended(r) && !won(r) && !cancelled(r); });
       sum.innerHTML = '<span>ยังไม่ประมูล <b>' + fmt(Math.round(perMonth(ahead))) + '</b> ราย/เดือน</span><small>จาก ' + ahead.length + ' ไซด์ที่ยังไม่ถึงเวลาประมูล</small>';
     }
     var bar = document.getElementById('nbToday');

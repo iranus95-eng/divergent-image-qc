@@ -64,6 +64,9 @@ M.setFocus([1,2,3]);
 assert.equal(pins(M.html(many)),3);   // บัวใหญ่, ท่าตูม and the legend; สตึก not picked, พล won
 assert.ok(M.html(many).includes('เป้าหมาย 2 ไซด์: บัวใหญ่, ท่าตูม'));
 M.setFocus(null);
+// a cancelled site announced again (auction day still to come) is waiting again; one with a past day stays cancelled
+assert.equal(M.state(M.marks([{site:'พิมาย',status:'ยกเลิก',bid_date:'2099-11-09'}]).m['นครราชสีมา/พิมาย']),'wait');
+assert.equal(M.state(M.marks([{site:'พิมาย',status:'ยกเลิก',bid_date:'2020-11-09'}]).m['นครราชสีมา/พิมาย']),'');
 console.log('notice-map: ok');
 // the downloaded picture: one SVG document with the title, the date and the legend counts
 const pic=M.pictureSvg(rows,'');
