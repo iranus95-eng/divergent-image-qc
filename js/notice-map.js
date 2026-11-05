@@ -40,7 +40,12 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function won(r) { var t = String(r.status || ''); return t.indexOf('ชนะ') >= 0 && !lost(r); }
   function lost(r) { return /ไม่ชนะ|แพ้/.test(String(r.status || '')); }
-  function cancelled(r) { return String(r.status || '').indexOf('ยกเลิก') >= 0; }
+  // ยกเลิก holds only until the site is announced again: an auction day still to come shows it as waiting (พิมาย)
+  function cancelled(r) {
+    if (String(r.status || '').indexOf('ยกเลิก') < 0) return false;
+    var today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);   // Bangkok calendar day
+    return !(r.bid_date && String(r.bid_date).slice(0, 10) >= today);
+  }
   function key(d) { return d.p + '/' + d.n; }
   // "กฟส.เมืองนครราชสีมา 3" → "เมืองนครราชสีมา", "นม1" → "นครราชสีมา"
   function clean(s) {
