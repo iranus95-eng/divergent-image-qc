@@ -197,6 +197,18 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   console.log('PASS: notice bids result file → quantity of our quotation when the row\'s does not divide (บ้านดุง)');
 }
 
+// จอหอ (69109113184): the row says 48,000 ราย at ราคากลาง 16 (budget 821,760 agrees), so 482,784 ÷ 1.07 ÷ 48,000 = 9.40
+// divides exactly, but the TOR is 96,000 ราย at 8.00: our quotation 491,001.60 at 4.78 was priced on 96,000 ราย →
+// the winning price is 4.70 (ปี69 4.50), not 9.40. Not ours → ❌.
+{
+  const p=ctx.resultPrice([482784],48000,16,'จอหอ',[''],{est:false,ours:false,budget:821760,quotePrices:[4.78],quoteQtys:[96000]});
+  assert.equal(p.price,4.7); assert.equal(p.qty,96000); assert.equal(p.mid,8); assert.equal(p.src,'qty');
+  assert.equal(ctx.isOurWin([482784],[491001.6],[4.78],p.price),false);
+  // without our quotation the row's own quantity stays
+  assert.equal(ctx.resultPrice([482784],48000,16,'จอหอ',[''],{budget:821760}).price,9.4);
+  console.log('PASS: notice bids result file → quantity of our quotation when the row\'s gives a price far from ours (จอหอ)');
+}
+
 // นครราชสีมา 2 keeps 10,000 ราย/เดือน with ราคากลาง 96 (8 × 12): 49,434 ÷ 1.07 ÷ 10,000 = 4.62 is our quoted price,
 // not a "too low" yearly reading to turn into a monthly 55.44
 {
