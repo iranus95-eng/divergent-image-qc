@@ -238,11 +238,15 @@
     // รายการพิจารณา, so it gives 🏆/❌ and the winning price like "สรุปข้อมูลการเสนอราคาเบื้องต้น" (หนองกี่ 2026-11-03 was
     // read as an announcement and changed nothing). It carries no project number: the site is found by its office.
     if (/ประกาศผู้ชนะการเสนอราคา/.test(F) || /ประกาศผชนะการเสนอราคา/.test(B0)) {
-      var mw = F.match(/ได้แก่\s*(.{2,80}?)\s*(?:ซึ่งเป็นผู้เสนอราคา|โดยเสนอราคา|เสนอราคาเป็นเงิน)/);
+      // "ได้แก่ บริษัท … จำกัด ซึ่งเป็นผู้ชนะการเสนอราคาตามกฎกระทรวง…" (โชคชัย 2026-11-05) as well as "ซึ่งเป็นผู้เสนอราคา…"
+      var mw = F.match(/ได้แก่\s*(.{2,80}?)\s*(?:ซึ่งเป็นผู้(?:ชนะการ)?เสนอราคา|ซึ่งเป็นผู้|โดยเสนอราคา|เสนอราคาเป็นเงิน)/);
       var mt = F.match(/(?:เป็นเงินทั้งสิ้น|ราคาทั้งสิ้น|เป็นเงิน)\s*(\d{1,3}(?:,\d{3})*\.\d{2})/);
       if (mt) {
         out.kind = 'result'; out.winner_announce = true;
         if (mw) out.winner = mw[1].replace(/\s+/g, ' ').trim();
+        // the day of the award, kept with the winner's name as the site's history
+        var md = F.match(new RegExp('ประกาศ\\s*ณ\\s*วันที่\\s*' + DATE_RE));
+        if (md) out.award_date = isoDate(md[1], md[2], md[3]);
         out.lowest = [amount(mt[1])]; out.items = [{ name: '', lowest: out.lowest[0] }];
         if (!ids.length) delete out.project_no;   // an 11-digit number in the text is not the project's
         return out;
@@ -542,10 +546,17 @@
     // ประกาศผู้ชนะ is the final award, so it is not kept that way
     var keep = !ours && quoted && won(row) && !d.winner_announce;
     if (!ours && quoted && !lost(row) && !keep) patch.status = 'ไม่ชนะประมูล';
+    // ประกาศผู้ชนะ: the winner's name is kept with the site as its history (โชคชัย 2026-11-06), shown in the list and details
+    if (d.winner) {
+      var w = { name: d.winner, total: total, price: price, date: d.award_date || null, file: d.file, read_at: new Date().toISOString() };
+      var past = ((row.source || {}).winners || []).filter(function (x) { return !(x.name === w.name && x.date === w.date); });
+      patch.source = Object.assign({}, row.source || {}, { winner: w, winners: past.concat([w]) });
+      patch.winner_set = true;
+    }
     var msg = row.site + (d.project_no
         ? ' (เลขที่โครงการ ' + d.project_no + (patch.project_no ? ' — ไซด์นี้ยังไม่มีเลขที่โครงการ หาจากชื่อสาขาในไฟล์ และจะบันทึกเลขนี้ให้' : named ? ' — หาจากชื่อสาขาในไฟล์' : '') + ')'
         : ' (ประกาศผู้ชนะ: หาไซด์จากชื่อสาขาในไฟล์)') + '\n' +
-      (d.winner ? 'ผู้ชนะ: ' + d.winner + '\n' : '') +
+      (d.winner ? 'ผู้ชนะ: ' + d.winner + (d.award_date ? ' (ประกาศ ' + thaiDate(d.award_date) + ')' : '') + ' — จะบันทึกชื่อผู้ชนะไว้เป็นประวัติของไซด์นี้\n' : '') +
       (d.winner_announce ? 'ราคาที่ชนะ ' : 'ราคาต่ำสุดที่เสนอ ') + fmt(total, 2) + ' บาท (รวม VAT)' + (d.lowest.length > 1 ? ' รวม ' + d.lowest.length + ' รายการพิจารณา' : '') + (r.monthly ? ' เป็นราคาต่อเดือน' : '') + '\n';
     if (r.qty && !keep) {
       patch.qty = r.qty; if (r.mid) patch.mid_price = r.mid;
@@ -635,7 +646,10 @@
   async function saveRow(row) {
     var body = { action: 'save', id: row.id || undefined, row: {} };
     FIELDS.forEach(function (k) { if (k in row) body.row[k] = row[k]; });
-    if (row.files) body.row.source = { files: row.files, read_at: new Date().toISOString() };
+    // source is saved whole: keep what the row already holds (the winner read from ประกาศผู้ชนะ) when files are read again
+    var had = row.id ? ((st.rows || []).filter(function (x) { return x.id === row.id; })[0] || {}).source : null;
+    if (row.files) body.row.source = Object.assign({}, had || {}, row.source || {}, { files: row.files, read_at: new Date().toISOString() });
+    else if (row.winner_set) body.row.source = Object.assign({}, had || {}, row.source || {});
     var j = await call(body);
     return j.item;
   }
@@ -806,6 +820,8 @@
       '.nb-detail{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:16px}.nb-detail h3{margin:6px 0 2px;color:#4b2378;font-size:20px}' +
       '.nb-detail[data-state=saving]{box-shadow:inset 4px 0 #e0a24a}.nb-detail[data-state=err]{box-shadow:inset 4px 0 #d33}.nb-detail[data-state=ok]{box-shadow:inset 4px 0 #3a9a5b}' +
       '.nb-detail .nb-form input.r{text-align:right}.nb-detail .nb-form input.nb-bad{border-color:#d33;background:#fff0f0}' +
+      '.nb-winner{margin:10px 0 0;padding:8px 10px;border:1px solid #f0dca0;border-radius:8px;background:#fffaf0;font-size:14px;color:#3b2252;line-height:1.5}' +
+      '.nb-winner-past{margin-top:4px;font-size:13px;color:#6b5a7a}' +
       '.nb-ro{border:1px solid #eee7f4;border-radius:8px;padding:6px 8px;background:#f8f5fb;min-height:20px;text-align:right;font-size:14px;color:#3b2252}' +
       '.nb-empty{color:#776a86;padding:30px;text-align:center}.nb-warn{margin-top:8px;border:1px solid #f0c36d;background:#fff8e6;color:#8a5b00;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700}' +
       '.nb-tag{display:inline-block;border-radius:6px;padding:1px 6px;font-size:11px;background:#efe6f8;color:#5a2787;margin-left:4px}';
@@ -998,6 +1014,9 @@
       var when = day ? (now ? '<b>วันนี้</b> ' : '') + thaiDate(day) + (r.bid_time ? ' · ' + esc(r.bid_time) + ' น.' : '') + (won(r) || lost(r) ? '' : over ? ' · ประมูลไปแล้ว' : '') : 'ยังไม่มีวันประมูล';
       if (won(r)) when += ' · 🏆 ชนะประมูล';
       else if (lost(r)) when += ' · ❌ ไม่ชนะประมูล';
+      // the winner read from ประกาศผู้ชนะ: shown for a site someone else won (a won site's winner is us)
+      var wn = winnerOf(r);
+      if (wn && !won(r)) when += '<br>ผู้ชนะ: ' + esc(wn.name) + (wn.price ? ' · ' + fmt(wn.price, 2) + ' บาท/ราย' : '');
       return '<div class="nb-item' + (now ? ' today' : '') + '"><button class="nb-site' + (over ? ' past' : '') + (won(r) ? ' won' : '') + (lost(r) ? ' lost' : '') + (now ? ' today' : '') + '" data-nb="open" data-i="' + r.id + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="nm">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '<small>' + when + '</small></span><span class="go">›</span></button>' +
         (waiting(r) ? '<div class="nb-foot">' + quoteBtn(r) + aimBtn(r) + '</div>' : quoteBtn(r)) +
@@ -1009,13 +1028,25 @@
     if (k === 'budget' && v != null) v = fmt(v, 2);
     return '<label>' + label + '<input class="' + (cls || '') + '" data-id="' + r.id + '" data-k="' + k + '" value="' + esc(v == null ? '' : v) + '"></label>';
   }
+  // ประกาศผู้ชนะ read into this site: the latest winner, and the ones before it (a re-announced site)
+  function winnerOf(r) { var w = (r && r.source && r.source.winner) || null; return w && w.name ? w : null; }
+  function winnerHtml(r) {
+    var w = winnerOf(r); if (!w) return '';
+    var line = function (x) {
+      return '<b>' + esc(x.name) + '</b>' + (x.price ? ' · ' + fmt(x.price, 2) + ' บาท/ราย' : '') + (x.total ? ' · รวม ' + fmt(x.total, 2) + ' บาท (รวม VAT)' : '') +
+        (x.date ? ' · ประกาศ ' + thaiDate(x.date) : '');
+    };
+    var past = (r.source.winners || []).filter(function (x) { return x && x.name && !(x.name === w.name && x.date === w.date); });
+    return '<div class="nb-winner">🏆 ผู้ชนะการเสนอราคา: ' + line(w) +
+      (past.length ? '<div class="nb-winner-past">ประวัติก่อนหน้า: ' + past.map(line).join('<br>') + '</div>' : '') + '</div>';
+  }
   function shown(label, key, v) { return '<label>' + label + '<div class="nb-ro" data-d="' + key + '">' + v + '</div></label>'; }
   function detailHtml(r) {
     var d = derived(r);
     return '<div class="nb-bar"><button class="nb-btn soft" data-nb="back">← กลับไปรายชื่อไซด์</button></div>' +
       '<div class="nb-detail" data-row="' + r.id + '"><h3 data-d="name">' + esc(r.site || '(ไม่มีชื่อไซด์)') + '</h3><small>แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ</small><div class="nb-bar" style="margin:10px 0 0">' + quoteBtn(r, true) +
         '<button class="nb-q big" data-nb="blank" data-i="' + r.id + '" title="สำหรับไซด์ที่ TOR ไม่มีแบบฟอร์มใบเสนอราคา"><span class="nb-q1">📝 ใช้แบบฟอร์มเปล่า</span></button>' +
-        '<button class="nb-btn won' + (won(r) ? ' on' : '') + '" data-nb="setwon" data-i="' + r.id + '">' + (won(r) ? '🏆 ชนะประมูลแล้ว (กดเพื่อยกเลิก)' : '🏆 ทำเครื่องหมายว่าชนะประมูล') + '</button></div><div class="nb-form">' +
+        '<button class="nb-btn won' + (won(r) ? ' on' : '') + '" data-nb="setwon" data-i="' + r.id + '">' + (won(r) ? '🏆 ชนะประมูลแล้ว (กดเพื่อยกเลิก)' : '🏆 ทำเครื่องหมายว่าชนะประมูล') + '</button></div>' + winnerHtml(r) + '<div class="nb-form">' +
       field(r, 'zone', 'เขต') + field(r, 'site', 'ไซด์งาน') + field(r, 'office', 'สาขา') + field(r, 'project_no', 'เลขที่โครงการ') +
       field(r, 'budget', 'วงเงิน (รวม VAT)', 'r') + shown('วงเงิน/เดือน', 'bm', fmt(d.budgetMonth, 2)) +
       '<label>จำนวนราย/ปี<input class="r" data-id="' + r.id + '" data-k="qty" value="' + esc(r.qty == null ? '' : fmt(r.qty)) + '" placeholder="' + (d.est ? fmt(d.qty) : '') + '" title="ว่าง = คำนวณจากวงเงิน ÷ 1.07 ÷ ราคากลาง"></label>' +
@@ -1036,7 +1067,7 @@
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '>' +
       '<input id="nbQ" placeholder="ค้นหาไซด์งาน / เลขที่โครงการ" value="' + esc(st.q) + '">' +
       '<button class="nb-btn won' + (st.wonOnly ? ' on' : '') + '" data-nb="won" title="แสดงเฉพาะไซด์ที่ชนะประมูล">🏆 ชนะประมูล ' + wonSummary() + '</button>' +
-      '<button class="nb-btn won' + (st.map ? ' on' : '') + '" data-nb="map" title="แผนที่ 5 จังหวัด: ✓ ไซด์ที่ชนะ • กด 📍 เป้าหมาย ที่ไซด์รอประมูลเพื่อปักหมุด">🗺 แผนที่</button>' +
+      '<button class="nb-btn won' + (st.map ? ' on' : '') + '" data-nb="map" title="แผนที่ 5 จังหวัด: 🏆 ไซด์ที่ชนะ • กด 📍 เป้าหมาย ที่ไซด์รอประมูลเพื่อปักหมุด">🗺 แผนที่</button>' +
       '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมิน (วันที่มีประมูล ระบบส่งเอง 07:00 และทุก 30 นาที 09:00-12:00, 13:00-16:00)">📣 ส่งเข้า LINE แอดมิน</button><div id="nbOpenSum" class="nb-sum"></div></div>' +
       '<div id="nbMap"></div><div id="nbTable"></div>';
     renderTable();

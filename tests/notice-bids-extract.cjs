@@ -264,3 +264,17 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   assert.equal(ctx.isOurWin(d.lowest,[],[],r.price),false);
   console.log('PASS: notice bids ประกาศผู้ชนะ (หนองกี่) → result with the winner, ราคา 5.20');
 }
+
+// กฟส.โชคชัย "ประกาศผู้ชนะการเสนอราคา" (2026-11-05): "ได้แก่ บริษัท … จำกัด ซึ่งเป็นผู้ชนะการเสนอราคาตามกฎกระทรวง…"
+// the winner's name and the day of the award are read, to be kept with the site as its history
+{
+  const d=ctx.extract(fx('notice-bids-chokchai-winner.json'),'โชคชัย.pdf');
+  assert.equal(d.kind,'result');
+  assert.ok(d.winner_announce);
+  assert.equal(d.site,'โชคชัย');
+  assert.equal(d.winner,'บริษัท ไดเวอร์เจนท์ คอร์ปอเรชั่น จำกัด');
+  assert.equal(d.award_date,'2026-11-05');
+  assert.deepEqual(JSON.parse(JSON.stringify(d.lowest)),[386740.8]);
+  assert.equal(ctx.extract(fx('notice-bids-nongki-winner.json'),'หนองกี่.pdf').winner,'ห้างหุ้นส่วนจำกัด ชิดชล กรุ๊ป');
+  console.log('PASS: notice bids ประกาศผู้ชนะ (โชคชัย) → winner name + award date');
+}

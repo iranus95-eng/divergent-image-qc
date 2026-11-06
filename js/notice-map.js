@@ -1,7 +1,7 @@
 /* แผนที่ตารางประมูลแจ้งเตือน (2026-11-02)
  * The district map of the 5 provinces (ขอนแก่น ชัยภูมิ นครราชสีมา บุรีรัมย์ สุรินทร์), drawn from the rows of ตารางประมูลแจ้งเตือน,
  * so it follows the table every time a result changes:
- *  - ✓ green  : a site we won (status "ชนะประมูล"), plus the districts its office also serves (COVER, from the map we used before)
+ *  - 🏆 gold   : a site we won (status "ชนะประมูล"), plus the districts its office also serves (COVER, from the map we used before)
  *  - 📍 orange : only the sites picked with their "📍 เป้าหมาย" buttons (several at once) in the site list (NoticeMap.setFocus); the other sites
  *                 still waiting for their auction or result are not marked (user, 3 พ.ย. 69), only named in the tooltip
  *  - ✕ grey   : a site we did not win (status "ไม่ชนะประมูล"), when nothing else is marked there
@@ -144,7 +144,12 @@
   }
   function state(e) { return !e ? '' : e.won.length || e.cover.length ? 'won' : e.wait.length ? 'wait' : e.lost.length ? 'lost' : ''; }
 
-  function check(x, y) { return '<path class="nm-ck" d="M' + (x - 8) + ' ' + y + 'l5.5 5.5 11-11"/>'; }
+  // a won site: a gold trophy drawn as shapes (an emoji would not show in the PNG download on every computer) (user, 6 พ.ย. 69)
+  function check(x, y) {
+    return '<g class="nm-ck" transform="translate(' + x + ' ' + y + ')">' +
+      '<path class="h" d="M-5.5-6.5h-3.2a3.6 3.6 0 0 0 4.4 5.6M5.5-6.5h3.2a3.6 3.6 0 0 1-4.4 5.6"/>' +
+      '<path d="M-6-8.5h12v3.2a6 6 0 0 1-12 0z"/><path d="M-1.6 2.6h3.2v3h-3.2z"/><path d="M-5.2 5.6h10.4v3.2h-10.4z"/></g>';
+  }
   function cross(x, y) { return '<path class="nm-x" d="M' + (x - 5) + ' ' + (y - 5) + 'l10 10M' + (x + 5) + ' ' + (y - 5) + 'l-10 10"/>'; }
   function pin(x, y) {
     return '<g class="nm-pin" transform="translate(' + x + ' ' + y + ')"><path d="M0 0c-2-6-8-9-8-15a8 8 0 0 1 16 0c0 6-6 9-8 15z"/><circle cx="0" cy="-15" r="3.2"/></g>';
@@ -163,7 +168,7 @@
     var shapes = '', labels = '', signs = '';
     g.list.forEach(function (d) {
       var e = m[d.key], s = state(e), x = Math.round(d.xy[0]), y = Math.round(d.xy[1]);
-      var tip = d.n + ' (' + d.p + ')' + (e ? [['won', '✓ ชนะประมูล'], ['cover', '✓ สาขาย่อยของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
+      var tip = d.n + ' (' + d.p + ')' + (e ? [['won', '🏆 ชนะประมูล'], ['cover', '🏆 สาขาย่อยของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
         .filter(function (k) { return e[k[0]].length; }).map(function (k) { return '\n' + k[1] + ': ' + e[k[0]].join(', '); }).join('') : '');
       shapes += '<path class="nm-d' + (s === 'won' ? ' won' : '') + '" fill="' + (s === 'won' ? '#e3f4e6' : FILL[d.p] || '#fff') + '" d="' + d.path + '"><title>' + esc(tip) + '</title></path>';
       labels += '<text class="nm-l" x="' + x + '" y="' + y + '">' + esc(d.n) + '</text>';
@@ -203,7 +208,7 @@
       (d.aim.length ? '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> เป้าหมาย ' + d.aim.length + ' ไซด์: ' + esc(d.aim.join(', ')) +
         ' <button type="button" class="nm-clr" data-nb="aimclear" title="เอาหมุดเป้าหมายออกทั้งหมด">ล้าง</button></span>' : '') +
       '<span><svg viewBox="-10 -10 20 20">' + cross(0, 0) + '</svg> ไม่ชนะ ' + d.lost + ' ไซด์</span>' +
-      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • กด 📍 เป้าหมาย ที่ไซด์รอประมูลในรายการเพื่อปักหมุดบนแผนที่ (เลือกได้หลายไซด์) • ✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
+      '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • กด 📍 เป้าหมาย ที่ไซด์รอประมูลในรายการเพื่อปักหมุดบนแผนที่ (เลือกได้หลายไซด์) • 🏆 ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
       (d.off ? ' • ไซด์นอก 5 จังหวัดนี้ ' + d.off + ' ไซด์ไม่อยู่บนแผนที่' : '') +
       ' • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</small></div></div>';
   }
@@ -212,7 +217,7 @@
   var MAP_CSS = '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6}' +
     '.nm-l{font-size:10.5px;font-weight:700;fill:#222;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}' +
     '.nm-p{font-size:30px;font-weight:800;fill:#4b2378;opacity:.15;text-anchor:middle;dominant-baseline:middle}' +
-    '.nm-ck{fill:none;stroke:#14852b;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}' +
+    '.nm-ck path{fill:#f5b800;stroke:#9a6a00;stroke-width:1.1;stroke-linejoin:round}.nm-ck .h{fill:none;stroke:#c98f00;stroke-width:1.8}' +
     '.nm-x{fill:none;stroke:#9a9a9a;stroke-width:2.6;stroke-linecap:round}' +
     '.nm-pin path{fill:#f2581c;stroke:#f6c84c;stroke-width:1.6}.nm-pin circle{fill:#fff}';
   var fontP = null;
@@ -246,7 +251,7 @@
       '<text class="nm-g" x="24" y="' + (y + 33) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
       (d.aim.length ? pin(522, y + 37) + '<text class="nm-g" x="538" y="' + (y + 33) + '">เป้าหมาย ' + d.aim.length + ' ไซด์: ' + esc(short(d.aim.join(', '), 44)) + '</text>' : '') +
       cross(292, y + 28) + '<text class="nm-g" x="308" y="' + (y + 33) + '">ไม่ชนะ ' + d.lost + ' ไซด์</text>' +
-      '<text class="nm-n" x="24" y="' + (y + 58) + '">✓ ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
+      '<text class="nm-n" x="24" y="' + (y + 58) + '">🏆 ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</text></svg>';
     // ASCII file name: some browsers drop a Thai download name and save the file as "download"
     return { svg: svg, W: W, H: H, name: 'notice-bid-map-' + day.iso + '.png' };
   }
@@ -285,7 +290,7 @@
       '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-d:hover{filter:brightness(.95)}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6;pointer-events:none}' +
       '.nm-l{font-size:10.5px;font-weight:700;fill:#222;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;pointer-events:none}' +
       '.nm-p{font-size:30px;font-weight:800;fill:#4b2378;opacity:.15;text-anchor:middle;dominant-baseline:middle;pointer-events:none}' +
-      '.nm-ck{fill:none;stroke:#14852b;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}' +
+      '.nm-ck path{fill:#f5b800;stroke:#9a6a00;stroke-width:1.1;stroke-linejoin:round;pointer-events:none}.nm-ck .h{fill:none;stroke:#c98f00;stroke-width:1.8}' +
       '.nm-x{fill:none;stroke:#9a9a9a;stroke-width:2.6;stroke-linecap:round;pointer-events:none}' +
       '.nm-pin{pointer-events:none}.nm-pin path{fill:#f2581c;stroke:#f6c84c;stroke-width:1.6}.nm-pin circle{fill:#fff}' +
       '.nm-legend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin-top:8px;font-size:13px;color:#3b2252}.nm-legend span{display:inline-flex;align-items:center;gap:6px;font-weight:700}' +
