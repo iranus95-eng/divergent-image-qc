@@ -354,6 +354,14 @@
     // our quoted price itself: the row's ราคากลาง can be per notice per year (นครราชสีมา 2: 10,000 ราย/เดือน, ราคากลาง 96 =
     // 8 × 12), which would make 4.62 look "too low" and send the reading to a monthly 55.44
     if (all.ok && (opt.quotePrices || []).some(function (p) { return Math.abs(p - all.price) < 0.005; })) return Object.assign(res, all);
+    // the row's quantity can be wrong while its budget, quantity and ราคากลาง still agree (จอหอ: 48,000 ราย at 16.00 in the
+    // row, the TOR is 96,000 ราย at 8.00): 482,784 ÷ 1.07 ÷ 48,000 = 9.40 divides exactly but is twice our quoted 4.78.
+    // The quantity our quotation was priced on (491,001.60 ÷ 1.07 ÷ 4.78 = 96,000) gives 4.70, near what we quoted: it wins
+    if (all.ok && (opt.quotePrices || []).length) {
+      var off = function (v) { return Math.min.apply(null, opt.quotePrices.map(function (p) { return Math.abs(v - p) / p; })); };
+      var bq0 = byQuote();
+      if (bq0 && off(all.price) > 0.3 && off(bq0.price) <= 0.3) return Object.assign(res, bq0);
+    }
     if (all.ok && all.price >= mid0 / 4) return Object.assign(res, all);
     var mon = exactOf(total, qty / 12);
     if (all.exact < mid0 / 4 && mon.exact <= mid0) return Object.assign(res, mon, { per: qty / 12, monthly: true });
