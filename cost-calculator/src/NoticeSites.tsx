@@ -49,11 +49,12 @@ function quoteSite(title: string, bids: NoticeBid[]) {
 }
 
 // A quote's quantity is per year, or per month when its column is ราย/เดือน: it is taken as
-// monthly when twelve times it is nearer the bid's own estimate (budget ÷ 1.07 ÷ ราคากลาง).
+// monthly when twelve times it is nearer the bid's own estimate (budget ÷ 1.07 ÷ ราคากลาง,
+// else the bid table's จำนวนราย), the same reading as ตารางประมูลแจ้งเตือน (js/notice-bids.js quoteQty).
 function yearlyQty(qty: number | null, bid: NoticeBid) {
   if (!qty) return null;
   const estimate =
-    bid.budget && bid.mid_price ? bid.budget / 1.07 / bid.mid_price : 0;
+    bid.budget && bid.mid_price ? bid.budget / 1.07 / bid.mid_price : bid.qty || 0;
   if (!estimate) return qty;
   const off = (value: number) => Math.abs(Math.log(value / estimate));
   return off(qty * 12) < off(qty) ? qty * 12 : qty;
@@ -63,20 +64,28 @@ function buildRows(
   bids: NoticeBid[],
   quotes: { title: string; price: number; qty: number | null }[],
 ): Row[] {
+  // The price comes from the site's first quote; the quantity from its first quote that has one,
+  // as in ตารางประมูลแจ้งเตือน (a site with two quotes, one without ราย, read the same number on both pages).
   const quoteOf = new Map<number, { price: number; qty: number | null }>();
   for (const quote of quotes) {
     const bid = quoteSite(quote.title, bids);
-    if (bid && !quoteOf.has(bid.id))
+    if (!bid) continue;
+    const seen = quoteOf.get(bid.id);
+    if (!seen)
       quoteOf.set(bid.id, {
         price: quote.price,
         qty: yearlyQty(quote.qty, bid),
       });
+    else if (seen.qty == null) seen.qty = yearlyQty(quote.qty, bid);
   }
   return bids
     .filter((bid) => bid.site)
     .map((bid) => {
       const price = quoteOf.get(bid.id)?.price ?? null;
-      const qty = quoteOf.get(bid.id)?.qty ?? null;
+      const quoteQty = quoteOf.get(bid.id)?.qty ?? null;
+      // จำนวนราย/ปี in the same order as ตารางประมูลแจ้งเตือน: the quotation, else the table's own จำนวนราย
+      // (สตึก, บ้านกรวด have no quotation), else งบประมาณ ÷ 1.07 ÷ ราคากลาง below
+      const qty = quoteQty ?? bid.qty;
       // The winning unit price comes from our quotation, else ราคาปี70 of the bid table.
       const auction = price ?? (bid.price_bid || null);
       const missing = [
@@ -90,7 +99,7 @@ function buildRows(
         bid,
         won: isWon(bid),
         quotePrice: price,
-        quoteQty: qty,
+        quoteQty,
         missing,
         site: missing
           ? null
@@ -102,7 +111,8 @@ function buildRows(
               price: bid.mid_price!,
               auction: auction!,
               qty,
-              // ราย/เดือน: the quotation's quantity, else งบประมาณ ÷ 1.07 (VAT) ÷ ราคากลาง
+              qtyFrom: quoteQty != null ? 'quote' : qty ? 'table' : null,
+              // ราย/เดือน: the quotation's quantity, else the table's, else งบประมาณ ÷ 1.07 (VAT) ÷ ราคากลาง
               jobs: (qty ?? bid.budget! / 1.07 / bid.mid_price!) / 12,
             },
       };
@@ -299,7 +309,7 @@ export default function NoticeSites({
               .filter((row) => row.site && row.quotePrice == null)
               .map((row) => row.bid.site)}
             noQuoteQty={won
-              .filter((row) => row.site && row.quoteQty == null)
+              .filter((row) => row.site && !row.site.qty)
               .map((row) => row.bid.site)}
             quoteError={quoteError}
             allocationFor={allocationFor}

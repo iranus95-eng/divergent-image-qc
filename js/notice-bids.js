@@ -74,8 +74,8 @@
           if (j.item && j.item.pdf_b64) h.pdf = j.item.pdf_b64;   // read again for the sub-branches it names (map)
         }, function (e) { console.warn('notice-bids quote', h.id, e); });
       }));
-      st.quotes = qs;
-    } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; }
+      st.quotes = qs; st.quotesErr = false;
+    } catch (e) { console.warn('notice-bids quotes', e); st.quotes = []; st.quotesErr = true; }
     if (st.rows) {
       syncPrices(); renderTable();
       var wb = document.querySelector('[data-nb="won"]'); if (wb) wb.textContent = '🏆 ชนะประมูล ' + wonSummary();   // units now from the quotations
@@ -604,10 +604,14 @@
   }
 
   // ---------------------------------------------------------------- numbers shown in the table
-  // "N ไซด์ · X ราย/เดือน": the ราย we have won (ราย/ปี ÷ 12), summed live from the rows so it follows every status change
+  // "N ไซด์ · X ราย/เดือน": the ราย we have won (ราย/ปี ÷ 12), summed live from the rows so it follows every status change.
+  // The ราย wait for the quotations: counted before they load, sites read from the table alone (สูงเนิน 5,500 ราย/เดือน
+  // read as ราย/ปี) and the number jumped a moment later with no auction in between. A failed load says so.
   function wonSummary() {
-    var w = (st.rows || []).filter(won), qty = w.reduce(function (s, r) { return s + (derived(r).qty || 0); }, 0);
-    return w.length + ' ไซด์' + (qty ? ' · ' + fmt(Math.round(qty / 12)) + ' ราย/เดือน' : '');
+    var w = (st.rows || []).filter(won);
+    if (st.quotes == null) return w.length + ' ไซด์ · กำลังคำนวณราย…';
+    var qty = w.reduce(function (s, r) { return s + (derived(r).qty || 0); }, 0);
+    return w.length + ' ไซด์' + (qty ? ' · ' + fmt(Math.round(qty / 12)) + ' ราย/เดือน' : '') + (st.quotesErr ? ' (โหลดใบเสนอราคาไม่สำเร็จ)' : '');
   }
   // จำนวนราย/ปี of a site: from its quotation first, else จำนวนราย in the table, else วงเงิน ÷ 1.07 ÷ ราคากลาง
   function quoteQty(r) {
