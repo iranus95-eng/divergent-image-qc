@@ -126,4 +126,6 @@ for (const site of ['นางรอง','ประโคนชัย']) {
   assert.equal(M.state(mm['นครราชสีมา/เฉลิมพระเกียรติ']),'');
   assert.equal(M.state(mm['บุรีรัมย์/ชำนิ']),site==='นางรอง'?'won':'');
 }
+{ const mm=M.marks([{id:73,site:'บัวใหญ่',status:'ชนะประมูล'}]).m;
+  for (const k of ['บัวลาย','สีดา','แก้งสนามนาง']) assert.equal(M.state(mm['นครราชสีมา/'+k]),'won',k); }
 console.log('notice-map branches: ok');
