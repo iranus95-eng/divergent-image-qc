@@ -90,6 +90,7 @@ export type NoticeBid = {
   budget: number | null;
   mid_price: number | null;
   price_bid: number | null;
+  qty: number | null; // จำนวนราย/ปี typed or read from the TOR in the bid table
   status: string | null;
 };
 
@@ -107,6 +108,7 @@ export async function loadNoticeBids(fiscalYear = 2570): Promise<NoticeBid[]> {
     budget: row.budget == null ? null : Number(row.budget),
     mid_price: row.mid_price == null ? null : Number(row.mid_price),
     price_bid: row.price_bid == null ? null : Number(row.price_bid),
+    qty: Number(row.qty) > 0 ? Number(row.qty) : null,
     status: (row.status as string) || null,
   }));
 }

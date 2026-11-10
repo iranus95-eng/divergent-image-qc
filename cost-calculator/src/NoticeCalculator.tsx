@@ -116,9 +116,10 @@ export type BidSource = {
   budget: number;
   price: number;
   auction: number;
-  qty?: number | null; // ราย per year from the site's quotation
+  qty?: number | null; // ราย per year from the site's quotation, else from the bid table
+  qtyFrom?: 'quote' | 'table' | null;
 };
-// Monthly jobs: the quotation's quantity ÷ 12, else งบประมาณ (VAT removed) ÷ ราคากลาง ÷ 12.
+// Monthly jobs: the quotation's (else the bid table's) quantity ÷ 12, else งบประมาณ (VAT removed) ÷ ราคากลาง ÷ 12.
 const jobsOf = (v: Pick<Values, 'budget' | 'price'>, bid?: BidSource) =>
   bid?.qty ? bid.qty / 12 : v.price > 0 ? v.budget / 1.07 / v.price / 12 : 0;
 export const noticeStorageKey = (siteId: string) => KEY + ':site:' + siteId;
@@ -313,7 +314,9 @@ export default function NoticeCalculator({
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
   const jobsNote = bid.qty
-    ? 'จำนวนรายจากใบเสนอราคา ÷ 12'
+    ? bid.qtyFrom === 'table'
+      ? 'จำนวนรายในตารางประมูลแจ้งเตือน ÷ 12'
+      : 'จำนวนรายจากใบเสนอราคา ÷ 12'
     : 'งบประมาณ ÷ ราคากลาง ÷ 12';
   const edit = (key: keyof Values, text: string) => {
     setDraft((previous) => ({ ...previous, [key]: text }));
@@ -575,7 +578,9 @@ export default function NoticeCalculator({
           {bid.qty
             ? 'จำนวนราย ' +
               bid.qty.toLocaleString('th-TH') +
-              ' ราย/ปี จากใบเสนอราคา'
+              (bid.qtyFrom === 'table'
+                ? ' ราย/ปี จากตารางประมูลแจ้งเตือน (ไม่พบในใบเสนอราคา)'
+                : ' ราย/ปี จากใบเสนอราคา')
             : 'คำนวณจำนวนรายจากงบประมาณกับราคากลาง (ไม่พบจำนวนในใบเสนอราคา)'}
         </p>
         {hasLegacy && (
