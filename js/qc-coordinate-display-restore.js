@@ -161,7 +161,7 @@ async function renderDistanceCard(img,force=false){
   if(nok&&mok){
     // Same as INSX "ผลระยะห่าง (เมตร)": straight-line distance PTC meter ↔ INSx photo GPS.
     const dist=haversine({lat:mlat,lng:mlng},{lat:nlat,lng:nlng});
-    html+='<div class="batch-distance-value">'+formatDistance(dist)+'</div><div class="batch-distance-note">ระยะเส้นตรง (แบบ INSX) · มิเตอร์ ↔ จุดส่งใบแจ้งเตือน</div>';
+    html+='<div class="batch-distance-value">'+formatDistance(dist)+'</div>';
   }else if(!nok&&mok){
     html+='<div class="batch-distance-note">⚠️ '+missingNoticeText()+' จึงยังคำนวณระยะไม่ได้</div>'+
       '<div class="qc-coordinate-source-warn">ระบบจะไม่ใช้พิกัดมิเตอร์แทนพิกัดใบแจ้งเตือน เพื่อป้องกันระยะทางผิด</div>'+retryButton(img);
