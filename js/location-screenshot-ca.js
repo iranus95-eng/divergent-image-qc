@@ -103,7 +103,11 @@ function injectCss(){
 .lsca-item .ca{font-size:17px;font-weight:800;letter-spacing:.5px;color:#4b2a86}
 .lsca-item .sub{font-size:13px;color:#555}
 .lsca-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#e6f4ea;color:#1e7e34;font-size:12px;font-weight:700}
-.lsca-thumb{max-height:64px;border-radius:8px;border:1px solid #e3dbf1}`;
+.lsca-thumb{max-height:64px;border-radius:8px;border:1px solid #e3dbf1}
+#locationWorkspace .ca-search-row.lsca-has-clear{grid-template-columns:minmax(220px,1fr) 170px 120px}
+#locationWorkspace .lsca-clear{height:48px;margin:0;border-radius:12px;border:1px solid #ddd2ee;background:#fff;color:#4b2a86;font-weight:700;cursor:pointer}
+#locationWorkspace .lsca-clear:hover{background:#faf6ff;border-color:#7b45ca}
+@media(max-width:620px){#locationWorkspace .ca-search-row.lsca-has-clear{grid-template-columns:1fr 1fr}#locationWorkspace .ca-search-row.lsca-has-clear input{grid-column:1/-1}}`;
   doc.head.appendChild(st);
 }
 function setStatus(msg,err){const el=doc.getElementById('lscaStatus');if(!el)return;el.textContent=msg||'';el.classList.toggle('err',!!err);el.style.display=msg?'block':'none'}
@@ -146,12 +150,32 @@ function search(ca){
   input.value=ca;
   if(typeof root.searchWorkLocation==='function')root.searchWorkLocation();
 }
+function clearAll(){
+  const set=(id,fn)=>{const el=doc.getElementById(id);if(el)fn(el)};
+  set('locationCaInput',el=>{el.value=''});
+  set('locationStatus',el=>{el.textContent='';el.style.display='none';el.classList.remove('status-error')});
+  set('locationResults',el=>{el.innerHTML=''});
+  set('locationDistance',el=>{el.innerHTML=''});
+  set('lscaList',el=>{el.innerHTML=''});
+  set('lscaThumb',el=>{el.innerHTML=''});
+  setStatus('');
+  root._compareLocations=null;
+  set('locationCaInput',el=>el.focus());
+}
+root.clearWorkLocationSearch=clearAll;
 function firstImage(items){for(const it of items||[]){if(it.kind==='file'&&/^image\//.test(it.type))return it.getAsFile()}return null}
 
 function mount(){
   const panel=doc.querySelector('#locationWorkspace .ca-search-panel');
   if(!panel||doc.getElementById('lscaDrop'))return;
   injectCss();
+  const row=panel.querySelector('.ca-search-row');
+  if(row&&!row.querySelector('.lsca-clear')){
+    row.classList.add('lsca-has-clear');
+    row.insertAdjacentHTML('beforeend','<div role="button" tabindex="0" class="lsca-clear" id="lscaClear" title="ล้างการค้นหา" style="display:flex;align-items:center;justify-content:center">ล้างการค้นหา</div>');
+    const c=row.querySelector('.lsca-clear');
+    c.addEventListener('click',clearAll);c.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();clearAll()}});
+  }
   panel.insertAdjacentHTML('beforeend',`<div class="lsca-drop" id="lscaDrop" tabindex="0" title="วางรูปหรือเลือกรูป">
     <div id="lscaThumb"></div>
     <div><b>📷 ค้นหาจากรูปที่พนักงานส่งมา</b><br><span>คัดลอกรูปจาก LINE แล้วกด Ctrl+V ที่หน้านี้ ลากรูปมาวาง หรือกดเลือกรูป · ระบบอ่าน CA ให้เอง</span></div>
