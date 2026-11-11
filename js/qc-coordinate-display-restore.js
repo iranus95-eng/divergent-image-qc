@@ -11,7 +11,6 @@ function validCoord(lat,lng){
   lat=Number(lat);lng=Number(lng);
   return Number.isFinite(lat)&&Number.isFinite(lng)&&!(lat===0&&lng===0)&&Math.abs(lat)<=90&&Math.abs(lng)<=180;
 }
-function coordText(lat,lng){return Number(lat).toFixed(6)+', '+Number(lng).toFixed(6)}
 function formatDistance(m){
   m=Number(m);if(!Number.isFinite(m))return '-';
   return m<1000?Math.round(m).toLocaleString('th-TH')+' เมตร':(m/1000).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' กม.';
@@ -72,6 +71,64 @@ function mergeCoordinateData(batch,fallback){
   };
 }
 function missingNoticeText(){return 'ยังไม่มีพิกัดใบแจ้งเตือนจากเครื่องต้นทาง'}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function areaText(n){
+  if(!n)return '';
+  const parts=[];
+  if(n.subdistrict)parts.push('ต.'+String(n.subdistrict).replace(/^(ต\.|ตำบล)\s*/,''));
+  if(n.district)parts.push('อ.'+String(n.district).replace(/^(อ\.|อำเภอ)\s*/,''));
+  if(n.province)parts.push('จ.'+String(n.province).replace(/^(จ\.|จังหวัด)\s*/,''));
+  return parts.join(' ');
+}
+// Reverse geocode (OpenStreetMap Nominatim): one request per second, cached per device.
+const GEO_KEY='qc_geo_addr_v1';
+let geoStore=null,geoChain=Promise.resolve(),geoLast=0;
+const geoPending=new Map();
+function geoCache(){
+  if(geoStore)return geoStore;
+  try{geoStore=JSON.parse(localStorage.getItem(GEO_KEY)||'{}')||{}}catch(_){geoStore={}}
+  return geoStore;
+}
+function geoSave(){
+  try{
+    const keys=Object.keys(geoStore||{});
+    if(keys.length>3000)keys.slice(0,keys.length-3000).forEach(k=>delete geoStore[k]);
+    localStorage.setItem(GEO_KEY,JSON.stringify(geoStore));
+  }catch(_){}
+}
+function cleanGeoName(d){
+  const parts=String(d?.display_name||'').split(',').map(x=>x.trim()).filter(Boolean)
+    .filter(x=>x!=='ประเทศไทย'&&x!=='Thailand'&&!/^\d{5}$/.test(x));
+  return parts.join(' ');
+}
+function reverseGeocode(lat,lng){
+  const key=Number(lat).toFixed(5)+','+Number(lng).toFixed(5);
+  const store=geoCache();
+  if(store[key])return Promise.resolve(store[key]);
+  if(geoPending.has(key))return geoPending.get(key);
+  const p=(geoChain=geoChain.catch(()=>{}).then(async()=>{
+    const wait=1100-(Date.now()-geoLast);
+    if(wait>0)await new Promise(r=>setTimeout(r,wait));
+    geoLast=Date.now();
+    const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),8000);
+    try{
+      const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=th&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lng);
+      const r=await fetch(url,{signal:ctl.signal,headers:{Accept:'application/json'}});
+      const d=await r.json().catch(()=>null);
+      const text=r.ok?cleanGeoName(d):'';
+      if(text){geoCache()[key]=text;geoSave()}
+      return text;
+    }catch(_){return ''}
+    finally{clearTimeout(timer)}
+  }));
+  geoPending.set(key,p);
+  p.finally(()=>geoPending.delete(key));
+  return p;
+}
+function addressText(n,m){
+  const a=String(m?.address||'').replace(/\s+/g,' ').trim();
+  return a||areaText(n);
+}
 function retryButton(img){
   const slot=String(img?.slotId||'').replace(/'/g,'');
   const ca=String(img?.ca||'').replace(/\D/g,'');
@@ -82,6 +139,8 @@ function installStyle(){
   const s=document.createElement('style');s.id='qc-coordinate-restore-style';s.textContent=`
     .qc-coordinate-retry{margin-top:9px;padding:7px 11px;border:1px solid #cbb9ef;border-radius:9px;background:#fff;color:#5121a8;font-size:12px;font-weight:700;cursor:pointer}
     .qc-coordinate-retry:hover{background:#f5f0ff}
+    .batch-distance-coord.qc-address .coord-label{display:block;color:#6b5a78;font-size:10.5px;font-weight:800;margin-bottom:2px}
+    .batch-distance-coord.qc-address .coord-value{display:block;color:#3f3150;font-size:11.5px;font-weight:700;line-height:1.45;overflow-wrap:anywhere}
     .qc-coordinate-source-warn{margin-top:7px;color:#9a6700;font-size:12px;line-height:1.45}
   `;document.head.appendChild(s);
 }
@@ -91,7 +150,7 @@ async function renderDistanceCard(img,force=false){
   const ca=String(img.ca||'').replace(/\D/g,'');
   let batch=window._qcBatchCoordinateMap?.get(ca)||null;
   let fallback=null;
-  if(force||!batch?.notice||!batch?.meter){
+  if(force||!batch?.notice||!batch?.meter||!batch?.meter?.address){
     try{fallback=await fetchByCa(ca,force)}catch(e){console.warn('QC direct coordinate fallback',ca,e)}
   }
   const d=mergeCoordinateData(batch,fallback);
@@ -100,9 +159,14 @@ async function renderDistanceCard(img,force=false){
   const mlat=Number(m?.latitude),mlng=Number(m?.longitude);
   const nok=validCoord(nlat,nlng),mok=validCoord(mlat,mlng);
 
-  let html='<div class="batch-distance-title">📍 พิกัดใบแจ้งเตือน ↔ มิเตอร์จดหน่วย</div>'+ 
-    '<div class="batch-distance-coord"><span class="coord-label">🏠 พิกัดใบแจ้งเตือน / งานจริง</span><span class="coord-value">'+(nok?coordText(nlat,nlng):missingNoticeText())+'</span></div>'+ 
-    '<div class="batch-distance-coord"><span class="coord-label">📟 พิกัดมิเตอร์จดหน่วย</span><span class="coord-value">'+(mok?coordText(mlat,mlng):'ยังไม่มีข้อมูลพิกัดมิเตอร์ในฐานลูกค้า')+'</span></div>';
+  let addr=addressText(n,m);
+  const customerAddr=String(m?.address||'').trim();
+  if(!customerAddr&&(nok||mok)){
+    const geo=await reverseGeocode(nok?nlat:mlat,nok?nlng:mlng);
+    if(geo)addr=geo;
+  }
+  let html='<div class="batch-distance-title">📍 ที่อยู่ / ระยะห่าง</div>'+
+    '<div class="batch-distance-coord qc-address"><span class="coord-label">🏠 ที่อยู่</span><span class="coord-value">'+(addr?esc(addr):'ยังไม่มีข้อมูลที่อยู่ในระบบ')+'</span></div>';
 
   if(nok&&mok){
     let dist=Number(d?.route?.distance_m),mode='ระยะทางขับรถ';
@@ -110,7 +174,7 @@ async function renderDistanceCard(img,force=false){
     if(!Number.isFinite(dist)){dist=haversine({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});mode='ระยะเส้นตรง'}
     html+='<div class="batch-distance-value">'+formatDistance(dist)+'</div><div class="batch-distance-note">'+mode+' · ใบแจ้งเตือน ↔ มิเตอร์จดหน่วย</div>';
   }else if(!nok&&mok){
-    html+='<div class="batch-distance-note">⚠️ พบพิกัดมิเตอร์แล้ว แต่พิกัดใบแจ้งเตือนไม่ได้ถูกบันทึก จึงยังคำนวณระยะไม่ได้</div>'+
+    html+='<div class="batch-distance-note">⚠️ '+missingNoticeText()+' จึงยังคำนวณระยะไม่ได้</div>'+
       '<div class="qc-coordinate-source-warn">ระบบจะไม่ใช้พิกัดมิเตอร์แทนพิกัดใบแจ้งเตือน เพื่อป้องกันระยะทางผิด</div>'+retryButton(img);
   }else if(nok&&!mok){
     html+='<div class="batch-distance-note">⚠️ พบพิกัดใบแจ้งเตือนแล้ว แต่ยังไม่มีพิกัดมิเตอร์ จึงยังคำนวณระยะไม่ได้</div>'+retryButton(img);
