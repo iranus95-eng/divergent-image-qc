@@ -278,3 +278,17 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   assert.equal(ctx.extract(fx('notice-bids-nongki-winner.json'),'หนองกี่.pdf').winner,'ห้างหุ้นส่วนจำกัด ชิดชล กรุ๊ป');
   console.log('PASS: notice bids ประกาศผู้ชนะ (โชคชัย) → winner name + award date');
 }
+
+// กฟส.บ้านฝาง ประกาศผู้ชนะ (2026-11-11): two zones in one award, both won by us → two items, total = our quotation (371,021.43)
+{
+  const d=ctx.extract(fx('notice-bids-banfang-winner.json'),'บ้านฝาง.pdf');
+  assert.equal(d.kind,'result');
+  assert.deepEqual(JSON.parse(JSON.stringify(d.lowest)),[243475.12,127546.31]);
+  assert.equal(d.ours,true);
+  assert.equal(ctx.isOurWin(d.lowest,[371021.43],[],0),true);
+  const r=ctx.resultPrice(d.lowest,66300,10,'บ้านฝาง',d.items.map(x=>x.name),{ours:true,budget:709410,quotePrices:[5.23]});
+  assert.equal(r.price,5.23);
+  // หนองกี่: someone else won
+  assert.equal(ctx.extract(fx('notice-bids-nongki-winner.json'),'หนองกี่.pdf').ours,false);
+  console.log('PASS: notice bids ประกาศผู้ชนะ 2 โซน (บ้านฝาง) → ours, 5.23');
+}

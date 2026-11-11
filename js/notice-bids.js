@@ -194,6 +194,7 @@
   // tone marks get lost in some PDFs ("การไฟฟาสวนภูมิภาค"): compare names without them
   function nameKey(s) { return String(s || '').replace(/[ัิ-ฺ็-๎\s.]/g, '').replace(/^(กฟส|กฟจ|กฟอ)/, ''); }
 
+  var OUR_NAME = /ไดเวอร์เจน|ไดเวอเจน|divergent/i;   // our company: บริษัท ไดเวอร์เจนท์ คอร์ปอเรชั่น จำกัด
   function extract(items, fileName) {
     var lines = toLines(items), T = lines.join('\n'), F = lines.join(' ').replace(/\s+/g, ' ');
     var out = { file: fileName || '' };
@@ -248,6 +249,15 @@
         var md = F.match(new RegExp('ประกาศ\\s*ณ\\s*วันที่\\s*' + DATE_RE));
         if (md) out.award_date = isoDate(md[1], md[2], md[3]);
         out.lowest = [amount(mt[1])]; out.items = [{ name: '', lowest: out.lowest[0] }];
+        // several zones in one award ("๑. … โซน A … ได้แก่ … เป็นเงินทั้งสิ้น 243,475.12 / ๒. … โซน B … 127,546.31", บ้านฝาง
+        // 2026-11-11): one item per zone with its winner, so the total compares with our quotation's total
+        var rz = /ได้แก่\s*(.{2,80}?)\s*(?:ซึ่งเป็นผู้|โดยเสนอราคา|เสนอราคาเป็นเงิน)[\s\S]{0,160}?(?:เป็นเงินทั้งสิ้น|ราคาทั้งสิ้น|เป็นเงิน)\s*(\d{1,3}(?:,\d{3})*\.\d{2})/g, mz, zs = [];
+        while ((mz = rz.exec(F))) zs.push({ name: mz[1].replace(/\s+/g, ' ').trim(), lowest: amount(mz[2]) });
+        if (zs.length > 1) { out.items = zs; out.lowest = zs.map(function (z) { return z.lowest; }); }
+        out.winners = (zs.length ? zs.map(function (z) { return z.name; }) : [out.winner || '']).filter(function (n, i, a) { return n && a.indexOf(n) === i; });
+        if (out.winners.length) out.winner = out.winners.join(' / ');
+        // the award names us (บริษัท ไดเวอร์เจนท์ คอร์ปอเรชั่น จำกัด; the PDF can split it "ได เวอร์เจนท์")
+        out.ours = out.winners.some(function (n) { return OUR_NAME.test(n.replace(/\s+/g, '')); });
         if (!ids.length) delete out.project_no;   // an 11-digit number in the text is not the project's
         return out;
       }
@@ -535,7 +545,8 @@
     var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps, quoteQtys: quoteQtys(row) }), price = r.price, total = r.total;
     var patch = { price_bid: price };
     if (named && d.project_no && !String(named.project_no || '').trim()) patch.project_no = d.project_no;
-    var ours = byTotal || isOurWin(d.lowest, qts, qps, price);
+    // a winner announcement that names us is our win, whatever our quotation says
+    var ours = !!d.ours || byTotal || isOurWin(d.lowest, qts, qps, price);
     // only a site with a quotation of ours can be called lost: without one there is nothing to compare
     // ประกาศผู้ชนะ names the winner: an offer that is not our quotation is someone else's win, quotation or not (หนองกี่)
     var quoted = qts.some(function (t) { return t > 0; }) || qps.length > 0 || !!d.winner_announce;
