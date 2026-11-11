@@ -126,7 +126,8 @@ function reverseGeocode(lat,lng){
   return p;
 }
 function addressText(n,m){
-  const a=String(m?.address||'').replace(/\s+/g,' ').trim();
+  // customers.address ends with "(lat,lng)": keep only the address text.
+  const a=String(m?.address||'').replace(/\s+/g,' ').replace(/\s*\(\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*\)\s*$/,'').trim();
   return a||areaText(n);
 }
 function retryButton(img){
