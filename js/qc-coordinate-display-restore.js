@@ -185,6 +185,33 @@ async function fixedLoadAllDistanceCards(images){
     try{await renderDistanceCard(img,false)}catch(e){console.warn('QC coordinate second pass',e)}
   }
 }
+// Shared lookup for the INSX-style review page (js/qc-review-insx.js).
+window.qcCoordinateLookup=async function(ca){
+  ca=String(ca||'').replace(/\D/g,'');
+  let batch=window._qcBatchCoordinateMap?.get(ca)||null;
+  let fallback=null;
+  if(!batch?.notice||!batch?.meter||!batch?.meter?.address){
+    try{fallback=await fetchByCa(ca,false)}catch(e){console.warn('QC review lookup',ca,e)}
+  }
+  const d=mergeCoordinateData(batch,fallback);
+  const n=d.notice||null,m=d.meter||null;
+  const notice=validCoord(n?.actual_latitude,n?.actual_longitude)?{lat:Number(n.actual_latitude),lng:Number(n.actual_longitude)}:null;
+  const meter=validCoord(m?.latitude,m?.longitude)?{lat:Number(m.latitude),lng:Number(m.longitude)}:null;
+  let address=addressText(n,m);
+  if(!String(m?.address||'').trim()&&(notice||meter)){
+    const pt=notice||meter;
+    try{const geo=await reverseGeocode(pt.lat,pt.lng);if(geo)address=geo}catch(_){}
+  }
+  return {
+    ca,raw:d,notice,meter,
+    peaNo:String(m?.pea_no||'').trim(),
+    mru:String(m?.mru||'').trim(),
+    name:String(m?.name||'').trim(),
+    address,
+    distance:notice&&meter?haversine(meter,notice):null,
+    distanceText:notice&&meter?formatDistance(haversine(meter,notice)):''
+  };
+};
 window.qcRetryCoordinate=async function(slotId,ca){
   const box=document.getElementById('distance-'+slotId);
   if(box)box.insertAdjacentHTML('beforeend','<div class="batch-distance-note">กำลังดึงพิกัดล่าสุด...</div>');
