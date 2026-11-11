@@ -972,6 +972,18 @@
   .controls-panel{display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:12px;align-items:end;padding:16px;border:1px solid #eee7f8;border-radius:15px;background:linear-gradient(135deg,#fcfbff,#f7f3ff);}
   .controls-panel label{font-size:13px;margin-bottom:7px}.controls-panel select{margin-bottom:0;}
   .controls-panel #loadButton{min-width:190px;height:46px;margin:0;}
+  #siteSelect[hidden]{display:none!important}
+  .qc-site-panel{grid-template-columns:1fr;align-items:stretch}.qc-site-panel #loadButton{justify-self:end}
+  .qc-site-picker-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .qc-site-picker-head label{margin:0}.qc-site-chosen{font-size:13px;color:#756b89}.qc-site-chosen.on{color:#5b2bb5;font-weight:700}
+  .qc-province{margin-top:12px}.qc-province-head{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:#21173a;margin-bottom:8px}
+  .qc-province-head::after{content:"";flex:1;height:1px;background:#e5ddf3}.qc-province-count{font-size:12px;font-weight:600;color:#756b89;background:#efe9fa;border-radius:999px;padding:1px 8px}
+  .qc-site-grid .qc-site-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+  .qc-site-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:58px;margin:0;padding:10px 12px;text-align:left;border:1px solid #e5ddf3;border-radius:12px;background:#fff;color:#21173a;box-shadow:none;cursor:pointer;font:inherit;transition:border-color .15s,background .15s,box-shadow .15s}
+  .qc-site-card:hover:not(:disabled){border-color:#a98be0;background:#faf7ff}
+  .qc-site-card .qc-site-name{font-size:14px;font-weight:700;line-height:1.3}.qc-site-card .qc-site-type{font-size:11.5px;color:#756b89;line-height:1.3}
+  .qc-site-card.active{border-color:#6d3fc8!important;background:#6d3fc8!important;box-shadow:0 6px 16px rgba(109,63,200,.28)!important}.qc-site-card.active .qc-site-name{color:#fff}.qc-site-card.active .qc-site-type{color:#e9defb}
+  .qc-site-card:disabled{opacity:.5;cursor:not-allowed}
   #statusBox{margin-top:14px;}
   .batch-area{margin-top:24px;}
   .batch-header{padding-bottom:8px;border-bottom:1px solid #eee8f6;}
@@ -984,7 +996,7 @@
   @media(max-width:900px){
     :root{--side-w:0px;}
     .sidebar{display:none}.main-shell{margin-left:0}.divergent-footer{left:0}
-    .main-shell .container{padding:16px 12px 64px}.controls-panel{grid-template-columns:1fr}.controls-panel #loadButton{width:100%}
+    .main-shell .container{padding:16px 12px 64px}.controls-panel{grid-template-columns:1fr}.controls-panel #loadButton{width:100%}.qc-site-grid .qc-site-list{grid-template-columns:repeat(2,minmax(0,1fr))}.qc-site-card{min-height:54px;padding:9px 10px}
   }
   @media(max-width:560px){
     .workspace-title{align-items:flex-start;flex-direction:column}.workspace-badge{white-space:normal}
@@ -1280,11 +1292,11 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         </div>
         <div class="workspace-badge">Image Rescue · QC</div>
       </div>
-      <div class="controls-panel">
-        <div>
-          <label for="siteSelect">เลือก Site งาน</label>
-
-      <select id="siteSelect" disabled>
+      <div class="controls-panel qc-site-panel">
+        <div class="qc-site-picker">
+          <div class="qc-site-picker-head"><label>เลือก Site งาน</label><span id="qcSiteChosen" class="qc-site-chosen">ยังไม่ได้เลือก</span></div>
+          <div id="qcSiteGrid" class="qc-site-grid" role="group" aria-label="เลือก Site งาน แยกตามจังหวัด"></div>
+      <select id="siteSelect" disabled hidden aria-hidden="true" tabindex="-1">
         <option value="">-- เลือก Site --</option>
         <option value="UDON">การไฟฟ้าส่วนภูมิภาคสาขาอุดรธานี</option>
         <option value="PHUWIANG">การไฟฟ้าส่วนภูมิภาคอำเภอภูเวียง</option>
@@ -1310,7 +1322,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         <option value="NONGBUNMAK">การไฟฟ้าส่วนภูมิภาคอำเภอหนองบุญมาก</option>
       </select>
         </div>
-        <button id="loadButton" onclick="loadBatches()" disabled>ดู Batch จาก Server</button>
+        <button id="loadButton" onclick="loadBatches()" disabled>↻ โหลด Batch ใหม่</button>
       </div>
 
       <div id="statusBox" class="status-box"></div>
@@ -4142,11 +4154,71 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
 
     function showClaimPendingNav(show){ applyMenuAccess(); }
 
+    const QC_SITE_PROVINCES = [
+      ["อุดรธานี", ["UDON"]],
+      ["ขอนแก่น", ["PHUWIANG", "KRANUAN", "NONGSONGHONG", "BANFANG", "MANCHAKHIRI"]],
+      ["มหาสารคาม", ["KOSUM"]],
+      ["ชัยภูมิ", ["CHAIYAPHUM", "PHUKHIAO", "CHATTURAT", "KAENGKHRO"]],
+      ["นครราชสีมา", ["KORAT2", "CHUMPHUANG", "SUNGNOEN", "NONTHAI", "PRATHAI", "BUAYAI", "NONGBUNMAK"]],
+      ["บุรีรัมย์", ["NONGKI", "PRAKHONCHAI", "PHUTTHAISONG"]],
+      ["ศรีสะเกษ", ["KANTHARALAK"]]
+    ];
+
+    function qcSiteLabel(text) {
+      const t = String(text || "").replace(/^การไฟฟ้าส่วนภูมิภาค/, "").trim();
+      const m = t.match(/^(สาขา|อำเภอ|จังหวัด)(.+)$/);
+      return m ? { type: "กฟภ." + m[1], name: m[2].trim() } : { type: "กฟภ.", name: t };
+    }
+
+    function renderQcSiteGrid() {
+      const host = document.getElementById("qcSiteGrid");
+      const select = document.getElementById("siteSelect");
+      if (!host || !select) return;
+      const options = Array.from(select.options).filter((o) => o.value);
+      const byCode = new Map(options.map((o) => [o.value, o]));
+      const groups = QC_SITE_PROVINCES.map(([province, codes]) => [province, codes.filter((c) => byCode.has(c))]);
+      const known = new Set(groups.flatMap(([, codes]) => codes));
+      const rest = options.map((o) => o.value).filter((c) => !known.has(c));
+      if (rest.length) groups.push(["อื่น ๆ", rest]);
+      const disabled = select.disabled;
+      host.innerHTML = groups.filter(([, codes]) => codes.length).map(([province, codes]) =>
+        '<section class="qc-province"><div class="qc-province-head">จ.' + escapeHtml(province) +
+        ' <span class="qc-province-count">' + codes.length + ' Site</span></div><div class="qc-site-list">' +
+        codes.map((code) => {
+          const opt = byCode.get(code);
+          const label = qcSiteLabel(opt.text);
+          const active = select.value === code;
+          return '<button type="button" class="qc-site-card' + (active ? " active" : "") + '" data-site="' + escapeHtml(code) +
+            '" title="' + escapeHtml(opt.text) + '" aria-pressed="' + active + '"' + (disabled ? " disabled" : "") +
+            ' onclick="chooseQcSite(this.dataset.site)"><span class="qc-site-name">' + escapeHtml(label.name) +
+            '</span><span class="qc-site-type">' + escapeHtml(label.type) + '</span></button>';
+        }).join("") + '</div></section>'
+      ).join("");
+      const chosen = document.getElementById("qcSiteChosen");
+      if (chosen) {
+        const opt = byCode.get(select.value);
+        chosen.textContent = opt ? "เลือกแล้ว: " + qcSiteLabel(opt.text).name : "ยังไม่ได้เลือก";
+        chosen.classList.toggle("on", !!opt);
+      }
+    }
+
+    function chooseQcSite(code) {
+      const select = document.getElementById("siteSelect");
+      if (!select || select.disabled) return;
+      select.value = code;
+      renderQcSiteGrid();
+      loadBatches();
+    }
+
     function setQcEnabled(enabled) {
       document.getElementById("siteSelect").disabled = !enabled;
       document.getElementById("loadButton").disabled = !enabled;
       window.qcAccessAllowed = !!enabled;
+      renderQcSiteGrid();
     }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", renderQcSiteGrid);
+    else renderQcSiteGrid();
 
     function showRegistrationBox(show) {
       const box = document.getElementById("registrationBox");
