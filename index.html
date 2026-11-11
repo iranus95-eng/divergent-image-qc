@@ -984,6 +984,8 @@
   .qc-site-card .qc-site-name{font-size:14px;font-weight:700;line-height:1.3}.qc-site-card .qc-site-type{font-size:11.5px;color:#756b89;line-height:1.3}
   .qc-site-card.active{border-color:#6d3fc8!important;background:#6d3fc8!important;box-shadow:0 6px 16px rgba(109,63,200,.28)!important}.qc-site-card.active .qc-site-name{color:#fff}.qc-site-card.active .qc-site-type{color:#e9defb}
   .qc-site-card:disabled{opacity:.5;cursor:not-allowed}
+  .qc-site-picker-head .qc-site-chosen{margin-right:auto}.qc-site-toggle{height:auto!important;width:auto!important;margin:0!important;padding:6px 14px;font-size:13px;border-radius:999px;border:1px solid #cdbbef!important;background:#fff!important;color:#5b2bb5;box-shadow:none!important}
+  .qc-site-picker.collapsed .qc-site-grid{display:none}
   #statusBox{margin-top:14px;}
   .batch-area{margin-top:24px;}
   .batch-header{padding-bottom:8px;border-bottom:1px solid #eee8f6;}
@@ -1294,7 +1296,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       </div>
       <div class="controls-panel qc-site-panel">
         <div class="qc-site-picker">
-          <div class="qc-site-picker-head"><label>เลือก Site งาน</label><span id="qcSiteChosen" class="qc-site-chosen">ยังไม่ได้เลือก</span></div>
+          <div class="qc-site-picker-head"><label>เลือก Site งาน</label><span id="qcSiteChosen" class="qc-site-chosen">ยังไม่ได้เลือก</span><button type="button" id="qcSiteToggle" class="qc-site-toggle" onclick="toggleQcSiteGrid()" hidden>เปลี่ยน Site</button></div>
           <div id="qcSiteGrid" class="qc-site-grid" role="group" aria-label="เลือก Site งาน แยกตามจังหวัด"></div>
       <select id="siteSelect" disabled hidden aria-hidden="true" tabindex="-1">
         <option value="">-- เลือก Site --</option>
@@ -4154,7 +4156,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
 
     function showClaimPendingNav(show){ applyMenuAccess(); }
 
-    const QC_SITE_PROVINCES = [
+    var QC_SITE_PROVINCES = [
       ["อุดรธานี", ["UDON"]],
       ["ขอนแก่น", ["PHUWIANG", "KRANUAN", "NONGSONGHONG", "BANFANG", "MANCHAKHIRI"]],
       ["มหาสารคาม", ["KOSUM"]],
@@ -4171,6 +4173,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     }
 
     function renderQcSiteGrid() {
+      if (typeof QC_SITE_PROVINCES === "undefined" || !QC_SITE_PROVINCES) return;
       const host = document.getElementById("qcSiteGrid");
       const select = document.getElementById("siteSelect");
       if (!host || !select) return;
@@ -4202,12 +4205,31 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       }
     }
 
-    function chooseQcSite(code) {
+    function setQcSiteGridCollapsed(collapsed) {
+      const picker = document.querySelector(".qc-site-picker");
+      const toggle = document.getElementById("qcSiteToggle");
+      const hasSite = !!document.getElementById("siteSelect")?.value;
+      if (picker) picker.classList.toggle("collapsed", !!collapsed && hasSite);
+      if (toggle) {
+        toggle.hidden = !hasSite;
+        toggle.textContent = collapsed && hasSite ? "เปลี่ยน Site" : "ซ่อนรายการ Site";
+      }
+    }
+
+    function toggleQcSiteGrid() {
+      const picker = document.querySelector(".qc-site-picker");
+      setQcSiteGridCollapsed(!(picker && picker.classList.contains("collapsed")));
+    }
+
+    async function chooseQcSite(code) {
       const select = document.getElementById("siteSelect");
       if (!select || select.disabled) return;
       select.value = code;
       renderQcSiteGrid();
-      loadBatches();
+      setQcSiteGridCollapsed(true);
+      await loadBatches();
+      const target = document.getElementById("batchArea");
+      if (target && target.style.display !== "none") target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function setQcEnabled(enabled) {
@@ -4810,6 +4832,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       const imageGroups = document.getElementById("imageGroups");
 
       detailArea.style.display = "block";
+      try { detailArea.scrollIntoView({ block: "start" }); } catch (_) {}
       document.getElementById("detailTitle").textContent = batch.batch_id;
       detailStatus.style.display = "block";
       detailStatus.className = "status-box";
