@@ -30,9 +30,20 @@ for f in d['features']:
         r = ring(poly[0])
         if len(r) >= 4: rings.append(r)
     feats.append({'n': p['amp_th'], 'p': p['pro_th'], 'c': [round(p['lon'], 3), round(p['lat'], 3)], 'g': rings})
+# tambons drawn inside their district because a site or office is named after them (หมูสี is part of ปากช่อง: user, 11 พ.ย. 69)
+TAMBONS = [('นครราชสีมา', 'ปากช่อง', 'หมูสี')]
+tams = []
+if len(sys.argv) > 4:
+    for f in json.load(open(sys.argv[4], encoding='utf-8'))['features']:
+        p = f['properties']
+        if (p['pro_th'], p['amp_th'], p['tam_th']) not in TAMBONS: continue
+        g = f['geometry']; polys = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
+        rings = [r for r in (ring(poly[0]) for poly in polys) if len(r) >= 4]
+        tams.append({'n': p['tam_th'], 'a': p['amp_th'], 'p': p['pro_th'], 'c': [round(p['lon'], 3), round(p['lat'], 3)], 'g': rings})
 js = ('/* อำเภอของ 5 จังหวัด (ขอนแก่น ชัยภูมิ นครราชสีมา บุรีรัมย์ สุรินทร์) สำหรับแผนที่ตารางประมูลแจ้งเตือน (js/notice-map.js)\n'
       ' * ขอบเขตอำเภอจาก OpenGISData-Thailand districts.geojson (chingchai, CC BY 4.0), ลดจุดด้วย Douglas-Peucker ' + str(TOL) + '° แล้วปัดทศนิยม 3 ตำแหน่ง\n'
-      ' * สร้างใหม่: scripts/build-notice-map-data.py <districts.geojson> js/notice-map-data.js */\n'
-      'window.NOTICE_MAP_DATA = ' + json.dumps({'provinces': P, 'districts': feats}, ensure_ascii=False, separators=(',', ':')) + ';\n')
+      ' * ตำบลที่วาดเพิ่มในอำเภอ (tambons): จาก subdistricts.geojson ชุดเดียวกัน\n'
+      ' * สร้างใหม่: scripts/build-notice-map-data.py <districts.geojson> js/notice-map-data.js 0.004 <subdistricts.geojson> */\n'
+      'window.NOTICE_MAP_DATA = ' + json.dumps({'provinces': P, 'districts': feats, 'tambons': tams}, ensure_ascii=False, separators=(',', ':')) + ';\n')
 open(out, 'w', encoding='utf-8').write(js)
-print(len(feats), len(js.encode()))
+print(len(feats), len(tams), len(js.encode()))

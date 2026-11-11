@@ -22,6 +22,15 @@ assert.deepEqual(of('ท่าตูม'),['สุรินทร์/ท่า�
 assert.deepEqual(of('บุรีรัมย์'),['บุรีรัมย์/เมืองบุรีรัมย์']);
 assert.deepEqual(of('ชัยภูมิ'),['ชัยภูมิ/เมืองชัยภูมิ']);
 assert.deepEqual(of('จอหอ'),['นครราชสีมา/เมืองนครราชสีมา']);
+assert.deepEqual(of('หมูสี'),['นครราชสีมา/ปากช่อง']);
+assert.deepEqual(of('กฟส.หมูสี'),['นครราชสีมา/ปากช่อง']);
+// ต.หมูสี is drawn inside ปากช่อง, with its own name, and goes green with ปากช่อง when won (user, 11 พ.ย. 69)
+{ const t=ctx.window.NOTICE_MAP_DATA.tambons; assert.deepEqual(JSON.parse(JSON.stringify(t.map(x=>x.p+'/'+x.a+'/'+x.n))),['นครราชสีมา/ปากช่อง/หมูสี']);
+  const h=M.html([{id:1,site:'ปากช่อง',status:'ชนะประมูล'}]);
+  assert.ok(h.includes('>ต.หมูสี</text>'));
+  assert.ok(/class="nm-tb won" fill="#e3f4e6"/.test(h));
+  assert.ok(h.includes('รวม ต.หมูสี'));
+  assert.ok(M.pictureSvg([{id:1,site:'ปากช่อง',status:'ชนะประมูล'}],'').svg.includes('>ต.หมูสี</text>')); }
 assert.deepEqual(of('อุดรธานี'),[]);   // outside the 5 provinces
 assert.deepEqual(of('ร้อยเอ็ด'),[]);
 // every district of COVER exists

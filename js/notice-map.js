@@ -69,9 +69,16 @@
       d.xy = pt(d.c); d.key = key(d);
       (byName[d.n] = byName[d.n] || []).push(d); byKey[d.key] = d;
     });
+    // tambons drawn inside their district (หมูสี in ปากช่อง): same marks as the district, a dashed edge and their own name
+    var tams = (D.tambons || []).filter(function (t) { return byKey[t.p + '/' + t.a]; });
+    tams.forEach(function (t) {
+      t.path = t.g.map(function (r) { return 'M' + r.map(function (p) { var q = pt(p); return q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join('L') + 'Z'; }).join('');
+      t.xy = pt(t.c); t.d = byKey[t.p + '/' + t.a];
+      (t.d.tams = t.d.tams || []).push(t.n);
+    });
     var prov = {};
     D.districts.forEach(function (d) { var a = prov[d.p] = prov[d.p] || { x: 0, y: 0, n: 0 }; a.x += d.xy[0]; a.y += d.xy[1]; a.n++; });
-    geo = { list: D.districts, byName: byName, byKey: byKey, prov: prov, H: Math.ceil(pad * 2 + (maxY - minY) * k) };
+    geo = { list: D.districts, tams: tams, byName: byName, byKey: byKey, prov: prov, H: Math.ceil(pad * 2 + (maxY - minY) * k) };
     return geo;
   }
 
@@ -171,13 +178,19 @@
     var shapes = '', labels = '', signs = '';
     g.list.forEach(function (d) {
       var e = m[d.key], s = state(e), x = Math.round(d.xy[0]), y = Math.round(d.xy[1]);
-      var tip = d.n + ' (' + d.p + ')' + (e ? [['won', '🏆 ชนะประมูล'], ['cover', '🏆 สาขาย่อยของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
+      var tip = d.n + ' (' + d.p + ')' + (d.tams ? '\nรวม ' + d.tams.map(function (n) { return 'ต.' + n; }).join(', ') : '') + (e ? [['won', '🏆 ชนะประมูล'], ['cover', '🏆 สาขาย่อยของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
         .filter(function (k) { return e[k[0]].length; }).map(function (k) { return '\n' + k[1] + ': ' + e[k[0]].join(', '); }).join('') : '');
       shapes += '<path class="nm-d' + (s === 'won' ? ' won' : '') + '" fill="' + (s === 'won' ? '#e3f4e6' : FILL[d.p] || '#fff') + '" d="' + d.path + '"><title>' + esc(tip) + '</title></path>';
       labels += '<text class="nm-l" x="' + x + '" y="' + y + '">' + esc(d.n) + '</text>';
       if (s === 'won') signs += check(x, y + 13);
       else if (s === 'wait' && focus[d.key]) signs += pin(x, y - 9);
       else if (s === 'lost') signs += cross(x, y + 12);
+    });
+    g.tams.forEach(function (t) {
+      var e = m[t.d.key], s = state(e);
+      shapes += '<path class="nm-tb' + (s === 'won' ? ' won' : '') + '" fill="' + (s === 'won' ? '#e3f4e6' : FILL[t.p] || '#fff') + '" d="' + t.path + '"><title>' +
+        esc('ต.' + t.n + ' (อ.' + t.a + ' ' + t.p + ')' + (e ? ' — ' + ['won', 'cover', 'wait', 'lost'].map(function (k) { return e[k].join(', '); }).filter(Boolean).join(', ') : '')) + '</title></path>';
+      labels += '<text class="nm-tl" x="' + Math.round(t.xy[0]) + '" y="' + Math.round(t.xy[1]) + '">ต.' + esc(t.n) + '</text>';
     });
     // won districts drawn again on top, so their red outline is not hidden under the neighbours' grey edges
     var tops = g.list.filter(function (d) { return state(m[d.key]) === 'won'; }).map(function (d) { return '<path class="nm-wo" d="' + d.path + '"/>'; }).join('');
@@ -217,7 +230,7 @@
   }
 
   // ---------------------------------------------------------------- download: the map as it is now, with a title and the legend, as a PNG
-  var MAP_CSS = '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6}' +
+  var MAP_CSS = '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-tb{stroke:#8f8f8f;stroke-width:.6;stroke-dasharray:3 2}.nm-tl{font-size:9px;font-weight:700;fill:#555;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:2.5px;stroke-linejoin:round}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6}' +
     '.nm-l{font-size:10.5px;font-weight:700;fill:#222;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}' +
     '.nm-p{font-size:30px;font-weight:800;fill:#4b2378;opacity:.15;text-anchor:middle;dominant-baseline:middle}' +
     '.nm-ck path{fill:#f5b800;stroke:#9a6a00;stroke-width:1.1;stroke-linejoin:round}.nm-ck .h{fill:none;stroke:#c98f00;stroke-width:1.8}' +
@@ -290,7 +303,7 @@
     var s = document.createElement('style'); s.id = 'nmStyle';
     s.textContent = '.nm-wrap{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:10px;margin-bottom:14px}' +
       '.nm-scroll{overflow:auto;-webkit-overflow-scrolling:touch}.nm-svg{display:block;width:100%;min-width:760px;height:auto}' +
-      '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-d:hover{filter:brightness(.95)}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6;pointer-events:none}' +
+      '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-d:hover,.nm-tb:hover{filter:brightness(.95)}.nm-tb{stroke:#8f8f8f;stroke-width:.6;stroke-dasharray:3 2}.nm-tl{font-size:9px;font-weight:700;fill:#555;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:2.5px;stroke-linejoin:round;pointer-events:none}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6;pointer-events:none}' +
       '.nm-l{font-size:10.5px;font-weight:700;fill:#222;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;pointer-events:none}' +
       '.nm-p{font-size:30px;font-weight:800;fill:#4b2378;opacity:.15;text-anchor:middle;dominant-baseline:middle;pointer-events:none}' +
       '.nm-ck path{fill:#f5b800;stroke:#9a6a00;stroke-width:1.1;stroke-linejoin:round;pointer-events:none}.nm-ck .h{fill:none;stroke:#c98f00;stroke-width:1.8}' +
