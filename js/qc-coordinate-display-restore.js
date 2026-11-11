@@ -13,24 +13,13 @@ function validCoord(lat,lng){
 }
 function formatDistance(m){
   m=Number(m);if(!Number.isFinite(m))return '-';
-  return m<1000?Math.round(m).toLocaleString('th-TH')+' เมตร':(m/1000).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' กม.';
+  return m<1000?m.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' เมตร':(m/1000).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' กม.';
 }
 function haversine(a,b){
   const R=6371000,toRad=x=>x*Math.PI/180;
   const p1=toRad(a.lat),p2=toRad(b.lat),dp=toRad(b.lat-a.lat),dl=toRad(b.lng-a.lng);
   const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
   return 2*R*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
-}
-async function drivingDistance(a,b){
-  const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),6500);
-  try{
-    const url='https://router.project-osrm.org/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=false&alternatives=false&steps=false';
-    const r=await fetch(url,{signal:ctl.signal});
-    const d=await r.json().catch(()=>null);
-    if(r.ok&&d?.routes?.[0]&&Number.isFinite(Number(d.routes[0].distance)))return Number(d.routes[0].distance);
-  }catch(_){ }
-  finally{clearTimeout(timer)}
-  return null;
 }
 async function bestToken(){
   try{if(typeof window.getBestDataToken==='function'){const t=await window.getBestDataToken();if(t)return t}}catch(_){}
@@ -170,10 +159,9 @@ async function renderDistanceCard(img,force=false){
     '<div class="batch-distance-coord qc-address"><span class="coord-label">🏠 ที่อยู่</span><span class="coord-value">'+(addr?esc(addr):'ยังไม่มีข้อมูลที่อยู่ในระบบ')+'</span></div>';
 
   if(nok&&mok){
-    let dist=Number(d?.route?.distance_m),mode='ระยะทางขับรถ';
-    if(!Number.isFinite(dist))dist=await drivingDistance({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});
-    if(!Number.isFinite(dist)){dist=haversine({lat:nlat,lng:nlng},{lat:mlat,lng:mlng});mode='ระยะเส้นตรง'}
-    html+='<div class="batch-distance-value">'+formatDistance(dist)+'</div><div class="batch-distance-note">'+mode+' · ใบแจ้งเตือน ↔ มิเตอร์จดหน่วย</div>';
+    // Same as INSX "ผลระยะห่าง (เมตร)": straight-line distance PTC meter ↔ INSx photo GPS.
+    const dist=haversine({lat:mlat,lng:mlng},{lat:nlat,lng:nlng});
+    html+='<div class="batch-distance-value">'+formatDistance(dist)+'</div><div class="batch-distance-note">ระยะเส้นตรง (แบบ INSX) · มิเตอร์ ↔ จุดส่งใบแจ้งเตือน</div>';
   }else if(!nok&&mok){
     html+='<div class="batch-distance-note">⚠️ '+missingNoticeText()+' จึงยังคำนวณระยะไม่ได้</div>'+
       '<div class="qc-coordinate-source-warn">ระบบจะไม่ใช้พิกัดมิเตอร์แทนพิกัดใบแจ้งเตือน เพื่อป้องกันระยะทางผิด</div>'+retryButton(img);
