@@ -163,12 +163,11 @@ async function renderDistanceCard(img,force=false){
     const dist=haversine({lat:mlat,lng:mlng},{lat:nlat,lng:nlng});
     html+='<div class="batch-distance-value">'+formatDistance(dist)+'</div>';
   }else if(!nok&&mok){
-    html+='<div class="batch-distance-note">⚠️ '+missingNoticeText()+' จึงยังคำนวณระยะไม่ได้</div>'+
-      '<div class="qc-coordinate-source-warn">ระบบจะไม่ใช้พิกัดมิเตอร์แทนพิกัดใบแจ้งเตือน เพื่อป้องกันระยะทางผิด</div>'+retryButton(img);
+    html+='<div class="batch-distance-note">⚠️ ไม่มีพิกัดแจ้งเตือน</div>'+retryButton(img);
   }else if(nok&&!mok){
-    html+='<div class="batch-distance-note">⚠️ พบพิกัดใบแจ้งเตือนแล้ว แต่ยังไม่มีพิกัดมิเตอร์ จึงยังคำนวณระยะไม่ได้</div>'+retryButton(img);
+    html+='<div class="batch-distance-note">⚠️ ไม่มีพิกัดจดหน่วย</div>'+retryButton(img);
   }else{
-    html+='<div class="batch-distance-note">⚠️ ยังไม่มีพิกัดครบ 2 จุด จึงยังคำนวณระยะไม่ได้</div>'+retryButton(img);
+    html+='<div class="batch-distance-note">⚠️ ไม่มีพิกัดแจ้งเตือนและพิกัดจดหน่วย</div>'+retryButton(img);
   }
   box.innerHTML=html;
 }
