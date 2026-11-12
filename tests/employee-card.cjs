@@ -28,8 +28,8 @@ const sh = EC.sheets([c, c, c], {});
 const pages = sh.split('<section class="ec-sheet">').slice(1);
 assert.equal(pages.length, 2);
 const slots = (p) => p.match(/class="ec-(card ec-front|card ec-back|slot)"/g).map((m) => m.includes('slot') ? '-' : 'X');
-assert.deepEqual(slots(pages[0]), ['X', 'X', 'X', '-', '-', '-', '-', '-']);
-assert.deepEqual(slots(pages[1]), ['X', 'X', '-', 'X', '-', '-', '-', '-']);
+assert.deepEqual(slots(pages[0]), ['X', 'X', 'X', '-']);
+assert.deepEqual(slots(pages[1]), ['X', 'X', '-', 'X']);
 assert.equal(EC.sheets(new Array(9).fill(c), {}).split('<section').length - 1, 4);
 // pair: 5 cards -> 2 sheets (4 + 1); every card is a front followed by its own back, side by side
 const sp = EC.sheets([c, c, c, c, c], {}, 'pair').split('<section class="ec-sheet">').slice(1);
@@ -37,4 +37,12 @@ assert.equal(sp.length, 2);
 const sides = (p) => p.match(/class="ec-card ec-(front|back)"/g).map((m) => m.includes('front') ? 'F' : 'B');
 assert.deepEqual(sides(sp[0]), ['F', 'B', 'F', 'B', 'F', 'B', 'F', 'B']);
 assert.deepEqual(sides(sp[1]), ['F', 'B']);
+// cards per sheet: 3 cards at 1 per sheet two-sided -> 3 fronts + 3 backs = 6 pages; 2 per sheet -> 4 pages
+assert.equal(EC.sheets([c, c, c], {}, 'duplex', 1).split('<section').length - 1, 6);
+assert.equal(EC.sheets([c, c, c], {}, 'duplex', 2).split('<section').length - 1, 4);
+assert.equal(EC.sheets([c, c, c], {}, 'pair', 1).split('<section').length - 1, 3);
+// one card per sheet two-sided: front at the left, its back at the right of the next page
+const one = EC.sheets([c], {}, 'duplex', 1).split('<section class="ec-sheet">').slice(1).map(slots);
+assert.deepEqual(one, [['X', '-'], ['-', 'X']]);
+assert.equal(EC.perSheet('pair', 9), 4); assert.equal(EC.perSheet('duplex', 0), 8); assert.equal(EC.perSheet('duplex', 3), 3);
 console.log('PASS: employee-card');
