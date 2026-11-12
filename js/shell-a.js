@@ -28,7 +28,7 @@
     ['navLocation', 'field', 'ค้นหาพิกัดตำแหน่ง', 'เทียบพิกัดงานกับพิกัดมิเตอร์', 'pin'],
     ['navMeterNew', 'field', 'ค้นหามิเตอร์ใหม่', 'ลูกค้าที่ไม่มีพิกัดรูปงาน: บ้านข้างเคียง + ที่อยู่', 'pin'],
     // shown only to the main admin account: js/employee-card.js hides its nav item for everyone else
-    ['navEmployeeCard', 'field', 'บัตรพนักงาน', 'บัตรประจำตัวผู้ปฏิบัติงานตามแบบ TOR พิมพ์ A4 แผ่นละ 8 ใบ', 'staff'],
+    ['navEmployeeCard', 'field', 'บัตรพนักงาน', 'บัตรประจำตัวผู้ปฏิบัติงานตามแบบ TOR พิมพ์ A4 หน้า-หลังในแผ่นเดียว', 'staff'],
     ['navClaim', 'finance', 'ตั้งเบิกค่าตอบแทน', 'ยอดตั้งเบิก รับแล้ว และค้างรับ', 'claim'],
     ['navClaimPending', 'finance', 'การไฟฟ้าที่ยังเบิกไม่ได้', 'ข้อมูลตั้งเบิกยังไม่ครบ', 'alert'],
     ['navPayroll', 'finance', 'จัดการเงินเดือน', 'ข้อมูลพนักงานและไฟล์ธนาคาร', 'payroll'],

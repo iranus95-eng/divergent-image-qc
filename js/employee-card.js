@@ -3,7 +3,7 @@
  *  - บัตรสีขาว ตัวหนังสือสีดำ ขนาด 9 x 6 ซม., รูปถ่าย 1 นิ้ว มุมขวาบน (ประทับตรา กฟภ. ทับภายหลัง)
  *  - ชื่อ/นามสกุล, เลขที่ XXX/ปี, ผู้รับจ้างเหมา, ประจำ กฟฟ., วันที่ออกบัตร, วันที่บัตรหมดอายุ (31 ธ.ค.),
  *    ผู้ลงนาม (ผจก.กฟฟ.คู่สัญญา), กฟ. … โทร …; ด้านหลังเป็นข้อปฏิบัติในการใช้บัตร 7 ข้อ
- *  - รายชื่อจากข้อมูลเงินเดือน (employee-card-api), พิมพ์ลง A4 แผ่นละ 8 ใบ หน้า-หลัง (หลังสลับซ้าย-ขวา สำหรับพิมพ์สองหน้า)
+ *  - รายชื่อจากข้อมูลเงินเดือน (employee-card-api), พิมพ์ลง A4 แผ่นละ 4 ใบ ด้านหน้าและด้านหลังของบัตรอยู่คู่กันในแถวเดียว (พิมพ์หน้าเดียว)
  * Admin only (บัญชี admin หลัก) เหมือนเมนูผู้ดูแลอื่น ๆ
  */
 (function () {
@@ -59,19 +59,14 @@
     return '<div class="ec-card ec-back"><div class="ec-rules"><b>ข้อปฏิบัติในการใช้บัตร</b><ol>' +
       RULES.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ol></div></div>';
   }
-  // A4 sheets of 2 x 4 cards: the fronts, then the backs with each row's columns swapped
-  // so that a long-edge duplex print puts every back behind its own front
+  // A4 sheets of 4 cards, one card per row: its front on the left and its back on the right,
+  // so one single-sided print holds both sides (cut out, fold or glue back to back, laminate)
   function sheets(cards, offices) {
-    var out = [], per = 8;
+    var out = [], per = 4;
     for (var i = 0; i < cards.length; i += per) {
-      var chunk = cards.slice(i, i + per), f = '', b = '';
-      for (var k = 0; k < per; k++) {
-        var c = chunk[k];
-        f += c ? front(c, offices[c.pea_office] || {}) : '<div class="ec-slot"></div>';
-        var m = chunk[k % 2 ? k - 1 : k + 1];   // mirrored partner in the same row
-        b += m ? back() : '<div class="ec-slot"></div>';
-      }
-      out.push('<section class="ec-sheet">' + f + '</section>', '<section class="ec-sheet">' + b + '</section>');
+      out.push('<section class="ec-sheet">' + cards.slice(i, i + per).map(function (c) {
+        return front(c, offices[c.pea_office] || {}) + back();
+      }).join('') + '</section>');
     }
     return out.join('');
   }
@@ -198,7 +193,7 @@
     if (st.people == null) { w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">กำลังโหลดรายชื่อ…</div>'; return; }
     var sites = []; rows().forEach(function (p) { if (sites.indexOf(p.site) < 0) sites.push(p.site); }); sites.sort();
     var list = filtered(), nSel = Object.keys(st.sel).filter(function (k) { return st.sel[k]; }).length;
-    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แผ่นละ 8 ใบ หน้า-หลัง</div>' +
+    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แผ่นละ 4 ใบ ด้านหน้าคู่ด้านหลังในแผ่นเดียว</div>' +
       (st.err ? '<div class="ec-err">' + esc(st.err) + '</div>' : '') +
       '<div class="ec-bar"><input type="search" data-ec="q" placeholder="ค้นหาชื่อ / ไซต์" value="' + esc(st.q) + '">' +
       '<select data-ec="site"><option value="">ทุกไซต์ (' + rows().length + ' คน)</option>' + sites.map(function (s) { return '<option' + (s === st.site ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select>' +
