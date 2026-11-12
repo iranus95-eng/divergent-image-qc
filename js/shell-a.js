@@ -27,6 +27,8 @@
     ['navSearch', 'field', 'ค้นหาข้อมูล', 'รูปและข้อมูลลูกค้าจากเลข CA', 'search'],
     ['navLocation', 'field', 'ค้นหาพิกัดตำแหน่ง', 'เทียบพิกัดงานกับพิกัดมิเตอร์', 'pin'],
     ['navMeterNew', 'field', 'ค้นหามิเตอร์ใหม่', 'ลูกค้าที่ไม่มีพิกัดรูปงาน: บ้านข้างเคียง + ที่อยู่', 'pin'],
+    // shown only to the main admin account: js/employee-card.js hides its nav item for everyone else
+    ['navEmployeeCard', 'field', 'บัตรพนักงาน', 'บัตรประจำตัวผู้ปฏิบัติงานตามแบบ TOR พิมพ์ A4 แผ่นละ 8 ใบ', 'staff'],
     ['navClaim', 'finance', 'ตั้งเบิกค่าตอบแทน', 'ยอดตั้งเบิก รับแล้ว และค้างรับ', 'claim'],
     ['navClaimPending', 'finance', 'การไฟฟ้าที่ยังเบิกไม่ได้', 'ข้อมูลตั้งเบิกยังไม่ครบ', 'alert'],
     ['navPayroll', 'finance', 'จัดการเงินเดือน', 'ข้อมูลพนักงานและไฟล์ธนาคาร', 'payroll'],
@@ -41,7 +43,6 @@
     ['navDocArchive', 'docs', 'เอกสารย้อนหลัง', 'ค้นหา ดู และพิมพ์เอกสารที่บันทึกไว้', 'archive'],
     ['navQuoteNotice', 'admin', 'เสนอราคาแจ้งเตือน', 'กรอกราคาต่อหน่วยบนไฟล์ใบเสนอราคา', 'invoice'],
     ['navNoticeBids', 'admin', 'ตารางประมูลแจ้งเตือน', 'ตารางประมูลและใบเสนอราคาของแต่ละไซด์', 'pl'],
-    ['navEmployeeCard', 'admin', 'บัตรพนักงาน', 'บัตรประจำตัวผู้ปฏิบัติงานตามแบบ TOR พิมพ์ A4 แผ่นละ 8 ใบ', 'staff'],
     ['navPaperOrder', 'docs', 'สรุปและสั่งกระดาษ', 'สรุปการใช้และสั่งรอบถัดไป', 'paper'],
     ['navUsers', 'system', 'จัดการผู้ใช้งาน', 'บัญชี บทบาท สิทธิ์ และวันหมดอายุ', 'users'],
     ['navCustomerImport', 'system', 'นำเข้าข้อมูลลูกค้า', 'นำเข้า Excel เข้าฐานลูกค้า', 'import']
