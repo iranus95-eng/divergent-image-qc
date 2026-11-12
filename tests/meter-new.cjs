@@ -21,4 +21,5 @@ assert.equal(r.pick.kind,'longdo');
 /* 5) ไม่มีข้อมูลเลย */
 r=M.recommend({...base,customer:null,neighbours:null,longdo:{error:'LONGDO_NO_RESULT'},checks:{}});
 assert.equal(r.pick,null);
+assert.equal(M.dist({lat:16.146375,lng:102.618697},{lat:16.14695166,lng:102.6187567}),64);
 console.log('PASS: meter-new recommend');
