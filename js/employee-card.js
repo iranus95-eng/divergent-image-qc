@@ -60,24 +60,24 @@
     return '<div class="ec-card ec-back"><div class="ec-rules"><b>ข้อปฏิบัติในการใช้บัตร</b><ol>' +
       RULES.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ol></div></div>';
   }
-  // A4 sheets, two layouts:
-  //  'duplex' (default): 8 fronts on one page, 8 backs on the next with each row's columns swapped,
+  // A4 sheets, two layouts; `per` = cards per sheet (1-8 two-sided, 1-4 side by side), placed from the top left:
+  //  'duplex' (default): fronts on one page, backs on the next with each row's columns swapped,
   //            so a two-sided print (flip on long edge) puts every back behind its own front
-  //  'pair':   4 cards per page, each row = front | back, for a one-sided print
-  function sheets(cards, offices, mode) {
-    var out = [], i;
+  //  'pair':   each row = front | back, for a one-sided print
+  function perSheet(mode, per) { var max = mode === 'pair' ? 4 : 8; per = Math.floor(+per) || max; return Math.max(1, Math.min(max, per)); }
+  function sheets(cards, offices, mode, per) {
+    var out = [], i, n = perSheet(mode, per);
     if (mode === 'pair') {
-      for (i = 0; i < cards.length; i += 4) {
-        out.push('<section class="ec-sheet">' + cards.slice(i, i + 4).map(function (c) {
+      for (i = 0; i < cards.length; i += n) {
+        out.push('<section class="ec-sheet">' + cards.slice(i, i + n).map(function (c) {
           return front(c, offices[c.pea_office] || {}) + back();
         }).join('') + '</section>');
       }
       return out.join('');
     }
-    var per = 8;
-    for (i = 0; i < cards.length; i += per) {
-      var chunk = cards.slice(i, i + per), f = '', b = '';
-      for (var k = 0; k < per; k++) {
+    for (i = 0; i < cards.length; i += n) {
+      var chunk = cards.slice(i, i + n), slots = Math.ceil(chunk.length / 2) * 2, f = '', b = '';
+      for (var k = 0; k < slots; k++) {
         var c = chunk[k];
         f += c ? front(c, offices[c.pea_office] || {}) : '<div class="ec-slot"></div>';
         var m = chunk[k % 2 ? k - 1 : k + 1];   // mirrored partner in the same row
@@ -102,7 +102,7 @@
     '.ec-sheet{width:210mm;height:297mm;box-sizing:border-box;padding:24.5mm 13mm;display:grid;grid-template-columns:90mm 90mm;grid-auto-rows:60mm;gap:2mm 4mm;justify-content:center;page-break-after:always;break-after:page}' +
     '.ec-sheet:last-child{page-break-after:auto;break-after:auto}';
 
-  var api = { front: front, back: back, sheets: sheets, thDate: thDate, splitName: splitName, cardNo: cardNo, fixThai: fixThai, officeOf: officeOf, CARD_CSS: CARD_CSS, RULES: RULES };
+  var api = { front: front, back: back, sheets: sheets, perSheet: perSheet, thDate: thDate, splitName: splitName, cardNo: cardNo, fixThai: fixThai, officeOf: officeOf, CARD_CSS: CARD_CSS, RULES: RULES };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   if (window.__employeeCard) return;
   window.__employeeCard = true;
@@ -125,12 +125,15 @@
   }
 
   // ---------------------------------------------------------------- state
-  var st = { people: null, cards: [], offices: {}, photos: {}, err: '', q: '', site: '', sel: {}, edit: null, layout: 'duplex' };
-  try { if (localStorage.getItem('ec_print_layout') === 'pair') st.layout = 'pair'; } catch (_) {}
+  var st = { people: null, cards: [], offices: {}, photos: {}, err: '', q: '', site: '', sel: {}, edit: null, layout: 'duplex', per: 0 };
+  try { if (localStorage.getItem('ec_print_layout') === 'pair') st.layout = 'pair'; st.per = +localStorage.getItem('ec_print_per') || 0; } catch (_) {}
   function layoutPick() {
+    var n = perSheet(st.layout, st.per), max = st.layout === 'pair' ? 4 : 8, opts = '';
+    for (var k = 1; k <= max; k++) opts += '<option value="' + k + '"' + (k === n ? ' selected' : '') + '>แผ่นละ ' + k + ' ใบ</option>';
     return '<select data-ec="layout" title="รูปแบบการพิมพ์">' +
-      '<option value="duplex"' + (st.layout === 'pair' ? '' : ' selected') + '>พิมพ์ 2 หน้า (แผ่นละ 8 ใบ)</option>' +
-      '<option value="pair"' + (st.layout === 'pair' ? ' selected' : '') + '>หน้า-หลังคู่กัน หน้าเดียว (แผ่นละ 4 ใบ)</option></select>';
+      '<option value="duplex"' + (st.layout === 'pair' ? '' : ' selected') + '>พิมพ์ 2 หน้า</option>' +
+      '<option value="pair"' + (st.layout === 'pair' ? ' selected' : '') + '>หน้า-หลังคู่กัน หน้าเดียว</option></select>' +
+      '<select data-ec="per" title="จำนวนบัตรต่อแผ่น A4">' + opts + '</select>';
   }
   function today() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }
   async function load() {
@@ -216,7 +219,7 @@
     if (st.people == null) { w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">กำลังโหลดรายชื่อ…</div>'; return; }
     var sites = []; rows().forEach(function (p) { if (sites.indexOf(p.site) < 0) sites.push(p.site); }); sites.sort();
     var list = filtered(), nSel = Object.keys(st.sel).filter(function (k) { return st.sel[k]; }).length;
-    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 ได้ทั้งแบบ 2 หน้า (แผ่นละ 8 ใบ) และแบบหน้า-หลังคู่กันในหน้าเดียว (แผ่นละ 4 ใบ)</div>' +
+    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แบบ 2 หน้า หรือหน้า-หลังคู่กันในหน้าเดียว เลือกจำนวนบัตรต่อแผ่นได้</div>' +
       (st.err ? '<div class="ec-err">' + esc(st.err) + '</div>' : '') +
       '<div class="ec-bar"><input type="search" data-ec="q" placeholder="ค้นหาชื่อ / ไซต์" value="' + esc(st.q) + '">' +
       '<select data-ec="site"><option value="">ทุกไซต์ (' + rows().length + ' คน)</option>' + sites.map(function (s) { return '<option' + (s === st.site ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select>' +
@@ -334,7 +337,7 @@
         '</style></head><body>' + (st.layout === 'pair'
           ? '<div class="ec-note">พิมพ์หน้าเดียว ขนาด A4 สเกล 100% (ไม่ย่อให้พอดีหน้า) แล้วตัดด้านหน้าและด้านหลังมาประกบกัน</div>'
           : '<div class="ec-note">ตั้งเครื่องพิมพ์เป็น <b>พิมพ์ 2 หน้า (Two-sided) แบบพลิกด้านยาว (Flip on long edge)</b> ขนาด A4 สเกล 100% (ไม่ย่อให้พอดีหน้า) ด้านหลังจะตรงกับด้านหน้าของบัตรแต่ละใบ</div>') +
-        sheets(cards.map(withPhoto), st.offices, st.layout) +
+        sheets(cards.map(withPhoto), st.offices, st.layout, st.per) +
         '<script>(document.fonts?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){window.print()},300)})<\/script></body></html>';
       win.document.open(); win.document.write(html); win.document.close();
     } catch (e) { win.close(); alert('เตรียมบัตรไม่สำเร็จ: ' + (e.message || e)); }
@@ -388,7 +391,8 @@
   function onChange(e) {
     var t = e.target, a = t.getAttribute('data-ec');
     if (a === 'site') { st.site = t.value; render(); }
-    if (a === 'layout') { st.layout = t.value === 'pair' ? 'pair' : 'duplex'; try { localStorage.setItem('ec_print_layout', st.layout); } catch (_) {} }
+    if (a === 'layout') { st.layout = t.value === 'pair' ? 'pair' : 'duplex'; try { localStorage.setItem('ec_print_layout', st.layout); } catch (_) {} render(); }
+    if (a === 'per') { st.per = +t.value || 0; try { localStorage.setItem('ec_print_per', String(st.per)); } catch (_) {} }
     if (a === 'sel') { st.sel[t.getAttribute('data-k')] = t.checked; render(); }
     if (a === 'all') { filtered().forEach(function (p) { st.sel[p.key] = t.checked; }); render(); }
     if (t.getAttribute('data-f') === 'pea_office' && st.edit) render();   // refresh the office block's fields
