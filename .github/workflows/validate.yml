@@ -48,6 +48,8 @@ jobs:
           node tests/notice-bids-extract.cjs
           node tests/system-cost-api.cjs
           node --check js/system-cost.js
+          node --check js/employee-card.js
+          node tests/employee-card.cjs
       - name: Validate migrated calculator
         run: |
           npm install --global pnpm@11.25.0
