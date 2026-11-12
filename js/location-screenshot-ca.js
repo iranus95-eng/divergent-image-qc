@@ -12,6 +12,19 @@ function digitsAfter(line,re,min,max){
 }
 function textAfterColon(line){const i=line.search(/[:：]/);return(i>=0?line.slice(i+1):'').trim()}
 
+/* OCR ภาษาไทยมักอ่านตัวอักษรอังกฤษ 4 ตัวหน้า MRU ผิด (FSUN → ถีรบผ) ใช้สายจากรายการอื่นในรูปเดียวกันที่เลข 4 หลักตรงกัน */
+function fixMru(items){
+  const good={};
+  const norm=v=>{const m=String(v||'').toUpperCase().replace(/\s+/g,'').match(/^([A-Z]{4})[A-Z]?([0-9O]{4})-?([0-9O]{6})$/);return m?[m[1],m[2].replace(/O/g,'0'),m[3].replace(/O/g,'0')]:null};
+  items.forEach(it=>{const m=norm(it.mru);if(m){it.mru=m[0]+m[1]+'-'+m[2];good[m[1]]=m[0]}});
+  items.forEach(it=>{
+    const raw=String(it.mru||'').replace(/\s+/g,'');
+    if(/^[A-Z]{4}\d{4}-\d{6}$/.test(raw))return;
+    const m=raw.match(/(\d{4})-?(\d{6})$/);
+    it.mru=m&&good[m[1]]?good[m[1]]+m[1]+'-'+m[2]:raw;
+  });
+  return items;
+}
 function parseCaItems(lines){
   /* lines: [{text, y0, y1}] ตามลำดับบนลงล่าง */
   const items=[];let cur=null,addrOpen=false;
@@ -26,12 +39,14 @@ function parseCaItems(lines){
     cur.y1=Math.max(cur.y1,ln.y1);
     if(!cur.ca&&/C\s*A\b/.test(t)){cur.ca=digitsAfter(t,/C\s*A\s*[:：.;]?\s*([0-9][0-9 ]{9,16})/,12,12);addrOpen=false;continue}
     if(!cur.pea_no&&/PEA/i.test(t)){cur.pea_no=digitsAfter(t,/PEA\s*N[o0]\.?\s*[:：.;]?\s*([0-9][0-9 ]{4,14})/i,6,12);addrOpen=false;continue}
-    if(!cur.name&&/ชื่อ/.test(t)){cur.name=textAfterColon(t);addrOpen=false;continue}
-    if(!cur.address&&/ที่อยู่/.test(t)){cur.address=textAfterColon(t);addrOpen=true;continue}
+    if(!cur.name&&/ช[ื]?[่]?อ\s*-?\s*นาม|ชื่อ/.test(t)){cur.name=textAfterColon(t);addrOpen=false;continue}
+    if(!cur.address&&/ท[ี]?[่]?อยู/.test(t)){cur.address=textAfterColon(t);addrOpen=true;continue}
     if(/Tel|บิลเดือน|วันครบ/i.test(t)){addrOpen=false;continue}
     if(!cur.address&&cur.name&&/[:：]/.test(t)&&/(ต\.|อ\.|จ\.)\S/.test(t)){cur.address=textAfterColon(t);addrOpen=true;continue}
     if(addrOpen&&/^[\sOo0]*\d{5}$/.test(t)){cur.address+=' '+t.replace(/^[\sOo0]*(?=\d{5}$)/,'');addrOpen=false}
+    else if(addrOpen&&!/[:：]/.test(t)&&/(จ\.|อ\.|ต\.)\S/.test(t)&&t.length<60){cur.address+=' '+t;if(/\d{5}$/.test(t))addrOpen=false}
   }
+  fixMru(items);
   let out=items.filter(x=>/^\d{12}$/.test(x.ca));
   if(!out.length){
     /* รูปแบบอื่น: เก็บเลข 12 หลักขึ้นต้น 020 */
@@ -70,7 +85,7 @@ function markChecked(items,marks){
   return items;
 }
 
-const api={parseCaItems,findGreenChecks,markChecked};
+const api={parseCaItems,fixMru,findGreenChecks,markChecked};
 if(typeof module==='object'&&module.exports){module.exports=api;return}
 root.LocationScreenshotCa=api;
 
@@ -112,6 +127,19 @@ function injectCss(){
 }
 function setStatus(msg,err){const el=doc.getElementById('lscaStatus');if(!el)return;el.textContent=msg||'';el.classList.toggle('err',!!err);el.style.display=msg?'block':'none'}
 
+/* อ่านรูป → รายการลูกค้า (ใช้ร่วมกับเมนูค้นหามิเตอร์ใหม่) */
+async function ocrItems(src){
+  const img=new Image();img.src=typeof src==='string'?src:URL.createObjectURL(src);await img.decode();
+  const w=img.naturalWidth,h=img.naturalHeight,cv=doc.createElement('canvas');cv.width=w;cv.height=h;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0);
+  const marks=findGreenChecks(ctx.getImageData(0,0,w,h).data,w,h);
+  const worker=await getWorker();
+  const {data}=await worker.recognize(cv);
+  const lines=(data.lines||[]).map(l=>({text:l.text,y0:l.bbox.y0,y1:l.bbox.y1}));
+  if(!lines.length&&data.text)String(data.text).split('\n').forEach((t,i)=>lines.push({text:t,y0:i,y1:i}));
+  return markChecked(parseCaItems(lines),marks);
+}
+api.ocrItems=ocrItems;
 async function readImage(file){
   if(busy)return;busy=true;
   const list=doc.getElementById('lscaList');list.innerHTML='';
@@ -119,15 +147,7 @@ async function readImage(file){
   try{
     doc.getElementById('lscaThumb').innerHTML=`<img class="lsca-thumb" src="${url}" alt="รูปที่วาง">`;
     setStatus('กำลังอ่านตัวเลขในรูป... (ครั้งแรกอาจใช้เวลา 10–20 วินาที)');
-    const img=new Image();img.src=url;await img.decode();
-    const w=img.naturalWidth,h=img.naturalHeight,cv=doc.createElement('canvas');cv.width=w;cv.height=h;
-    const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0);
-    const marks=findGreenChecks(ctx.getImageData(0,0,w,h).data,w,h);
-    const worker=await getWorker();
-    const {data}=await worker.recognize(cv);
-    const lines=(data.lines||[]).map(l=>({text:l.text,y0:l.bbox.y0,y1:l.bbox.y1}));
-    if(!lines.length&&data.text)String(data.text).split('\n').forEach((t,i)=>lines.push({text:t,y0:i,y1:i}));
-    const items=markChecked(parseCaItems(lines),marks);
+    const items=await ocrItems(url);
     if(!items.length){setStatus('ไม่พบหมายเลข CA ในรูปนี้ ลองใช้รูปที่ชัดขึ้น หรือพิมพ์ CA เอง',true);return}
     list.innerHTML=items.map((it,i)=>`<div role="button" tabindex="0" class="lsca-item${it.checked?' active':''}" data-i="${i}">
       <div class="ca">(${esc(it.no)}) CA ${esc(it.ca)}${it.checked?'<span class="lsca-tag">✓ พนักงานติ๊กไว้</span>':''}</div>

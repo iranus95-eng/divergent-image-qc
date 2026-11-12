@@ -39,6 +39,9 @@ jobs:
           for file in /tmp/inline-*.js; do node --check "$file"; done
           node tests/v2-unified.cjs
           node tests/location-screenshot-ca.cjs
+          node tests/meter-new.cjs
+          node --experimental-strip-types tests/meter-locate-lib.mjs
+          node --check js/meter-new.js
           node tests/staff-payroll-v2.cjs
           node tests/quote-notice-layouts.cjs
           node --check js/notice-bids.js
