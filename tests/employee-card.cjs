@@ -23,12 +23,12 @@ assert.ok(EC.CARD_CSS.includes('width:90mm;height:60mm'));
 const b = EC.back();
 assert.equal(EC.RULES.length, 7);
 assert.ok(b.includes('ข้อปฏิบัติในการใช้บัตร') && b.includes('บัตรนี้เป็นทรัพย์สินของ กฟภ.'));
-// 3 cards -> one front sheet + one back sheet; backs mirrored per row (card 3 sits left on the front, right on the back)
-const sh = EC.sheets([c, c, c], {});
+// 5 cards -> 2 sheets (4 + 1); every card is a front followed by its own back, side by side
+const sh = EC.sheets([c, c, c, c, c], {});
 const pages = sh.split('<section class="ec-sheet">').slice(1);
 assert.equal(pages.length, 2);
-const slots = (p) => p.match(/class="ec-(card ec-front|card ec-back|slot)"/g).map((m) => m.includes('slot') ? '-' : 'X');
-assert.deepEqual(slots(pages[0]), ['X', 'X', 'X', '-', '-', '-', '-', '-']);
-assert.deepEqual(slots(pages[1]), ['X', 'X', '-', 'X', '-', '-', '-', '-']);
-assert.equal(EC.sheets(new Array(9).fill(c), {}).split('<section').length - 1, 4);
+const sides = (p) => p.match(/class="ec-card ec-(front|back)"/g).map((m) => m.includes('front') ? 'F' : 'B');
+assert.deepEqual(sides(pages[0]), ['F', 'B', 'F', 'B', 'F', 'B', 'F', 'B']);
+assert.deepEqual(sides(pages[1]), ['F', 'B']);
+assert.equal(EC.sheets(new Array(9).fill(c), {}).split('<section').length - 1, 3);
 console.log('PASS: employee-card');
