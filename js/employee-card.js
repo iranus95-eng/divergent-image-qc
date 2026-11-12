@@ -3,7 +3,8 @@
  *  - บัตรสีขาว ตัวหนังสือสีดำ ขนาด 9 x 6 ซม., รูปถ่าย 1 นิ้ว มุมขวาบน (ประทับตรา กฟภ. ทับภายหลัง)
  *  - ชื่อ/นามสกุล, เลขที่ XXX/ปี, ผู้รับจ้างเหมา, ประจำ กฟฟ., วันที่ออกบัตร, วันที่บัตรหมดอายุ (31 ธ.ค.),
  *    ผู้ลงนาม (ผจก.กฟฟ.คู่สัญญา), กฟ. … โทร …; ด้านหลังเป็นข้อปฏิบัติในการใช้บัตร 7 ข้อ
- *  - รายชื่อจากข้อมูลเงินเดือน (employee-card-api), พิมพ์ลง A4 แผ่นละ 4 ใบ ด้านหน้าและด้านหลังของบัตรอยู่คู่กันในแถวเดียว (พิมพ์หน้าเดียว)
+ *  - รายชื่อจากข้อมูลเงินเดือน (employee-card-api), พิมพ์ลง A4 ได้ 2 แบบ: พิมพ์ 2 หน้า แผ่นละ 8 ใบ (หลังสลับซ้าย-ขวา พลิกด้านยาว)
+ *    หรือ หน้า-หลังคู่กันในแผ่นเดียว แผ่นละ 4 ใบ (พิมพ์หน้าเดียว)
  * Admin only (บัญชี admin หลัก) เหมือนเมนูผู้ดูแลอื่น ๆ
  */
 (function () {
@@ -59,14 +60,30 @@
     return '<div class="ec-card ec-back"><div class="ec-rules"><b>ข้อปฏิบัติในการใช้บัตร</b><ol>' +
       RULES.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ol></div></div>';
   }
-  // A4 sheets of 4 cards, one card per row: its front on the left and its back on the right,
-  // so one single-sided print holds both sides (cut out, fold or glue back to back, laminate)
-  function sheets(cards, offices) {
-    var out = [], per = 4;
-    for (var i = 0; i < cards.length; i += per) {
-      out.push('<section class="ec-sheet">' + cards.slice(i, i + per).map(function (c) {
-        return front(c, offices[c.pea_office] || {}) + back();
-      }).join('') + '</section>');
+  // A4 sheets, two layouts:
+  //  'duplex' (default): 8 fronts on one page, 8 backs on the next with each row's columns swapped,
+  //            so a two-sided print (flip on long edge) puts every back behind its own front
+  //  'pair':   4 cards per page, each row = front | back, for a one-sided print
+  function sheets(cards, offices, mode) {
+    var out = [], i;
+    if (mode === 'pair') {
+      for (i = 0; i < cards.length; i += 4) {
+        out.push('<section class="ec-sheet">' + cards.slice(i, i + 4).map(function (c) {
+          return front(c, offices[c.pea_office] || {}) + back();
+        }).join('') + '</section>');
+      }
+      return out.join('');
+    }
+    var per = 8;
+    for (i = 0; i < cards.length; i += per) {
+      var chunk = cards.slice(i, i + per), f = '', b = '';
+      for (var k = 0; k < per; k++) {
+        var c = chunk[k];
+        f += c ? front(c, offices[c.pea_office] || {}) : '<div class="ec-slot"></div>';
+        var m = chunk[k % 2 ? k - 1 : k + 1];   // mirrored partner in the same row
+        b += m ? back() : '<div class="ec-slot"></div>';
+      }
+      out.push('<section class="ec-sheet">' + f + '</section>', '<section class="ec-sheet">' + b + '</section>');
     }
     return out.join('');
   }
@@ -108,7 +125,13 @@
   }
 
   // ---------------------------------------------------------------- state
-  var st = { people: null, cards: [], offices: {}, photos: {}, err: '', q: '', site: '', sel: {}, edit: null };
+  var st = { people: null, cards: [], offices: {}, photos: {}, err: '', q: '', site: '', sel: {}, edit: null, layout: 'duplex' };
+  try { if (localStorage.getItem('ec_print_layout') === 'pair') st.layout = 'pair'; } catch (_) {}
+  function layoutPick() {
+    return '<select data-ec="layout" title="รูปแบบการพิมพ์">' +
+      '<option value="duplex"' + (st.layout === 'pair' ? '' : ' selected') + '>พิมพ์ 2 หน้า (แผ่นละ 8 ใบ)</option>' +
+      '<option value="pair"' + (st.layout === 'pair' ? ' selected' : '') + '>หน้า-หลังคู่กัน หน้าเดียว (แผ่นละ 4 ใบ)</option></select>';
+  }
   function today() { return new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); }
   async function load() {
     try {
@@ -193,10 +216,11 @@
     if (st.people == null) { w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">กำลังโหลดรายชื่อ…</div>'; return; }
     var sites = []; rows().forEach(function (p) { if (sites.indexOf(p.site) < 0) sites.push(p.site); }); sites.sort();
     var list = filtered(), nSel = Object.keys(st.sel).filter(function (k) { return st.sel[k]; }).length;
-    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แผ่นละ 4 ใบ ด้านหน้าคู่ด้านหลังในแผ่นเดียว</div>' +
+    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 ได้ทั้งแบบ 2 หน้า (แผ่นละ 8 ใบ) และแบบหน้า-หลังคู่กันในหน้าเดียว (แผ่นละ 4 ใบ)</div>' +
       (st.err ? '<div class="ec-err">' + esc(st.err) + '</div>' : '') +
       '<div class="ec-bar"><input type="search" data-ec="q" placeholder="ค้นหาชื่อ / ไซต์" value="' + esc(st.q) + '">' +
       '<select data-ec="site"><option value="">ทุกไซต์ (' + rows().length + ' คน)</option>' + sites.map(function (s) { return '<option' + (s === st.site ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select>' +
+      layoutPick() +
       '<button class="ec-btn" data-ec="print" ' + (nSel ? '' : 'disabled') + '>🖨 พิมพ์บัตรที่เลือก (' + nSel + ')</button>' +
       '<button class="ec-btn soft" data-ec="add">➕ เพิ่มคนที่ไม่มีในรายชื่อ</button></div>' +
       '<table class="ec-table"><thead><tr><th><input type="checkbox" data-ec="all" title="เลือกทั้งหมดที่แสดง"></th><th>ชื่อ - นามสกุล</th><th class="ec-hide">ไซต์</th><th>บัตร</th><th class="ec-hide">หมดอายุ</th><th class="ec-hide">รูป</th><th></th></tr></thead><tbody>' +
@@ -306,8 +330,11 @@
       var html = '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' +
         '@font-face{font-family:Sarabun;src:url(' + base + 'Sarabun-Regular.ttf)}@font-face{font-family:Sarabun;font-weight:700;src:url(' + base + 'Sarabun-Bold.ttf)}' +
         '@page{size:A4 portrait;margin:0}html,body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}' + CARD_CSS +
-        '@media screen{body{background:#888}.ec-sheet{background:#fff;margin:10px auto}}' +
-        '</style></head><body>' + sheets(cards.map(withPhoto), st.offices) +
+        '@media screen{body{background:#888}.ec-sheet{background:#fff;margin:10px auto}.ec-note{max-width:210mm;margin:10px auto;background:#fff8d6;padding:10px 14px;font:15px Sarabun,sans-serif;border-radius:6px}}@media print{.ec-note{display:none}}' +
+        '</style></head><body>' + (st.layout === 'pair'
+          ? '<div class="ec-note">พิมพ์หน้าเดียว ขนาด A4 สเกล 100% (ไม่ย่อให้พอดีหน้า) แล้วตัดด้านหน้าและด้านหลังมาประกบกัน</div>'
+          : '<div class="ec-note">ตั้งเครื่องพิมพ์เป็น <b>พิมพ์ 2 หน้า (Two-sided) แบบพลิกด้านยาว (Flip on long edge)</b> ขนาด A4 สเกล 100% (ไม่ย่อให้พอดีหน้า) ด้านหลังจะตรงกับด้านหน้าของบัตรแต่ละใบ</div>') +
+        sheets(cards.map(withPhoto), st.offices, st.layout) +
         '<script>(document.fonts?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){window.print()},300)})<\/script></body></html>';
       win.document.open(); win.document.write(html); win.document.close();
     } catch (e) { win.close(); alert('เตรียมบัตรไม่สำเร็จ: ' + (e.message || e)); }
@@ -361,6 +388,7 @@
   function onChange(e) {
     var t = e.target, a = t.getAttribute('data-ec');
     if (a === 'site') { st.site = t.value; render(); }
+    if (a === 'layout') { st.layout = t.value === 'pair' ? 'pair' : 'duplex'; try { localStorage.setItem('ec_print_layout', st.layout); } catch (_) {} }
     if (a === 'sel') { st.sel[t.getAttribute('data-k')] = t.checked; render(); }
     if (a === 'all') { filtered().forEach(function (p) { st.sel[p.key] = t.checked; }); render(); }
     if (t.getAttribute('data-f') === 'pea_office' && st.edit) render();   // refresh the office block's fields
