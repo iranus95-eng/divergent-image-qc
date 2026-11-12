@@ -156,7 +156,7 @@
       '.ec-table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:14px}.ec-table th,.ec-table td{border-bottom:1px solid #eee7f4;padding:8px 10px;text-align:left;vertical-align:middle}.ec-table th{background:#f8f5fb;color:#4d2376;font-size:13px}' +
       '.ec-table tr:hover td{background:#fbf9fd}.ec-tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:700}.ec-ok{background:#e5f6ea;color:#1d6b35}.ec-exp{background:#fde8e8;color:#a61b1b}.ec-none{background:#f1eef4;color:#776a86}' +
       '.ec-edit{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:18px;align-items:start}.ec-form{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:14px}.ec-form label{display:block;font-weight:800;font-size:13px;color:#49345a;margin-top:9px}.ec-form input{width:100%;box-sizing:border-box;margin-top:3px}' +
-      '.ec-form h4{margin:16px 0 0;color:#4d2376;font-size:14px;border-top:1px solid #eee7f4;padding-top:10px}.ec-hint{font-size:12px;color:#776a86;font-weight:400}.ec-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}' +
+      '.ec-form h4{margin:16px 0 0;color:#4d2376;font-size:14px;border-top:1px solid #eee7f4;padding-top:10px}.ec-hint{font-size:12px;color:#776a86;font-weight:400}.ec-drop{border:2px dashed #d9cfe6;border-radius:10px;padding:10px}.ec-drop.over{border-color:#5b2d91;background:#f5f0fb}.ec-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}' +
       '.ec-prev{display:flex;flex-wrap:wrap;gap:16px;background:#f3f1f5;border-radius:12px;padding:16px;justify-content:center}.ec-prev .ec-card{box-shadow:0 2px 10px rgba(0,0,0,.12);zoom:1.5}' +
       '.ec-err{border:1px solid #f0c36d;background:#fff8e6;color:#8a5b00;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-weight:700}' +
       '@media(max-width:900px){.ec-edit{grid-template-columns:1fr}.ec-prev .ec-card{zoom:1}.ec-table .ec-hide{display:none}}';
@@ -170,6 +170,14 @@
     w.addEventListener('click', onClick);
     w.addEventListener('input', onInput);
     w.addEventListener('change', onChange);
+    // drop a photo anywhere on a card's editor
+    w.addEventListener('dragover', function (e) { if (st.edit) { e.preventDefault(); var d = w.querySelector('.ec-drop'); if (d) d.classList.add('over'); } });
+    w.addEventListener('dragleave', function (e) { var d = w.querySelector('.ec-drop'); if (d && !w.contains(e.relatedTarget)) d.classList.remove('over'); });
+    w.addEventListener('drop', function (e) {
+      if (!st.edit) return; e.preventDefault();
+      var d = w.querySelector('.ec-drop'); if (d) d.classList.remove('over');
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) takePhoto(f);
+    });
     return w;
   }
   function status(c) {
@@ -187,10 +195,10 @@
   function render() {
     var w = page();
     if (st.edit) return renderEdit(w);
-    if (st.people == null) { w.innerHTML = '<h2>ทำบัตรพนักงาน</h2><div class="ec-sub">กำลังโหลดรายชื่อ…</div>'; return; }
+    if (st.people == null) { w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">กำลังโหลดรายชื่อ…</div>'; return; }
     var sites = []; rows().forEach(function (p) { if (sites.indexOf(p.site) < 0) sites.push(p.site); }); sites.sort();
     var list = filtered(), nSel = Object.keys(st.sel).filter(function (k) { return st.sel[k]; }).length;
-    w.innerHTML = '<h2>ทำบัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แผ่นละ 8 ใบ หน้า-หลัง</div>' +
+    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แผ่นละ 8 ใบ หน้า-หลัง</div>' +
       (st.err ? '<div class="ec-err">' + esc(st.err) + '</div>' : '') +
       '<div class="ec-bar"><input type="search" data-ec="q" placeholder="ค้นหาชื่อ / ไซต์" value="' + esc(st.q) + '">' +
       '<select data-ec="site"><option value="">ทุกไซต์ (' + rows().length + ' คน)</option>' + sites.map(function (s) { return '<option' + (s === st.site ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select>' +
@@ -226,7 +234,7 @@
       field('ประจำ กฟฟ.', 'pea_office', c.pea_office, 'text', 'เช่น ภูเขียว') +
       field('วันที่ออกบัตร', 'issue_date', c.issue_date, 'date') +
       field('วันที่บัตรหมดอายุ', 'expire_date', c.expire_date, 'date', 'TOR: 31 ธ.ค. ของปี หรือตามสัญญาจ้าง') +
-      '<label>รูปถ่าย 1 นิ้ว <span class="ec-hint">ตัดเป็นแนวตั้งให้อัตโนมัติ</span><input type="file" accept="image/*" data-ec="photo"></label>' +
+      '<label class="ec-drop" data-ec="drop">รูปถ่าย 1 นิ้ว <span class="ec-hint">เลือกหรือลากรูปมาวางตรงนี้ แล้วจัดรูปให้ใส่เสื้อฟอร์มบริษัท</span><input type="file" accept="image/*" data-ec="photo"></label>' +
       (c.photo ? '<button class="ec-btn soft" style="margin-top:6px" data-ec="nophoto">ลบรูป</button>' : '') +
       '<h4>ข้อมูล กฟฟ.' + esc(c.pea_office || '') + ' <span class="ec-hint">ใช้กับทุกบัตรของ กฟฟ. นี้</span></h4>' +
       '<label>ชื่อผู้ลงนาม (ผจก.กฟฟ.คู่สัญญา)<input data-o="signer_name" value="' + esc(o.signer_name || '') + '" placeholder="เว้นว่างเพื่อเขียนเอง"></label>' +
@@ -254,6 +262,12 @@
       img.onerror = function () { URL.revokeObjectURL(url); bad(new Error('อ่านรูปไม่ได้')); };
       img.src = url;
     });
+  }
+  // the photo editor (js/uniform-photo.js) puts the person into the company jacket; without it, a plain crop
+  function takePhoto(file) {
+    if (!file || !/^image\//.test(file.type || '')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return; }
+    var p = window.UniformPhoto ? window.UniformPhoto.open(file, { width: 300, height: 375 }) : readPhoto(file);
+    p.then(function (d) { if (d && st.edit) { st.edit.photo = d; st.edit.photoChanged = true; render(); } }, function (er) { alert(er.message || er); });
   }
   async function save(renew) {
     var c = st.edit, o = st.editOffice || {};
@@ -356,7 +370,7 @@
     if (a === 'all') { filtered().forEach(function (p) { st.sel[p.key] = t.checked; }); render(); }
     if (t.getAttribute('data-f') === 'pea_office' && st.edit) render();   // refresh the office block's fields
     if (a === 'photo' && t.files && t.files[0]) {
-      readPhoto(t.files[0]).then(function (d) { st.edit.photo = d; st.edit.photoChanged = true; render(); }, function (er) { alert(er.message); });
+      takePhoto(t.files[0]); t.value = '';
     }
   }
 
@@ -377,13 +391,13 @@
     if (!side || document.getElementById('navEmployeeCard')) return;
     var nav = document.createElement('div');
     nav.className = 'nav-item'; nav.id = 'navEmployeeCard'; nav.style.display = 'none';
-    nav.innerHTML = '<span class="nav-ico">🪪</span><span>ทำบัตรพนักงาน</span>';
+    nav.innerHTML = '<span class="nav-ico">🪪</span><span>บัตรพนักงาน</span>';
     nav.addEventListener('click', showPage);
     side.appendChild(nav);
     syncNav();
   }
   function showPage() {
-    if (!isAdmin()) { alert('เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
+    if (!isAdmin()) { alert('เมนูบัตรพนักงานเปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
     style();
     var w = page();
     document.querySelectorAll('.side-nav .nav-item').forEach(function (x) { x.classList.toggle('active', x.id === 'navEmployeeCard'); });
