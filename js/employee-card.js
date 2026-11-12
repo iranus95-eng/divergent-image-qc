@@ -195,10 +195,10 @@
   function render() {
     var w = page();
     if (st.edit) return renderEdit(w);
-    if (st.people == null) { w.innerHTML = '<h2>ทำบัตรพนักงาน</h2><div class="ec-sub">กำลังโหลดรายชื่อ…</div>'; return; }
+    if (st.people == null) { w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">กำลังโหลดรายชื่อ…</div>'; return; }
     var sites = []; rows().forEach(function (p) { if (sites.indexOf(p.site) < 0) sites.push(p.site); }); sites.sort();
     var list = filtered(), nSel = Object.keys(st.sel).filter(function (k) { return st.sel[k]; }).length;
-    w.innerHTML = '<h2>ทำบัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แผ่นละ 8 ใบ หน้า-หลัง</div>' +
+    w.innerHTML = '<h2>บัตรพนักงาน</h2><div class="ec-sub">บัตรประจำตัวผู้รับจ้างการไฟฟ้าส่วนภูมิภาค ปฏิบัติงานเกี่ยวกับมิเตอร์ (แบบ TOR ข้อ 4.1) • บัตรขาว 9 × 6 ซม. • พิมพ์ A4 แผ่นละ 8 ใบ หน้า-หลัง</div>' +
       (st.err ? '<div class="ec-err">' + esc(st.err) + '</div>' : '') +
       '<div class="ec-bar"><input type="search" data-ec="q" placeholder="ค้นหาชื่อ / ไซต์" value="' + esc(st.q) + '">' +
       '<select data-ec="site"><option value="">ทุกไซต์ (' + rows().length + ' คน)</option>' + sites.map(function (s) { return '<option' + (s === st.site ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select>' +
@@ -391,13 +391,13 @@
     if (!side || document.getElementById('navEmployeeCard')) return;
     var nav = document.createElement('div');
     nav.className = 'nav-item'; nav.id = 'navEmployeeCard'; nav.style.display = 'none';
-    nav.innerHTML = '<span class="nav-ico">🪪</span><span>ทำบัตรพนักงาน</span>';
+    nav.innerHTML = '<span class="nav-ico">🪪</span><span>บัตรพนักงาน</span>';
     nav.addEventListener('click', showPage);
     side.appendChild(nav);
     syncNav();
   }
   function showPage() {
-    if (!isAdmin()) { alert('เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
+    if (!isAdmin()) { alert('เมนูบัตรพนักงานเปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
     style();
     var w = page();
     document.querySelectorAll('.side-nav .nav-item').forEach(function (x) { x.classList.toggle('active', x.id === 'navEmployeeCard'); });
