@@ -16,4 +16,11 @@ assert.equal(marks.length,1);
 assert.deepEqual(L.markChecked(items,marks).map(x=>x.checked),[true,false,false,false]);
 /* ข้อความรูปแบบอื่น: เก็บเลข 12 หลักขึ้นต้น 020 */
 assert.deepEqual(L.parseCaItems([{text:'ลูกค้า 0200 1327 0461 ค้างชำระ',y0:0,y1:1}]).map(x=>x.ca),['020013270461']);
+assert.deepEqual(items.map(x=>x.mru),['FSUN0167-187590','FSUN0167-187591','FSUN0167-187700','FSUN0167-188185']);
+/* รูปที่ 2: OCR อ่าน ชือ/ทีอยู่ (สระหาย), MRU มี O เกิน, ที่อยู่ขึ้นบรรทัดใหม่ */
+const items2=L.parseCaItems(['(1) MRU : DMJK0174-048100','CA: 020011110005','ชือ-นามสกุล : นางทดสอบ สี่','  ทีอยู่ : 88 บ.หนองหัวช้าง ต.หนองแปน อ.มัญจาคีรี จ.ขอนแก่น','40160','Tel No. :','(2) MRU : DMJKO0174-048401','CA: 020011110006','  ทีอยู่ : 137 บ.หนองหัวช้าง ต.หนองแปน อ.มัญจาคีรี','จ.ขอนแก่น 40160','Tel No. : 0800000000'].map((text,i)=>({text,y0:i,y1:i})));
+assert.deepEqual(items2.map(x=>x.mru),['DMJK0174-048100','DMJK0174-048401']);
+assert.equal(items2[0].name,'นางทดสอบ สี่');
+assert.equal(items2[0].address,'88 บ.หนองหัวช้าง ต.หนองแปน อ.มัญจาคีรี จ.ขอนแก่น 40160');
+assert.equal(items2[1].address,'137 บ.หนองหัวช้าง ต.หนองแปน อ.มัญจาคีรี จ.ขอนแก่น 40160');
 console.log('PASS: screenshot CA parser, checked-item detection');

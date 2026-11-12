@@ -1141,8 +1141,8 @@
 </style>
 <style id="sidebar-session-lock-v4">
 body.session-sidebar-lock #navHome{display:flex!important}
-body.session-sidebar-lock.perm-claim #navClaim,body.session-sidebar-lock.perm-claim-pending #navClaimPending,body.session-sidebar-lock.perm-staff-payroll #navStaffPayroll,body.session-sidebar-lock.perm-payroll #navPayroll,body.session-sidebar-lock.perm-expense #navStaffExpense,body.session-sidebar-lock.perm-qc #navQc,body.session-sidebar-lock.perm-qc #navSearch,body.session-sidebar-lock.perm-qc #navLocation,body.session-sidebar-lock.perm-users #navUsers,body.session-sidebar-lock.perm-invoice #navInvoice,body.session-sidebar-lock.perm-billing #navBilling{display:flex!important}
-body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:not(.perm-claim-pending) #navClaimPending,body.session-sidebar-lock:not(.perm-staff-payroll) #navStaffPayroll,body.session-sidebar-lock:not(.perm-payroll) #navPayroll,body.session-sidebar-lock:not(.perm-expense) #navStaffExpense,body.session-sidebar-lock:not(.perm-qc) #navQc,body.session-sidebar-lock:not(.perm-qc) #navSearch,body.session-sidebar-lock:not(.perm-qc) #navLocation,body.session-sidebar-lock:not(.perm-users) #navUsers,body.session-sidebar-lock:not(.perm-invoice) #navInvoice,body.session-sidebar-lock:not(.perm-billing) #navBilling{display:none!important}
+body.session-sidebar-lock.perm-claim #navClaim,body.session-sidebar-lock.perm-claim-pending #navClaimPending,body.session-sidebar-lock.perm-staff-payroll #navStaffPayroll,body.session-sidebar-lock.perm-payroll #navPayroll,body.session-sidebar-lock.perm-expense #navStaffExpense,body.session-sidebar-lock.perm-qc #navQc,body.session-sidebar-lock.perm-qc #navSearch,body.session-sidebar-lock.perm-qc #navLocation,body.session-sidebar-lock.perm-qc #navMeterNew,body.session-sidebar-lock.perm-users #navUsers,body.session-sidebar-lock.perm-invoice #navInvoice,body.session-sidebar-lock.perm-billing #navBilling{display:flex!important}
+body.session-sidebar-lock:not(.perm-claim) #navClaim,body.session-sidebar-lock:not(.perm-claim-pending) #navClaimPending,body.session-sidebar-lock:not(.perm-staff-payroll) #navStaffPayroll,body.session-sidebar-lock:not(.perm-payroll) #navPayroll,body.session-sidebar-lock:not(.perm-expense) #navStaffExpense,body.session-sidebar-lock:not(.perm-qc) #navQc,body.session-sidebar-lock:not(.perm-qc) #navSearch,body.session-sidebar-lock:not(.perm-qc) #navLocation,body.session-sidebar-lock:not(.perm-qc) #navMeterNew,body.session-sidebar-lock:not(.perm-users) #navUsers,body.session-sidebar-lock:not(.perm-invoice) #navInvoice,body.session-sidebar-lock:not(.perm-billing) #navBilling{display:none!important}
 </style>
 
   <!-- QC_BATCH_ZIP_HOTFIX_V1 -->
@@ -1171,8 +1171,8 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
 </style>
 <script id="home-grid5-navigation-script">
 (function(){
- const LABELS={navHome:['หน้าหลัก','ภาพรวมระบบ'],navClaim:['ตั้งเบิกค่าตอบแทน','บันทึกและส่งคำขอ'],navClaimPending:['การไฟฟ้าที่ยังเบิกไม่ได้','ติดตามงานค้าง'],navPayroll:['จัดการเงินเดือน','ข้อมูลเงินเดือน'],navAdvance:['พนักงานเบิกเงินล่วงหน้า','คำขอและอนุมัติ'],navStaffExpense:['ค่าใช้จ่าย','บันทึกค่าใช้จ่าย'],navQc:['ตรวจสอบงาน','ตรวจสอบรูปภาพ'],navSearch:['ค้นหาข้อมูล','ค้นหารูปภาพ/ข้อมูล'],navLocation:['ค้นหาพิกัดตำแหน่ง','ค้นหาและเปรียบเทียบพิกัด'],navUsers:['จัดการผู้ใช้งาน','จัดการสิทธิ์และผู้ใช้'],navInvoice:['จัดทำใบตั้งหนี้','สร้างใบแจ้งหนี้'],navBilling:['จัดทำใบวางบิล','สร้างใบวางบิล'],navProfitLoss:['กำไร-ขาดทุนรายเดือน','รายงานผล'],navStaffPayroll:['เงินเดือนพนักงาน','ข้อมูลพนักงาน']};
- const ICONS={navHome:'⌂',navClaim:'▤',navClaimPending:'⚠',navPayroll:'฿',navAdvance:'♟',navStaffExpense:'▣',navQc:'✓',navSearch:'⌕',navLocation:'⌖',navUsers:'♟',navInvoice:'▤',navBilling:'▤',navProfitLoss:'▥',navStaffPayroll:'฿'};
+ const LABELS={navHome:['หน้าหลัก','ภาพรวมระบบ'],navClaim:['ตั้งเบิกค่าตอบแทน','บันทึกและส่งคำขอ'],navClaimPending:['การไฟฟ้าที่ยังเบิกไม่ได้','ติดตามงานค้าง'],navPayroll:['จัดการเงินเดือน','ข้อมูลเงินเดือน'],navAdvance:['พนักงานเบิกเงินล่วงหน้า','คำขอและอนุมัติ'],navStaffExpense:['ค่าใช้จ่าย','บันทึกค่าใช้จ่าย'],navQc:['ตรวจสอบงาน','ตรวจสอบรูปภาพ'],navSearch:['ค้นหาข้อมูล','ค้นหารูปภาพ/ข้อมูล'],navLocation:['ค้นหาพิกัดตำแหน่ง','ค้นหาและเปรียบเทียบพิกัด'],navMeterNew:['ค้นหามิเตอร์ใหม่','ลูกค้าที่ไม่มีพิกัดรูปงาน'],navUsers:['จัดการผู้ใช้งาน','จัดการสิทธิ์และผู้ใช้'],navInvoice:['จัดทำใบตั้งหนี้','สร้างใบแจ้งหนี้'],navBilling:['จัดทำใบวางบิล','สร้างใบวางบิล'],navProfitLoss:['กำไร-ขาดทุนรายเดือน','รายงานผล'],navStaffPayroll:['เงินเดือนพนักงาน','ข้อมูลพนักงาน']};
+ const ICONS={navHome:'⌂',navClaim:'▤',navClaimPending:'⚠',navPayroll:'฿',navAdvance:'♟',navStaffExpense:'▣',navQc:'✓',navSearch:'⌕',navLocation:'⌖',navMeterNew:'⌖',navUsers:'♟',navInvoice:'▤',navBilling:'▤',navProfitLoss:'▥',navStaffPayroll:'฿'};
  function visible(el){const cs=getComputedStyle(el);return cs.display!=='none'&&cs.visibility!=='hidden'}
  function build(){
    const home=document.getElementById('homeWorkspace'), nav=document.querySelector('.side-nav'); if(!home||!nav)return;
@@ -1253,6 +1253,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         <div class="nav-item" id="navQc" onclick="switchWorkspace('qc')"><span class="nav-ico">✓</span><span>ตรวจสอบงาน</span></div>
         <div class="nav-item" id="navSearch" onclick="switchWorkspace('search')"><span class="nav-ico">⌕</span><span>ค้นหาข้อมูล</span></div>
         <div class="nav-item" id="navLocation" onclick="switchWorkspace('location')"><span class="nav-ico">⌖</span><span>ค้นหาพิกัดตำแหน่ง</span></div>
+        <div class="nav-item" id="navMeterNew" onclick="switchWorkspace('meterNew')"><span class="nav-ico">⌖</span><span>ค้นหามิเตอร์ใหม่</span></div>
         <div class="nav-item" id="navUsers" onclick="openUserManagement()"><span class="nav-ico">👥</span><span>จัดการผู้ใช้งาน</span></div>
         <div class="nav-item" id="navInvoice" style="display:none" onclick="openInvoiceManagement()"><span class="nav-ico">▤</span><span>จัดทำใบตั้งหนี้</span></div>
         <div class="nav-item" id="navBilling" style="display:none" onclick="openBillingManagement()"><span class="nav-ico">▤</span><span>จัดทำใบวางบิล</span></div>
@@ -1444,6 +1445,12 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       <div class="workspace-title"><div class="workspace-copy"><h2>ค้นหาพิกัดตำแหน่ง</h2><p>ค้นหาและเปรียบเทียบพิกัด 2 รายการ · แชร์แต่ละพิกัดได้ · คำนวณระยะห่างอัตโนมัติ</p></div><div class="workspace-badge">Image Rescue · Work GPS</div></div>
       <div class="ca-search-panel"><label for="locationCaInput">หมายเลข CA</label><div class="ca-search-row"><input id="locationCaInput" type="text" placeholder="กรอก CA 1 หรือ 2 หมายเลข เช่น 020013270461, 020013270643"><button onclick="searchWorkLocation()">ค้นหาพิกัด</button></div><div class="search-help">รองรับ InsUploadPic และ DEVICE_LIVE · ใส่ CA 2 หมายเลขคั่นด้วยเว้นวรรคหรือเครื่องหมายจุลภาคเพื่อเปรียบเทียบ</div></div>
       <div id="locationStatus" class="status-box"></div><div id="locationResults" class="ca-detail-grid"></div><div id="locationDistance"></div>
+    </section>
+
+    <section class="card" id="meterNewWorkspace" style="display:none">
+      <div class="workspace-title"><div class="workspace-copy"><h2>ค้นหามิเตอร์ใหม่</h2><p>สำหรับลูกค้าที่ยังไม่มีพิกัดรูปงาน · ใช้พิกัดมิเตอร์ บ้านข้างเคียงในสายจด และที่อยู่ (Longdo) ช่วยกันหา</p></div><div class="workspace-badge">Meter · MRU · Longdo</div></div>
+      <div class="ca-search-panel" id="mnPanel"><label for="mnCaInput">หมายเลข CA</label><div class="ca-search-row mn-row"><input id="mnCaInput" type="text" inputmode="numeric" placeholder="กรอก CA เช่น 020015840621"><button type="button" id="mnSearchBtn">ค้นหามิเตอร์</button></div><div class="search-help">หรือวางรูปหน้าจอที่พนักงานส่งมา ระบบจะอ่าน CA, MRU และที่อยู่ให้เอง</div></div>
+      <div id="mnResult"></div>
     </section>
 
     <section class="card expense-workspace" id="staffExpenseWorkspace">
@@ -2221,7 +2228,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     // Record only completed page transitions, never clicks or intermediate pages.
     const workspaceRoutes = {
       home: ["homeWorkspace", "navHome"], qc: ["qcWorkspace", "navQc"],
-      search: ["searchWorkspace", "navSearch"], location: ["locationWorkspace", "navLocation"],
+      search: ["searchWorkspace", "navSearch"], location: ["locationWorkspace", "navLocation"], meterNew: ["meterNewWorkspace", "navMeterNew"],
       users: ["userWorkspace", "navUsers"], payroll: ["payrollWorkspace", "navPayroll"],
       staffpayroll: ["staffPayrollWorkspace", "navStaffPayroll"],
       expense: ["staffExpenseWorkspace", "navStaffExpense"],
@@ -2257,13 +2264,14 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
     }
     function switchWorkspace(name) {
       if(name==="qc" && !requireMenuAccess("qc","เมนูตรวจสอบงาน")) return;
-      if((name==="search"||name==="location") && !requireMenuAccess("qc","เมนูค้นหาข้อมูล")) return;
+      if((name==="search"||name==="location"||name==="meterNew") && !requireMenuAccess("qc","เมนูค้นหาข้อมูล")) return;
       if(name==="users" && !effectiveMenuAccess().user_management && !(currentUserManagementPermissions?.can_access_user_management)){
         if(!requireMenuAccess("user_management","เมนูจัดการผู้ใช้งาน")) return;
       }
       if (!showWorkspace(name)) return;
       if(name==="search") setTimeout(()=>document.getElementById("caSearchInput")?.focus(),30);
       if(name==="location") setTimeout(()=>document.getElementById("locationCaInput")?.focus(),30);
+      if(name==="meterNew") setTimeout(()=>document.getElementById("mnCaInput")?.focus(),30);
       if(name==="users") applyUserManagementPermissions();
     }
 
@@ -2284,6 +2292,7 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
       setMenuVisible("navQc",!!a.qc);
       setMenuVisible("navSearch",!!a.qc);
       setMenuVisible("navLocation",!!a.qc);
+      setMenuVisible("navMeterNew",!!a.qc);
       // QC controls follow the same effective permission as the QC menu.
       // This keeps Username/Password sessions usable even when LIFF is absent.
       try{ setQcEnabled(!!a.qc); }catch(_){ }
@@ -6563,8 +6572,9 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 <script src="./js/theme-pea.js?v=20261004-3"></script>
 <script src="./js/payroll-delete.js?v=20261004-1"></script>
 <script src="./js/system-cost.js?v=20261029-1"></script>
-<script src="./js/shell-a.js?v=20261029-1"></script>
+<script src="./js/shell-a.js?v=20261112-1"></script>
 <script src="./js/qc-review-insx.js?v=20261111-1"></script>
-<script src="./js/location-screenshot-ca.js?v=20261111-2"></script>
+<script src="./js/location-screenshot-ca.js?v=20261112-1"></script>
+<script src="./js/meter-new.js?v=20261112-1"></script>
 </body>
 </html>
