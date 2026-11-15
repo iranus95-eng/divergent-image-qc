@@ -67,7 +67,7 @@ function css(){
 .mn-src{padding:12px 16px;border-top:1px solid #eee7f8}.mn-src h4{margin:0 0 6px;font-size:15px;color:#2a1f35}
 .mn-src .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:#444;padding:4px 0}
 .mn-src .mn-dist{display:inline-block;min-width:74px;padding:1px 8px;border-radius:999px;background:#eef6ff;color:#1a56b0;font-weight:700;text-align:center}
-.mn-src .row a{color:#5b2a86;font-weight:700}.mn-src .muted{color:#888}
+.mn-src .row a{color:#5b2a86;font-weight:700}.mn-src .row button.mn-line{height:26px;min-height:0;width:auto;margin:0;padding:0 10px;border-radius:8px;border:1px solid #9fe0b8;background:#e9f9ef;color:#067a35;font-weight:700;font-size:12px;line-height:1;box-shadow:none;transform:none;cursor:pointer}.mn-src .row button.mn-line:hover{background:#06c755;border-color:#06c755;color:#fff}.mn-src .muted{color:#888}
 @media(max-width:720px){.mn-pick{grid-template-columns:1fr}#meterNewWorkspace .mn-row{grid-template-columns:1fr 1fr}#meterNewWorkspace .mn-row input{grid-column:1/-1}}`;
   doc.head.appendChild(st);
 }
@@ -104,7 +104,11 @@ function render(r,input){
   const nb=r.neighbours,geo=r.longdo&&r.longdo.lat!=null?r.longdo:null,cust=r.customer;
   /* ระยะห่างของบ้านข้างเคียงแต่ละหลังจากตำแหน่งที่แนะนำของรายนี้ */
   const ref=pick?{lat:pick.lat,lng:pick.lng}:null;
-  const nbRow=x=>`<div class="row"><b>${esc(x.mru)}</b>${ref?`<span class="mn-dist">ห่าง ${km(dist(ref,x))}</span>`:''}<span>CA ${esc(x.ca)}</span><span class="muted">${esc(x.address||'-')}</span><a href="${gmap(x.lat,x.lng)}" target="_blank" rel="noopener">แผนที่</a></div>`;
+  /* ปุ่มแชร์ LINE ของแต่ละพิกัดในหัวข้อ 1–3 */
+  const shares=[];
+  const head=[`CA ${r.ca}${r.mru?' · MRU '+r.mru:''}`,input.name||'',r.address||''];
+  const lineBtn=(label,lat,lng)=>{shares.push([...head,`${label}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,`https://www.google.com/maps?q=${lat},${lng}`]);return `<button type="button" class="mn-line" data-share="${shares.length-1}">แชร์ LINE</button>`};
+  const nbRow=x=>`<div class="row"><b>${esc(x.mru)}</b>${ref?`<span class="mn-dist">ห่าง ${km(dist(ref,x))}</span>`:''}<span>CA ${esc(x.ca)}</span><span class="muted">${esc(x.address||'-')}</span><a href="${gmap(x.lat,x.lng)}" target="_blank" rel="noopener">แผนที่</a>${lineBtn(`บ้านข้างเคียง MRU ${x.mru} (CA ${x.ca}${ref?' · ห่าง '+km(dist(ref,x)):''})`,x.lat,x.lng)}</div>`;
   const shareLines=pick?[`CA ${r.ca}${r.mru?' · MRU '+r.mru:''}`,input.name||'',r.address||'',`${pick.label}: ${pick.lat.toFixed(6)}, ${pick.lng.toFixed(6)}`,`https://www.google.com/maps?q=${pick.lat},${pick.lng}`]:[];
   out.innerHTML=`<div id="mnStatus" class="mn-status" style="display:none"></div>
   <div class="mn-card">
@@ -115,11 +119,12 @@ function render(r,input){
         ${warns.length?`<ul class="mn-warn">${warns.map(w=>`<li>⚠ ${esc(w)}</li>`).join('')}</ul>`:''}</div>
       <div class="mn-map">${pick?`<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="แผนที่ตำแหน่งที่แนะนำ" src="https://maps.google.com/maps?q=${pick.lat},${pick.lng}&z=17&output=embed"></iframe>`:''}</div>
     </div>
-    <div class="mn-src"><h4>1. พิกัดมิเตอร์ในฐานข้อมูลลูกค้า</h4>${cust&&cust.lat!=null?`<div class="row"><b>${cust.lat.toFixed(6)}, ${cust.lng.toFixed(6)}</b>${r.checks.customer_vs_neighbours_m!=null?`<span class="muted">ห่างจากบ้านข้างเคียง ${km(r.checks.customer_vs_neighbours_m)}</span>`:''}<a href="${gmap(cust.lat,cust.lng)}" target="_blank" rel="noopener">แผนที่</a></div>`:`<div class="row muted">${cust?'มี CA แต่ไม่มีพิกัด':'ไม่พบ CA นี้ในฐานข้อมูล'}</div>`}</div>
+    <div class="mn-src"><h4>1. พิกัดมิเตอร์ในฐานข้อมูลลูกค้า</h4>${cust&&cust.lat!=null?`<div class="row"><b>${cust.lat.toFixed(6)}, ${cust.lng.toFixed(6)}</b>${r.checks.customer_vs_neighbours_m!=null?`<span class="muted">ห่างจากบ้านข้างเคียง ${km(r.checks.customer_vs_neighbours_m)}</span>`:''}<a href="${gmap(cust.lat,cust.lng)}" target="_blank" rel="noopener">แผนที่</a>${lineBtn('พิกัดมิเตอร์ในฐานข้อมูลลูกค้า',cust.lat,cust.lng)}</div>`:`<div class="row muted">${cust?'มี CA แต่ไม่มีพิกัด':'ไม่พบ CA นี้ในฐานข้อมูล'}</div>`}</div>
     <div class="mn-src"><h4>2. บ้านข้างเคียงในสายจด${r.mru?' ('+esc(r.mru.split('-')[0])+')':''}</h4>${nb&&(nb.before.length||nb.after.length)?`${nb.before.slice().reverse().map(nbRow).join('')}<div class="row"><b>▶ ${esc(r.mru)}</b><span>รายนี้</span>${ref?`<span class="muted">ระยะห่างวัดจาก${pick.kind==='customer'?'พิกัดมิเตอร์':'ตำแหน่งที่แนะนำ'} ${ref.lat.toFixed(6)}, ${ref.lng.toFixed(6)}</span>`:''}</div>${nb.after.map(nbRow).join('')}`:`<div class="row muted">${r.mru?'ไม่มีบ้านในสายเดียวกันที่มีพิกัด':'ไม่ทราบเลข MRU (วางรูปหน้าจอเพื่อให้ระบบอ่าน MRU)'}</div>`}</div>
-    <div class="mn-src"><h4>3. ตำแหน่งจากที่อยู่ (Longdo)</h4>${geo?`<div class="row"><b>${geo.lat.toFixed(6)}, ${geo.lng.toFixed(6)}</b><span class="muted">${geo.has_moo?'มีเลขหมู่':'ไม่มีเลขหมู่'}${r.checks.longdo_vs_neighbours_m!=null?' · ห่างจากบ้านข้างเคียง '+km(r.checks.longdo_vs_neighbours_m):''}${r.checks.longdo_vs_customer_m!=null?' · ห่างจากพิกัดมิเตอร์ '+km(r.checks.longdo_vs_customer_m):''}</span><a href="${gmap(geo.lat,geo.lng)}" target="_blank" rel="noopener">แผนที่</a></div>`:`<div class="row muted">${r.longdo&&r.longdo.error?'Longdo ไม่พบตำแหน่งจากที่อยู่นี้':'ไม่มีที่อยู่ให้ค้น'}</div>`}</div>
+    <div class="mn-src"><h4>3. ตำแหน่งจากที่อยู่ (Longdo)</h4>${geo?`<div class="row"><b>${geo.lat.toFixed(6)}, ${geo.lng.toFixed(6)}</b><span class="muted">${geo.has_moo?'มีเลขหมู่':'ไม่มีเลขหมู่'}${r.checks.longdo_vs_neighbours_m!=null?' · ห่างจากบ้านข้างเคียง '+km(r.checks.longdo_vs_neighbours_m):''}${r.checks.longdo_vs_customer_m!=null?' · ห่างจากพิกัดมิเตอร์ '+km(r.checks.longdo_vs_customer_m):''}</span><a href="${gmap(geo.lat,geo.lng)}" target="_blank" rel="noopener">แผนที่</a>${lineBtn('ตำแหน่งจากที่อยู่ (Longdo)',geo.lat,geo.lng)}</div>`:`<div class="row muted">${r.longdo&&r.longdo.error?'Longdo ไม่พบตำแหน่งจากที่อยู่นี้':'ไม่มีที่อยู่ให้ค้น'}</div>`}</div>
   </div>`;
   const sb=$('mnShare');if(sb)sb.onclick=()=>shareText(shareLines);
+  out.querySelectorAll('button[data-share]').forEach(b=>b.onclick=()=>shareText(shares[+b.dataset.share]));
 }
 
 function clearAll(){
