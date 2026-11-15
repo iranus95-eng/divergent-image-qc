@@ -167,6 +167,8 @@
     side.innerHTML = '<div class="sa-side-sk" aria-hidden="true">' +
       '<div class="sa-sk" style="height:12px;width:40%"></div><div class="sa-sk" style="height:40px"></div><div class="sa-sk" style="height:40px"></div><div class="sa-sk" style="height:40px"></div>' +
       '<div class="sa-sk" style="height:12px;width:40%;margin-top:12px"></div><div class="sa-sk" style="height:40px"></div><div class="sa-sk" style="height:40px"></div></div>' +
+      '<button type="button" class="sa-side-line" id="saSideLine"><span class="sa-side-line-ico">LINE</span>' +
+      '<span class="sa-side-line-txt"><b id="saSideLineTitle">เชื่อมต่อ LINE</b><span id="saSideLineSub"></span></span></button>' +
       '<div id="saGroups"></div>';
 
     var scrim = document.createElement('button');
@@ -205,6 +207,11 @@
       if (typeof window.logoutFromSystem === 'function') window.logoutFromSystem();
     });
     document.getElementById('saLineBtn').addEventListener('click', function () {
+      var b = document.getElementById('topLoginButton');
+      if (b) b.click();
+    });
+    document.getElementById('saSideLine').addEventListener('click', function () {
+      drawer(false);
       var b = document.getElementById('topLoginButton');
       if (b) b.click();
     });
@@ -305,6 +312,15 @@
       var txt = lb ? String(lb.textContent || '').trim() : '';
       mine.hidden = !txt;
       mine.textContent = txt;
+    }
+    // LINE item in the side menu (the top-bar button is hidden on phones)
+    var sl = document.getElementById('saSideLine');
+    if (sl) {
+      var t = lb ? String(lb.textContent || '').trim() : '';
+      var on = /เชื่อมต่อแล้ว/.test(t);
+      sl.classList.toggle('on', on);
+      document.getElementById('saSideLineTitle').textContent = on ? 'LINE เชื่อมต่อแล้ว' : 'เชื่อมต่อ LINE';
+      document.getElementById('saSideLineSub').textContent = on ? t.replace(/\s*·\s*เชื่อมต่อแล้ว$/, '') : 'ต้องเชื่อมต่อก่อนจึงจะแชร์พิกัดทาง LINE ได้';
     }
   }
 
