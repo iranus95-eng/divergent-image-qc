@@ -91,6 +91,12 @@
   #saSide .sa-group-label{font-size:15px;font-weight:700;font-family:var(--sa-font);font-synthesis:none;color:var(--sa-muted);letter-spacing:.04em;padding:0 12px 6px}
   .sa-nav{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:10px 12px!important;border:0!important;border-radius:10px!important;background:transparent!important;color:var(--sa-ink)!important;font-size:17.5px!important;font-weight:700!important;font-family:var(--sa-font)!important;font-synthesis:none;-webkit-font-smoothing:antialiased;text-align:left;cursor:pointer;box-sizing:border-box}
   .sa-nav:hover{background:var(--sa-accent-soft)!important}
+  .sa-side-line{display:none;align-items:center;gap:12px;width:100%;margin:0 0 16px;padding:12px!important;border:1px solid #bfe8cf!important;border-radius:12px!important;background:#effbf3!important;color:var(--sa-ink)!important;text-align:left;cursor:pointer;box-sizing:border-box;font-family:var(--sa-font)!important}
+  .sa-side-line-ico{flex-shrink:0;width:40px;height:40px;border-radius:11px;background:#06c755;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center}
+  .sa-side-line-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .sa-side-line-txt b{font-size:16px;color:#067a35}
+  .sa-side-line-txt span{font-size:13px;color:var(--sa-muted);line-height:1.4}
+  .sa-side-line.on{background:var(--sa-surface)!important;border-color:var(--sa-line)!important}
   .sa-nav[aria-current="page"]{background:var(--sa-accent)!important;color:#fff!important;font-weight:700!important}
   .sa-nav svg{flex-shrink:0}
 
@@ -112,6 +118,7 @@
   html.shell-pending #saSkeleton{display:flex;flex-direction:column;gap:14px;max-width:1280px;margin:0 auto;padding:24px 28px}
   html.shell-pending .main-shell .container{visibility:hidden!important}
   html.shell-pending #saSide .sa-group,html.shell-pending #saBottom .sa-tab{visibility:hidden}
+  html.shell-pending #saSide .sa-side-line{display:none!important}
   #saSide .sa-side-sk{display:none}
   html.shell-pending #saSide .sa-side-sk{display:flex;flex-direction:column;gap:10px}
   #saSkeleton p{margin:0;color:var(--sa-muted);font-size:15px}
@@ -131,6 +138,7 @@
     #billingInvoiceV1,#receiptTaxV1,#customerImportV1{left:0!important;bottom:var(--sa-bottom)!important}
     #saTop{padding:0 10px}
     #saTop .sa-title>span,#saTop .sa-who,.sa-hide-sm{display:none!important}
+    #saSide .sa-side-line{display:flex}
     #saTop .sa-title b{font-size:16px}
     .sa-icon-btn{display:inline-flex}
     #saSide{transform:translateX(-100%);transition:transform .18s ease;width:min(86vw,320px);bottom:var(--sa-bottom);box-shadow:none}

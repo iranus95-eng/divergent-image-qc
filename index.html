@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/shell-a.css?v=20261006-1">
+  <link rel="stylesheet" href="./css/shell-a.css?v=20261115-1">
 <link rel="stylesheet" href="./css/theme-pea.css?v=20261004-7">
   <title>Divergent Image Rescue — V2</title>
 
@@ -1138,6 +1138,18 @@
 .home-logout-btn:hover{background:#fef2f2;transform:translateY(-1px)}
 .home-logout-btn:active{transform:translateY(0)}
 @media(max-width:720px){.home-logout-row{justify-content:stretch}.home-logout-btn{width:100%}}
+</style>
+<style id="line-share-dialog">
+.lsd-scrim{position:fixed;inset:0;z-index:2147483000;background:rgba(28,23,48,.45);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.lsd{width:100%;max-width:400px;max-height:calc(100vh - 32px);overflow:auto;background:#fff;border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(28,23,48,.3);box-sizing:border-box;font-family:inherit}
+.lsd-ico{width:48px;height:48px;border-radius:14px;background:#06c755;color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;margin-bottom:10px}
+.lsd h3{margin:0 0 6px;font-size:19px;color:#1c1730}.lsd p{margin:0;color:#555;font-size:15px;line-height:1.55}
+.lsd-pre{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:#f6f3fa;color:#3a3150;font-family:inherit;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:140px;overflow:auto}
+.lsd-actions{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.lsd-actions button{min-height:46px;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin:0;width:100%;box-shadow:none}
+.lsd-primary{background:#06c755;border:1px solid #06c755;color:#fff}
+.lsd-secondary{background:#fff;border:1px solid #d9d0e6;color:#3a3150}
+.lsd-cancel{background:transparent;border:0;color:#777}
 </style>
 <style id="sidebar-session-lock-v4">
 body.session-sidebar-lock #navHome{display:flex!important}
@@ -4013,14 +4025,17 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         status.textContent="เข้าสู่ระบบด้วยบัญชีพนักงานแล้ว ✓ "+(user.username||"");
         if(loginBtn)loginBtn.textContent="เชื่อมต่อ LINE (ไม่บังคับ)";
       }
-      if(!requested)return;
+      if(!requested){
+        if(getFallbackSessionToken())lineShareReady().then(ok=>{if(!ok||!loginBtn)return;return liff.getProfile().then(pf=>{loginBtn.textContent=(pf?.displayName||"LINE")+" · เชื่อมต่อแล้ว"}).catch(()=>{loginBtn.textContent="LINE · เชื่อมต่อแล้ว"})});
+        return;
+      }
       try{
         status.textContent="กำลังเชื่อมต่อ LINE...";
         // Create the cross-browser handoff before LIFF can initiate any redirect.
         // withLoginOnExternalBrowser must stay off here; otherwise liff.init redirects
         // before the one-time flow token exists and the employee session is lost.
         const activeFlowToken=flowToken||await createLineLinkFlow();
-        await liff.init({liffId:LIFF_ID});
+        await ensureLiffInit();
         if(!liff.isLoggedIn()){
           sessionStorage.setItem(LINE_CONNECT_PENDING_KEY,"1");
           liff.login({redirectUri:location.origin+location.pathname+"?connect_line=1&line_flow="+encodeURIComponent(activeFlowToken)});
@@ -4037,8 +4052,10 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         status.textContent="เชื่อมต่อ LINE สำเร็จ ✓ "+lineName;
         if(loginBtn)loginBtn.textContent=lineName+" · เชื่อมต่อแล้ว";
         history.replaceState({},"",location.pathname);
+        resumePendingLineShare();
       }catch(error){
         sessionStorage.removeItem(LINE_CONNECT_PENDING_KEY);
+        try{sessionStorage.removeItem(LINE_PENDING_SHARE_KEY)}catch(_){ }
         status.textContent="เชื่อมต่อ LINE ไม่สำเร็จ: "+(error?.message||error);
         if(loginBtn)loginBtn.textContent="ลองเชื่อมต่อ LINE อีกครั้ง";
       }
@@ -5248,11 +5265,52 @@ body.home-grid5-mode .main-shell .container{max-width:1540px!important;padding-l
         }else window._compareLocations=null;
       }catch(e){status.textContent="ค้นหาพิกัดไม่สำเร็จ: "+(e?.message||e);status.classList.add("status-error");}
     }
+    // LINE share needs this browser to be logged in to LINE (LIFF). If not, ask to connect first.
+    const LINE_PENDING_SHARE_KEY="divergent_line_pending_share_v1";
+    let _liffInitPromise=null;
+    function ensureLiffInit(){
+      if(typeof liff==="undefined")return Promise.reject(new Error("LIFF_SDK_NOT_AVAILABLE"));
+      if(!_liffInitPromise)_liffInitPromise=liff.init({liffId:LIFF_ID}).catch(e=>{_liffInitPromise=null;throw e});
+      return _liffInitPromise;
+    }
+    async function lineShareReady(){
+      try{await ensureLiffInit();return liff.isLoggedIn()&&liff.isApiAvailable("shareTargetPicker")}catch(_){return false}
+    }
+    async function lineSharePick(text){
+      try{await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});}
+      catch(e){alert("แชร์พิกัดไม่สำเร็จ: "+(e?.message||e));}
+    }
+    function lineShareDialog({title,body,preview,primary,onPrimary,secondary,onSecondary}){
+      document.getElementById("lineShareDialog")?.remove();
+      const box=document.createElement("div");box.id="lineShareDialog";box.className="lsd-scrim";
+      box.innerHTML=`<div class="lsd" role="dialog" aria-modal="true" aria-labelledby="lsdTitle"><div class="lsd-ico">LINE</div><h3 id="lsdTitle">${escapeHtml(title)}</h3><p>${escapeHtml(body)}</p>${preview?`<pre class="lsd-pre">${escapeHtml(preview)}</pre>`:""}<div class="lsd-actions"><button type="button" class="lsd-primary">${escapeHtml(primary)}</button>${secondary?`<button type="button" class="lsd-secondary">${escapeHtml(secondary)}</button>`:""}<button type="button" class="lsd-cancel">ยกเลิก</button></div></div>`;
+      const close=()=>box.remove();
+      box.addEventListener("click",e=>{if(e.target===box)close()});
+      box.querySelector(".lsd-cancel").onclick=close;
+      box.querySelector(".lsd-primary").onclick=()=>{close();onPrimary&&onPrimary()};
+      const sec=box.querySelector(".lsd-secondary");if(sec)sec.onclick=()=>{close();onSecondary&&onSecondary()};
+      document.body.appendChild(box);box.querySelector(".lsd-primary").focus();
+    }
+    async function copyShareText(text){
+      try{await navigator.clipboard.writeText(text);alert("คัดลอกข้อความแล้ว นำไปวางในแชท LINE ได้เลย");}
+      catch(e){alert("คัดลอกไม่สำเร็จ: "+(e?.message||e));}
+    }
     async function shareTextLocation(text){
-      try{
-        if(window.liff&&liff.isApiAvailable&&liff.isApiAvailable("shareTargetPicker"))await liff.shareTargetPicker([{type:"text",text}],{isMultiple:true});
-        else{await navigator.clipboard.writeText(text);alert("คัดลอกพิกัดแล้ว");}
-      }catch(e){alert("แชร์พิกัดไม่สำเร็จ: "+(e?.message||e));}
+      if(await lineShareReady())return lineSharePick(text);
+      lineShareDialog({
+        title:"ต้องเชื่อมต่อ LINE ก่อน",
+        body:"เครื่องนี้ยังไม่ได้เชื่อมต่อ LINE จึงยังแชร์พิกัดไม่ได้ เชื่อมต่อเลยไหม? เชื่อมต่อเสร็จแล้วระบบจะพากลับมาแชร์ข้อความนี้ต่อ",
+        preview:text,
+        primary:"เชื่อมต่อ LINE เลย",
+        onPrimary:()=>{try{sessionStorage.setItem(LINE_PENDING_SHARE_KEY,text)}catch(_){ }manualLineLogin();},
+        secondary:"คัดลอกข้อความแทน",
+        onSecondary:()=>copyShareText(text)
+      });
+    }
+    function resumePendingLineShare(){
+      let text="";try{text=sessionStorage.getItem(LINE_PENDING_SHARE_KEY)||"";sessionStorage.removeItem(LINE_PENDING_SHARE_KEY)}catch(_){ }
+      if(!text)return;
+      lineShareDialog({title:"เชื่อมต่อ LINE แล้ว",body:"แชร์พิกัดที่ค้างไว้ตอนนี้เลยไหม?",preview:text,primary:"แชร์ LINE",onPrimary:()=>lineSharePick(text)});
     }
     // route preview: from the viewer's current position when the browser allows it, otherwise just the pin
     let _myPos=null,_myPosAsked=false;
@@ -6574,7 +6632,7 @@ Net Margin: ${s.margin.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFr
 <script src="./js/theme-pea.js?v=20261004-3"></script>
 <script src="./js/payroll-delete.js?v=20261004-1"></script>
 <script src="./js/system-cost.js?v=20261029-1"></script>
-<script src="./js/shell-a.js?v=20261113-4"></script>
+<script src="./js/shell-a.js?v=20261115-1"></script>
 <script src="./js/qc-review-insx.js?v=20261111-1"></script>
 <script src="./js/location-screenshot-ca.js?v=20261112-1"></script>
 <script src="./js/meter-new.js?v=20261115-1"></script>
