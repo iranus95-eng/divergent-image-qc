@@ -453,7 +453,17 @@
     var site = st.forSite; st.forSite = '';
     await openBytes(data, file.name.replace(/\.pdf$/i, ''), null, null, site);
   }
+  var itFonts = {};
+  function itFont(page, id) {
+    if (!(id in itFonts)) {
+      var n = '';
+      try { if (page.commonObjs.has(id)) n = page.commonObjs.get(id).name || ''; } catch (e) { }
+      itFonts[id] = /Sarabun\s*IT/i.test(n);
+    }
+    return itFonts[id];
+  }
   async function openBytes(data, name, savedId, savedState, site) {
+    itFonts = {};      // font ids (g_d0_f1 …) are per document
     st.busy = true; render();
     var ok = false, filled = false;
     try {
@@ -470,10 +480,12 @@
         canvas.width = Math.round(big.width); canvas.height = Math.round(big.height);
         await page.render({ canvasContext: canvas.getContext('2d'), viewport: big }).promise;
         var tc = await page.getTextContent();
+        // TH SarabunIT๙ draws the Arabic digits 0–9 as Thai digits (๐–๙): the text says "120,000" but the page shows ๑๒๐,๐๐๐
+        // (e.g. กฟส.ปราสาท, typed in Word), so numbers in that font count as Thai digits too
         var items = tc.items.filter(function (i) { return i.str && i.str.trim(); }).map(function (i) {
           var t = lib.Util.transform(vp.transform, i.transform);
           var h = Math.hypot(t[2], t[3]);
-          return { str: thaiText(i.str).trim(), x: t[4], y: t[5], w: i.width, h: h, thai: /[\u0E50-\u0E59]/.test(i.str) };
+          return { str: thaiText(i.str).trim(), x: t[4], y: t[5], w: i.width, h: h, thai: /[\u0E50-\u0E59]/.test(i.str) || (/\d/.test(i.str) && itFont(page, i.fontName)) };
         });
         items = mergeRuns(items);
         text += ' ' + items.map(function (i) { return i.str; }).join(' ');
