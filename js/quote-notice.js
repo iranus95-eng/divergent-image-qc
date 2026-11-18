@@ -166,6 +166,51 @@
     return pdfjsReady;
   }
 
+  // A scanned form has its quantity only as a picture ("168,000"): read that one cell with Tesseract (digits only),
+  // loaded on demand for scanned files. The value stays editable; the ตารางประมูล quantity is the next fallback.
+  var TESS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  var TESS_OPTS = { workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js', corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+    langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int' };
+  var tessReady = null;
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (tessReady) return tessReady;
+    tessReady = new Promise(function (ok, fail) {
+      var s = document.createElement('script'); s.src = TESS; s.async = true;
+      s.onload = function () { ok(window.Tesseract); };
+      s.onerror = function () { tessReady = null; fail(new Error('โหลดตัวอ่านตัวเลขไม่สำเร็จ')); };
+      document.head.appendChild(s);
+    });
+    return tessReady;
+  }
+  function printedNumber(text) {
+    var t = String(text || '').replace(/\s+/g, '').replace(/[.,]-?$/, '');
+    if (!/^\d{1,3}([,.]\d{3})+$|^\d{1,7}$/.test(t)) return 0;
+    return Number(t.replace(/[,.]/g, ''));
+  }
+  async function readPrintedQty() {
+    var rows = st.rows.filter(function (r) { return r.qtyPrinted && !(r.qty > 0); });
+    if (!rows.length) return;
+    var worker = null;
+    try {
+      var T = await loadTesseract();
+      worker = await T.createWorker('eng', 1, TESS_OPTS);
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789,.', tessedit_pageseg_mode: '7' });
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i], pg = st.pages[r.page], S = RENDER_SCALE, size = r.h * 0.67, c = r.cells.qty;
+        var x0 = Math.round((c[0] + 2) * S), x1 = Math.round((c[1] - 2) * S), y0 = Math.round((r.y - size * 1.15) * S), y1 = Math.round((r.y + size * 0.4) * S);
+        var cut = document.createElement('canvas'), pad = 20;
+        cut.width = x1 - x0 + pad * 2; cut.height = y1 - y0 + pad * 2;
+        var g = cut.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cut.width, cut.height);
+        g.drawImage(pg.bg, x0, y0, x1 - x0, y1 - y0, pad, pad, x1 - x0, y1 - y0);
+        var res = await worker.recognize(cut);
+        var q = printedNumber(res.data.text);
+        if (q > 0) { r.qty = q; r.qtyOcr = true; }
+      }
+    } catch (e) { console.warn('quote-notice ocr', e); }
+    finally { if (worker) worker.terminate().catch(function () {}); }
+  }
+
   // ---------------------------------------------------------------- table detection
   // Thai marks are often lost in PDF text, so headers are matched loosely.
   var RE = {
@@ -660,7 +705,8 @@
       }
       if (savedState) applySnapshot(savedState);
       if (!savedId) st.name = site || officeSite(text) || name;      // a new job is named after its site, so it sits under that site in the list
-      filled = await qtyFromBids();
+      await readPrintedQty();
+      filled = await qtyFromBids() || st.rows.some(function (r) { return r.qtyOcr; });
       if (!st.rows.length) alert('ไม่พบตารางราคาในไฟล์นี้ (ต้องมีคอลัมน์ จำนวน, ราคาต่อหน่วย และจำนวนเงิน/รวม) กรุณาส่งไฟล์ให้ผู้ดูแลปรับรูปแบบ');
       ok = true;
     } catch (e) {
@@ -1115,7 +1161,7 @@
           return '<div class="qn-row"><b>' + esc(r.table.title) + '</b><small>' + esc(label) + (r.qtyEdit ? '' : ' • จำนวน ' + r.qty.toLocaleString('th-TH')) + ' (หน้า ' + (r.page + 1) + ')</small>' +
             (r.qtyEdit ? '<div class="qn-line"><span>จำนวน' + (r.table.perMonth ? ' (ราย/เดือน)' : '') + '</span><input data-qty="' + i + '" inputmode="numeric" value="' + (r.qty ? r.qty : '') + '" placeholder="0"></div>' +
               (r.qtyAuto ? '<small>จำนวนจากตารางประมูล (' + esc(r.qtyAuto) + ') แก้ได้ถ้าไม่ตรง</small>' : '') +
-              (r.qtyPrinted ? '<small>ไฟล์สแกน: ใส่จำนวนให้ตรงกับที่พิมพ์ในฟอร์ม (ใช้คำนวณเท่านั้น ไม่พิมพ์ทับ)</small>' : '') : '') +
+              (r.qtyPrinted ? '<small>' + (r.qtyOcr ? 'ไฟล์สแกน: อ่านจำนวนจากภาพแล้ว ตรวจให้ตรงกับฟอร์ม' : r.qty > 0 ? 'ไฟล์สแกน: ตรวจจำนวนให้ตรงกับฟอร์ม' : '<b style="color:#b42318">ไฟล์สแกน: กรุณาใส่จำนวนตามที่พิมพ์ในฟอร์ม ระบบจึงจะคำนวณได้</b>') + ' (ใช้คำนวณเท่านั้น ไม่พิมพ์ทับ)</small>' : '') : '') +
             '<div class="qn-line"><span>ราคา/หน่วย (บาท)</span><input data-row="' + i + '" inputmode="decimal" value="' + (r.price ? r.price : '') + '" placeholder="0.00"></div>' +
             '<div class="qn-line" data-out="' + i + '"></div></div>';
         }).join('') + '<div class="qn-sum" id="qnSum"></div>' : '') +
