@@ -74,6 +74,21 @@ function mid(r){return (r[0]+r[1])/2;}
   assert.deepEqual([...t.cols],['qty','price','amount']);
   assert.deepEqual([...t.sums.map(s=>s.key)],['amount','vat','total']);
 }
+// กฟส.โนนสูง: "จ านวน" (ำ lost to a space), one row with เป็นเงิน / ภาษี / รวมทั้งสิ้น columns and no summary rows;
+// numbers touching Thai words ("108,000.ราย", "924,480บาท") are redrawn on their own, not over the word
+{
+  const raw=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','quote-notice-nonsung.json'),'utf8'));
+  const r=ctx.read(raw);
+  assert.equal(r.length,1);
+  assert.equal(r[0].qty,108000);
+  assert.equal(r[0].label,'ใบแจ้งเตือน');
+  assert.deepEqual([...r[0].table.cols],['qty','price','amount','vat','total']);
+  assert.equal(r[0].table.sums.length,0);
+  const d=ctx.digits(raw.map(i=>Object.assign({},i,{str:i.str.replace(/\d/g,c=>String.fromCharCode(0x0E50+ +c))})));
+  const q=d.find(x=>x.text==='108,000'&&x.y<300), b=d.find(x=>x.text==='924,480');
+  assert.ok(q&&q.x+q.w<209.9,'quantity in the heading stops before ".ราย"');
+  assert.ok(b&&b.x+b.w<463.7,'budget stops before "บาท"');
+}
 for(const f of ['quote-notice-putthaisong.json','quote-notice-sikhoraphum.json'])assert.equal(rows(f)[0].table.perMonth,false);
 // a new job is named after the office's site
 for(const [f,site] of [['quote-notice-putthaisong.json','พุทไธสง'],['quote-notice-dankhunthot.json','ด่านขุนทด'],['quote-notice-sikhoraphum.json','ศีขรภูมิ'],['quote-notice-nakhonratchasima2.json','เมืองนครราชสีมา 2']]){
