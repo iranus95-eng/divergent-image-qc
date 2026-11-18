@@ -173,7 +173,7 @@
     amount: /นวนเงิน/,
     vat: /ภาษี/,
     total: /รวม.*(เงิน|สิ\S{0,2}น)|ทั\S{0,2}งสิ\S{0,2}น/,
-    qty: /^จ\S{0,3}นวน$/,
+    qty: /^จ\s?\S{0,3}นวน$/,   // "จ านวน": ำ lost to a space (TH SarabunIT๙ Word forms, e.g. กฟส.โนนสูง)
     number: /^\d{1,3}(,\d{3})+(\.\d+)?$|^\d+(\.\d+)?$/
   };
   function center(it) { return it.x + it.w / 2; }
@@ -252,7 +252,10 @@
     var out = [];
     items.slice().sort(function (a, b) { return Math.abs(a.y - b.y) > 1.5 ? a.y - b.y : a.x - b.x; }).forEach(function (i) {
       var last = out[out.length - 1];
-      if (last && Math.abs(last.y - i.y) <= 1.5 && i.x - (last.x + last.w) <= 1.5 && i.x >= last.x) {
+      // a number stays apart from Thai words it touches ("108,000" | ".ราย", "924,480" | "บาท"), so its digits can be redrawn
+      // in their own place without covering the word (e.g. กฟส.โนนสูง)
+      var numWord = last && ((/\d$/.test(last.str) && /[\u0E01-\u0E4E]/.test(i.str)) || (/[\u0E01-\u0E4E]/.test(last.str) && /^\d/.test(i.str)));
+      if (last && !numWord && Math.abs(last.y - i.y) <= 1.5 && i.x - (last.x + last.w) <= 1.5 && i.x >= last.x) {
         last.str += i.str; last.thai = last.thai || i.thai; last.w = Math.max(last.w, i.x + i.w - last.x); last.h = Math.max(last.h, i.h);
       } else out.push({ str: i.str, x: i.x, y: i.y, w: i.w, h: i.h, thai: i.thai });
     });
