@@ -378,6 +378,157 @@
     return rows;
   }
 
+  // Scanned forms (a picture with no text layer, e.g. กฟจ.บุรีรัมย์ "Attach_TOR_3.pdf") have nothing for detectTables to
+  // read, so the price table is found from the ruling lines drawn on the page:
+  //   ลำดับ | รายการ | ปริมาณ (ราย) | ราคา/หน่วย | รวมเป็นเงิน   — header row(s) on top,
+  //   รวมราคาไม่รวมภาษี / ภาษีมูลค่าเพิ่ม / รวมทั้งสิ้น   — rows below whose only inner line is the one before the last column.
+  // The last three body columns are quantity, unit price and amount. The quantity printed in the picture stays as it is;
+  // it is taken from ตารางประมูล (or typed) for the calculation only.
+  // ink: one byte per pixel (1 = dark), W × H pixels at S pixels per PDF point.
+  // A scanned page is often turned a little (≈1°): the slope t that makes the most rows of ink line up (lines and text).
+  function scanSkew(ink, W, H) {
+    var px = [];
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x += 2) if (ink[y * W + x]) px.push(x, y);   // every row: skipping rows biases t = 0
+    var best = 0, bestT = 0, pad = Math.ceil(W * 0.04) + 2, hist = new Float64Array(H + pad * 2);
+    for (var t = -0.035; t <= 0.0351; t += 0.0005) {
+      hist.fill(0);
+      for (var i = 0; i < px.length; i += 2) hist[Math.round(px[i + 1] + px[i] * t) + pad]++;
+      var score = 0; for (var j = 0; j < hist.length; j++) score += hist[j] * hist[j];
+      if (score > best) { best = score; bestT = t; }
+    }
+    return Math.abs(bestT) < 0.0004 ? 0 : bestT;
+  }
+  function gridTables(ink0, W, H, S, pageNo) {
+    // straighten the page: deskewed (X, Y) = (x − y·t, y + x·t), so a page point is (X + Y·t, Y − X·t)
+    var t0 = scanSkew(ink0, W, H), ink = ink0;
+    if (t0) {
+      ink = new Uint8Array(W * H);
+      for (var Y = 0; Y < H; Y++) for (var X = 0; X < W; X++) {
+        var sx = Math.round(X + Y * t0), sy = Math.round(Y - X * t0);
+        if (sx >= 0 && sy >= 0 && sx < W && sy < H) ink[Y * W + X] = ink0[sy * W + sx];
+      }
+    }
+    var GAP = Math.max(2, Math.round(S)), TOL = 4 * S;
+    function dark(x, y) { return x >= 0 && y >= 0 && x < W && y < H && ink[y * W + x] === 1; }
+    // a line pixel: dark here or one pixel across (slightly skewed or thin scanned lines)
+    function hDark(x, y) { return dark(x, y) || dark(x, y - 1) || dark(x, y + 1); }
+    function vDark(x, y) { return dark(x, y) || dark(x - 1, y) || dark(x + 1, y); }
+    function merge(list, along, a0, a1) {   // join segments found on neighbouring pixel rows/columns
+      var out = [];
+      list.forEach(function (s) {
+        var last = out.filter(function (o) { return s[along] - o.end <= 2 && s[a0] < o[a1] && s[a1] > o[a0]; })[0];
+        if (last) { last.end = s[along]; last.sum += s[along]; last.n++; last[a0] = Math.min(last[a0], s[a0]); last[a1] = Math.max(last[a1], s[a1]); }
+        else { var c = { end: s[along], sum: s[along], n: 1 }; c[a0] = s[a0]; c[a1] = s[a1]; out.push(c); }
+      });
+      out.forEach(function (o) { o[along] = o.sum / o.n / S; o[a0] /= S; o[a1] /= S; });
+      return out;
+    }
+    var hs = [], minH = 150 * S;
+    for (var y = 0; y < H; y++) {
+      for (var x = 0, start = -1, gap = 0; x <= W; x++) {
+        if (x < W && hDark(x, y)) { if (start < 0) start = x; gap = 0; continue; }
+        if (start >= 0 && x < W && ++gap <= GAP) continue;
+        if (start >= 0 && x - gap - start >= minH) hs.push({ y: y, x0: start, x1: x - gap });
+        start = -1; gap = 0;
+      }
+    }
+    var vs = [], minV = 10 * S;
+    for (var x2 = 0; x2 < W; x2++) {
+      for (var y2 = 0, top = -1, g2 = 0; y2 <= H; y2++) {
+        if (y2 < H && vDark(x2, y2)) { if (top < 0) top = y2; g2 = 0; continue; }
+        if (top >= 0 && y2 < H && ++g2 <= GAP) continue;
+        if (top >= 0 && y2 - g2 - top >= minV) vs.push({ x: x2, y0: top, y1: y2 - g2 });
+        top = -1; g2 = 0;
+      }
+    }
+    hs = merge(hs, 'y', 'x0', 'x1'); vs = merge(vs, 'x', 'y0', 'y1');
+    if (!hs.length) return [];
+    // the table's full-width lines
+    var R = Math.max.apply(null, hs.map(function (h) { return h.x1; }));
+    var L = Math.min.apply(null, hs.filter(function (h) { return h.x1 > R - TOL; }).map(function (h) { return h.x0; }));
+    var full = hs.filter(function (h) { return h.x0 < L + TOL && h.x1 > R - TOL; }).sort(function (a, b) { return a.y - b.y; });
+    var bands = [];
+    for (var i = 0; i + 1 < full.length; i++) {
+      var ya = full[i].y, yb = full[i + 1].y;
+      if (yb - ya < 8) continue;
+      var xs = [];
+      vs.filter(function (v) { return v.y0 <= ya + 2 && v.y1 >= yb - 2 && v.x > L - TOL && v.x < R + TOL; })
+        .sort(function (a, b) { return a.x - b.x; })
+        .forEach(function (v) { if (!xs.length || v.x - xs[xs.length - 1] > TOL) xs.push(v.x); });
+      bands.push({ y0: ya, y1: yb, xs: xs });
+    }
+    var most = Math.max.apply(null, bands.map(function (b) { return b.xs.length; }).concat([0]));
+    if (most < 5) return [];                                   // at least: item | quantity | price | amount
+    var bodyIdx = bands.map(function (b, k) { return b.xs.length === most ? k : -1; }).filter(function (k) { return k >= 0; });
+    var first = bodyIdx[0], lastBody = bodyIdx[bodyIdx.length - 1];
+    if (first < 1) return [];                                  // no header above the items
+    var xs0 = bands[first].xs, n = xs0.length - 1, line = 0.8;
+    var cell = function (k) { return [xs0[k] + line, xs0[k + 1] - line]; };
+    var cols = { qty: cell(n - 3), price: cell(n - 2), amount: cell(n - 1) };
+    var sumBands = [];
+    for (var k = lastBody + 1; k < bands.length; k++) {
+      var b = bands[k];
+      // the amount cell keeps both its lines and nothing inside; the line between quantity and price is gone
+      // (tall letters of the label on the left may look like short lines, so only these columns are judged)
+      var has = function (x) { return b.xs.some(function (v) { return Math.abs(v - x) <= TOL; }); };
+      if (!has(xs0[n - 1]) || !has(xs0[n]) || has(xs0[n - 2]) || b.xs.some(function (v) { return v > xs0[n - 1] + TOL && v < xs0[n] - TOL; })) break;
+      sumBands.push(b);
+    }
+    if (!sumBands.length || sumBands.length > 3) return [];
+    function inkRows(x0, x1, y0, y1) {          // pixel rows (in points) of the cell that carry ink, borders left out
+      var out = [];
+      for (var yy = Math.round((y0 + 2) * S); yy < Math.round((y1 - 2) * S); yy++) {
+        for (var xx = Math.round((x0 + 2) * S); xx < Math.round((x1 - 2) * S); xx++) if (dark(xx, yy)) { out.push(yy / S); break; }
+      }
+      return out;
+    }
+    function firstLine(rows) {                   // top and bottom of the first text line in the cell
+      if (!rows.length) return null;
+      var top = rows[0], bot = rows[0];
+      for (var j = 1; j < rows.length && rows[j] - bot <= 2; j++) bot = rows[j];
+      return { top: top, bottom: bot };
+    }
+    var t = { page: pageNo, y: bands[first - 1].y0, headerBottom: bands[first].y0, bounds: cols, cols: ['qty', 'price', 'amount'], sums: [],
+      perMonth: false, title: 'ตารางที่ 1', refStr: '', refW: 0, scanned: true };
+    var rows = [], size = 0;
+    bodyIdx.forEach(function (k) {
+      var b = bands[k];
+      var q = firstLine(inkRows(cols.qty[0], cols.qty[1], b.y0, b.y1));
+      var lab = firstLine(inkRows(xs0[n - 4], xs0[n - 3], b.y0, b.y1));   // the รายการ cell
+      if (!q && !lab) return;                                  // empty spacer row
+      if (q && !size) size = Math.min(22, Math.max(10, (q.bottom - q.top) / 0.72));
+      rows.push({ band: b, q: q, lab: lab });
+    });
+    if (!rows.length) return [];
+    size = size || 16;
+    var h = size / 0.67, cap = size * 0.7;
+    t.refH = h;
+    var out = rows.map(function (r, idx) {
+      var y = r.q ? r.q.bottom : r.lab ? Math.min(r.lab.bottom, r.band.y0 + 4 + cap * 1.4) : r.band.y0 + 4 + cap;
+      return { page: pageNo, table: t, y: y, h: h, refStr: '', refW: 0, qty: 0, qtyEdit: true, qtyPrinted: !!r.q,
+        label: 'รายการที่ ' + (idx + 1) + ' (ไฟล์สแกน)', price: 0, cells: { qty: cols.qty, price: cols.price, amount: cols.amount } };
+    });
+    // back to page positions: cells move sideways with their row, a row's line height is taken over the money columns
+    var mid = (cols.price[0] + cols.amount[1]) / 2;
+    var shift = function (c, y) { return [c[0] + y * t0, c[1] + y * t0]; };
+    out.forEach(function (r) {
+      r.cells = { qty: shift(cols.qty, r.y), price: shift(cols.price, r.y), amount: shift(cols.amount, r.y) };
+      r.y -= mid * t0;
+    });
+    t.bounds = out[0].cells;
+    var keys = sumBands.length === 3 ? ['amount', 'vat', 'total'] : sumBands.length === 2 ? ['amount', 'total'] : ['amount'];
+    t.sums = sumBands.map(function (b, k) {
+      var c = [xs0[n - 1] + line, xs0[n] - line], y = (b.y0 + b.y1) / 2 + cap / 2;
+      return { key: keys[k], y: y - (c[0] + c[1]) / 2 * t0, h: h, across: false, blank: [], cell: shift(c, y) };
+    });
+    return out;
+  }
+  function scanTables(canvas, pageNo) {
+    var W = canvas.width, H = canvas.height, d = canvas.getContext('2d').getImageData(0, 0, W, H).data, ink = new Uint8Array(W * H);
+    for (var i = 0, p = 0; i < ink.length; i++, p += 4) ink[i] = d[p] + d[p + 1] + d[p + 2] < 384 ? 1 : 0;
+    return gridTables(ink, W, H, RENDER_SCALE, pageNo);
+  }
+
   // Thai digits printed in the form (๑๒๐,๐๐๐ / ๘.๐๐ / VAT ๗% / ปี ๒๕๗๐) are rewritten as Arabic digits, so every number on
   // the page looks the same as the filled prices (e.g. กฟส.ปราสาท). A whole number item keeps its own place; a number at the
   // start or end of a phrase is measured from the digit width of the page's number items. Numbers in mid-phrase stay as printed.
@@ -495,9 +646,10 @@
         // fonts with a broken map write every "า" as "ำ" ("รำคำกลำง"): read such a page with า restored
         if (items.some(function (i) { return /รำคำ|รำยกำร/.test(i.str); })) items.forEach(function (i) { i.str = i.str.replace(/ำ/g, 'า').replace(/จ\s+า/g, 'จำ'); });
         st.pages.push({ w: vp.width, h: vp.height, bg: canvas, nums: thaiDigitRuns(items) });
-        var found = detectTables(items, n - 1);
+        // a scanned page (only a picture, no text) is read from the table lines drawn on it
+        var found = items.length ? detectTables(items, n - 1) : scanTables(canvas, n - 1);
         found.forEach(function (r) {
-          r.cells = snapCells(r.y, r.h, r.table.cols, r.table, canvas);
+          if (!r.cells) r.cells = snapCells(r.y, r.h, r.table.cols, r.table, canvas);
           r.table.sums.forEach(function (sm) {
             if (sm.cell) return;
             if (sm.across) { sm.cells = snapCells(sm.y, sm.h, ['amount', 'vat', 'total'], r.table, canvas); sm.cell = sm.cells.amount; }
@@ -543,7 +695,7 @@
       var v = calc(r), b = r.cells || r.table.bounds;
       var size = sizeFor(r.refStr, r.refW, r.h);
       var vals = { price: r.price, amount: v.amount, vat: v.vat, total: v.total };
-      if (r.qtyEdit && r.qty > 0) put(r.page, r.qty.toLocaleString('en-US'), b.qty, r.y, size, r.table);
+      if (r.qtyEdit && r.qty > 0 && !r.qtyPrinted) put(r.page, r.qty.toLocaleString('en-US'), b.qty, r.y, size, r.table);
       r.table.cols.forEach(function (k) { if (k !== 'qty') put(r.page, money(vals[k]), b[k], r.y, size, r.table); });
     });
     allTables().forEach(function (t) {
@@ -962,7 +1114,8 @@
           var label = r.label || 'รายการ'; if (label.length > 70) label = label.slice(0, 68) + '…';
           return '<div class="qn-row"><b>' + esc(r.table.title) + '</b><small>' + esc(label) + (r.qtyEdit ? '' : ' • จำนวน ' + r.qty.toLocaleString('th-TH')) + ' (หน้า ' + (r.page + 1) + ')</small>' +
             (r.qtyEdit ? '<div class="qn-line"><span>จำนวน' + (r.table.perMonth ? ' (ราย/เดือน)' : '') + '</span><input data-qty="' + i + '" inputmode="numeric" value="' + (r.qty ? r.qty : '') + '" placeholder="0"></div>' +
-              (r.qtyAuto ? '<small>จำนวนจากตารางประมูล (' + esc(r.qtyAuto) + ') แก้ได้ถ้าไม่ตรง</small>' : '') : '') +
+              (r.qtyAuto ? '<small>จำนวนจากตารางประมูล (' + esc(r.qtyAuto) + ') แก้ได้ถ้าไม่ตรง</small>' : '') +
+              (r.qtyPrinted ? '<small>ไฟล์สแกน: ใส่จำนวนให้ตรงกับที่พิมพ์ในฟอร์ม (ใช้คำนวณเท่านั้น ไม่พิมพ์ทับ)</small>' : '') : '') +
             '<div class="qn-line"><span>ราคา/หน่วย (บาท)</span><input data-row="' + i + '" inputmode="decimal" value="' + (r.price ? r.price : '') + '" placeholder="0.00"></div>' +
             '<div class="qn-line" data-out="' + i + '"></div></div>';
         }).join('') + '<div class="qn-sum" id="qnSum"></div>' : '') +

@@ -17,6 +17,7 @@ this.read=function(raw){
   return detectTables(items,0);
 };
 this.officeSite=officeSite;
+this.grid=gridTables;
 this.digits=function(raw){
   return thaiDigitRuns(mergeRuns(raw.map(function(i){return {str:thaiText(i.str).trim(),x:i.x,y:i.y,w:i.w,h:i.h,thai:/[\\u0E50-\\u0E59]/.test(i.str)}})));
 };`,ctx);
@@ -113,4 +114,23 @@ for(const [f,site] of [['quote-notice-putthaisong.json','พุทไธสง']
   const vat=raw.find(i=>i.str==='VAT ๗%'), v=d.find(x=>x.text==='7%');
   assert.ok(Math.abs(v.x+v.w-(vat.x+vat.w))<0.01&&v.x>vat.x+10,'only the number part of "VAT ๗%" is covered');
 }
-console.log('PASS: quote notice layouts (Thai digits → Arabic, misplaced tone marks in รวมทั้งสิ้น, tall header, wrapped รวม(ไม่รวมภาษี) heading, offered column without headings, per-month blank quantity, site name)');
+// กฟจ.บุรีรัมย์ (Attach_TOR_3.pdf): a scanned picture, turned ≈0.9°, no text at all; the table is read from its lines
+{
+  const zlib=require('node:zlib');
+  const buf=zlib.gunzipSync(fs.readFileSync(path.join(__dirname,'fixtures','quote-notice-buriram-scan.pbm.gz')));
+  const m=buf.toString('latin1',0,40).match(/^P4\s+(\d+)\s+(\d+)\s/), W=+m[1], H=+m[2], rb=Math.ceil(W/8);
+  const ink=new Uint8Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)ink[y*W+x]=(buf[m[0].length+y*rb+(x>>3)]>>(7-(x&7)))&1;
+  const r=ctx.grid(ink,W,H,3,0);   // pdftoppm -r 216 -mono = the app's 3 pixels per point
+  assert.equal(r.length,1,'one item row, the empty spacer row is skipped');
+  assert.equal(r[0].qtyEdit,true); assert.equal(r[0].qtyPrinted,true,'168,000 is printed in the picture, not redrawn');
+  const c=r[0].cells;
+  assert.ok(c.qty[0]>283&&c.qty[1]<368&&c.price[0]>360&&c.price[1]<441&&c.amount[0]>431&&c.amount[1]<569,'quantity | price | amount cells');
+  assert.ok(r[0].y>316&&r[0].y<330,'first text line of the item');
+  const t=r[0].table;
+  assert.deepEqual([...t.sums.map(s=>s.key)],['amount','vat','total']);
+  t.sums.forEach((s,i)=>{assert.ok(s.cell[0]>430&&s.cell[1]<569,'sum in the last column');assert.ok(s.y>405+i*18&&s.y<422+i*18,'sum row '+i);});
+  // a blank page or text-only scan has no table
+  assert.equal(ctx.grid(new Uint8Array(W*H),W,H,3,0).length,0);
+}
+console.log('PASS: quote notice layouts (scanned form read from table lines, Thai digits → Arabic, misplaced tone marks in รวมทั้งสิ้น, tall header, wrapped รวม(ไม่รวมภาษี) heading, offered column without headings, per-month blank quantity, site name)');
