@@ -36,6 +36,8 @@
     ['navEmployeeAdvance', 'finance', 'พนักงานเบิกเงินล่วงหน้า', 'คำขอและการอนุมัติ', 'advance'],
     ['navStaffExpense', 'finance', 'ค่าใช้จ่าย', 'รอบเบิกวันที่ 3 / 7 / รอบพิเศษ', 'expense'],
     ['navPnL', 'admin', 'กำไร–ขาดทุนรายเดือน', 'รายงานสำหรับผู้บริหาร', 'pl'],
+    // shown only to the main admin account: js/contract-guarantee.js hides its nav item for everyone else
+    ['navContractGuarantee', 'admin', 'ค้ำประกันสัญญา', 'สัญญา กฟฟ. เงินค้ำประกัน LG และตราสาร', 'claim'],
     ['navSystemCost', 'admin', 'คำนวนต้นทุนระบบงาน', 'คำนวณต้นทุนและกำไรงานจดหน่วย / ใบแจ้งเตือน', 'pl'],
     ['navInvoice', 'docs', 'จัดทำใบตั้งหนี้', 'ใบแจ้งหนี้จากต้นฉบับบริษัท', 'invoice'],
     ['navBilling', 'docs', 'ใบแจ้งหนี้-ใบวางบิล', 'ต้นฉบับและสำเนาพร้อมกัน', 'bill'],
