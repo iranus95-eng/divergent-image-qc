@@ -1,4 +1,4 @@
-// เมนูค้ำประกันสัญญา (admin only): ไซด์ที่ชนะประมูล (notice_bids) + ข้อมูลสัญญาใน won_contracts
+// เมนูค้ำประกันสัญญา (ทุกคนที่เข้าสู่ระบบ): ไซด์ที่ชนะประมูล (notice_bids) + ข้อมูลสัญญาใน won_contracts
 // ตามไฟล์ LG-ตราสาร2570.xlsx (ชีต LG2570 และ ตราสาร2570)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -6,16 +6,31 @@ const H = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false, autoRefreshToken: false } });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: H });
 
-async function authAdmin(req: Request) {
-  const m = (req.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
-  if (!m || m[1].length > 4096) throw new Error("SESSION_REQUIRED");
-  const { data: s, error: se } = await db.from("app_sessions").select("user_id,expires_at,is_active").eq("token", m[1].trim()).maybeSingle();
+// every signed-in, active user (user 2026-11-20); same sign-in as claim-register-api: app session token or LINE access token
+async function authUser(req: Request) {
+  const t = (req.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  if (!t || t.length > 4096) throw new Error("SESSION_REQUIRED");
+  const { data: s, error: se } = await db.from("app_sessions").select("user_id,expires_at,is_active").eq("token", t).maybeSingle();
   if (se) throw se;
-  if (!s || s.is_active !== true || !s.expires_at || new Date(s.expires_at).getTime() <= Date.now()) throw new Error("SESSION_INVALID");
-  const { data: u, error: ue } = await db.from("app_users").select("id,role,is_active,expires_at").eq("id", s.user_id).maybeSingle();
-  if (ue) throw ue;
-  if (!u || u.is_active !== true || (u.expires_at && new Date(u.expires_at).getTime() <= Date.now())) throw new Error("USER_INACTIVE");
-  if (String(u.role || "").toLowerCase() !== "admin") throw new Error("ADMIN_ONLY");
+  let u: any = null;
+  if (s) {
+    if (s.is_active !== true || !s.expires_at || new Date(s.expires_at).getTime() <= Date.now()) throw new Error("SESSION_INVALID");
+    const r = await db.from("app_users").select("id,role,is_active,expires_at").eq("id", s.user_id).maybeSingle();
+    if (r.error) throw r.error;
+    u = r.data;
+  } else {
+    const vr = await fetch("https://api.line.me/oauth2/v2.1/verify?access_token=" + encodeURIComponent(t));
+    const v = await vr.json().catch(() => ({}));
+    if (!vr.ok || v.client_id !== "2011407195" || !(Number(v.expires_in) > 0)) throw new Error("SESSION_INVALID");
+    const pr = await fetch("https://api.line.me/v2/profile", { headers: { Authorization: "Bearer " + t } });
+    const p = await pr.json().catch(() => ({}));
+    if (!pr.ok || !p.userId) throw new Error("SESSION_INVALID");
+    const r = await db.from("app_users").select("id,role,is_active,expires_at").eq("line_user_id", p.userId).maybeSingle();
+    if (r.error) throw r.error;
+    u = r.data;
+  }
+  if (!u) throw new Error("ACCESS_DENIED");
+  if (u.is_active !== true || (u.expires_at && new Date(u.expires_at).getTime() <= Date.now())) throw new Error("USER_INACTIVE");
   return u;
 }
 const text = (v: unknown, max: number) => { const s = String(v ?? "").trim(); return s ? s.slice(0, max) : null; };
@@ -41,7 +56,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: H });
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
   try {
-    const user = await authAdmin(req);
+    const user = await authUser(req);
     if (Number(req.headers.get("content-length")) > 32768) return json({ error: "INVALID_INPUT" }, 400);
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "list");
@@ -83,7 +98,7 @@ Deno.serve(async (req) => {
     return json({ error: "UNKNOWN_ACTION" }, 400);
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
-    const status = ["SESSION_REQUIRED", "SESSION_INVALID"].includes(m) ? 401 : ["USER_INACTIVE", "ADMIN_ONLY"].includes(m) ? 403 : ["INVALID_AMOUNT", "INVALID_DATE"].includes(m) ? 400 : 500;
+    const status = ["SESSION_REQUIRED", "SESSION_INVALID"].includes(m) ? 401 : ["USER_INACTIVE", "ACCESS_DENIED"].includes(m) ? 403 : ["INVALID_AMOUNT", "INVALID_DATE"].includes(m) ? 400 : 500;
     console.error("won-contract-api", m, e);
     return json({ error: status === 500 ? "SERVER_ERROR" : m }, status);
   }

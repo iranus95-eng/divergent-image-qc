@@ -63,8 +63,16 @@ let contracts = [{ notice_bid_id: 1, pea_name: 'การไฟฟ้าทด�
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.evaluate(() => localStorage.setItem('divergent_web_session_user', JSON.stringify({ username: 'staff1', role: 'staff' })));
   await page.evaluate(() => document.body.appendChild(document.createElement('div')));
+  await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(() => document.getElementById('navContractGuarantee').style.display), '');   // every signed-in user
+  await page.locator('#navContractGuarantee').click();
+  await page.locator('.cg-two').waitFor();
+  assert.equal(await page.locator('[data-cg=bids]').count(), 0);                                                  // ตารางประมูล stays admin-only
+  assert.equal(await page.locator('[data-cg=edit]').count() > 0, true);
+  await page.evaluate(() => localStorage.removeItem('divergent_web_session_user'));
+  await page.evaluate(() => document.body.appendChild(document.createElement('div')));
   await page.waitForFunction(() => document.getElementById('navContractGuarantee').style.display === 'none');
   assert.deepEqual(errors, []);
-  console.log('PASS contract-guarantee: one table with LG + ตราสาร lines per site, not-yet filters, 5%×1.07 guarantee, edit+save, mobile width, admin-only nav');
+  console.log('PASS contract-guarantee: one table with LG + ตราสาร lines per site, not-yet filters, 5%×1.07 guarantee, edit+save, mobile width, menu for every signed-in user');
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });
