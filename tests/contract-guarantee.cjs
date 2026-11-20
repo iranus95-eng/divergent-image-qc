@@ -29,19 +29,20 @@ let contracts = [{ notice_bid_id: 1, pea_name: 'การไฟฟ้าทด�
   await page.locator('#navContractGuarantee').click();
   await page.locator('.cg-table').first().waitFor();
   let text = await page.locator('#contractGuaranteeWorkspace').innerText();
-  assert.match(text, /การไฟฟ้าทดสอบ A[\s\S]*001\/2569[\s\S]*19\/11\/2569[\s\S]*16,179/);
-  assert.match(text, /รายการที่ยังไม่ได้ LG \(2\)/);
+  // one table, two lines per site (LG then ตราสาร)
+  assert.equal(await page.locator('.cg-two tbody tr').count(), 6);
+  assert.match(text, /การไฟฟ้าทดสอบ A[\s\S]*001\/2569[\s\S]*19\/11\/2569[\s\S]*✓ LG[\s\S]*เงินค้ำ 16,179[\s\S]*ตราสาร · ยังไม่ได้[\s\S]*ค่าจ้าง 302,400[\s\S]*0000000000000/);
   assert.match(text, /ไซด์ <C>/);
   assert.match(text, /เงินค้ำ 18,606/);                    // ไซด์ D: 72,000 × 4.83 estimate
   assert.match(text, /ยังไม่มีค่าจ้าง/);
+  assert.match(text, /ยังไม่ได้ LG 2[\s\S]*ยังไม่ได้ตราสาร 3/);
   assert.equal(await page.locator('#otherWorkspace').isVisible(), false);
-  // ตราสาร tab: A is LG-done but not stamp-done → listed under "ยังไม่ได้ตราสาร"
   await page.locator('[data-tab=stamp]').click();
-  text = await page.locator('#contractGuaranteeWorkspace').innerText();
-  assert.match(text, /เลขผู้เสียภาษี[\s\S]*ค่าจ้าง\(ไม่รวมVAT\)/);
-  assert.match(text, /รายการที่ยังไม่ได้ ตราสาร \(3\)/);
-  // fill ไซด์ D: defaults come from the bid, guarantee follows the wage
+  assert.equal(await page.locator('.cg-two tbody tr').count(), 6);
   await page.locator('[data-tab=lg]').click();
+  assert.equal(await page.locator('.cg-two tbody tr').count(), 4);
+  await page.locator('[data-tab=all]').click();
+  // fill ไซด์ D: defaults come from the bid, guarantee follows the wage
   await page.locator('[data-cg=edit][data-id="4"]').click();
   assert.equal(await page.locator('#cgModal [name=pea_name]').inputValue(), 'การไฟฟ้าส่วนภูมิภาคจังหวัดไซด์ D');
   assert.equal(await page.locator('#cgModal [name=wage_ex_vat]').inputValue(), '347760');
@@ -56,7 +57,7 @@ let contracts = [{ notice_bid_id: 1, pea_name: 'การไฟฟ้าทด�
   assert.equal(saves.length, 1);
   assert.equal(saves[0].row.lg_done, true); assert.equal(saves[0].row.stamp_done, false); assert.equal(saves[0].row.tax_id, '0994000165501');
   text = await page.locator('#contractGuaranteeWorkspace').innerText();
-  assert.match(text, /รายการที่ยังไม่ได้ LG \(1\)/);
+  assert.match(text, /ยังไม่ได้ LG 1/);
   assert.match(await page.locator('tfoot').innerText(), /32,358/);   // 16,179 × 2
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -64,6 +65,6 @@ let contracts = [{ notice_bid_id: 1, pea_name: 'การไฟฟ้าทด�
   await page.evaluate(() => document.body.appendChild(document.createElement('div')));
   await page.waitForFunction(() => document.getElementById('navContractGuarantee').style.display === 'none');
   assert.deepEqual(errors, []);
-  console.log('PASS contract-guarantee: LG/ตราสาร tabs like the Excel file, not-yet lists, 5%×1.07 guarantee, edit+save, mobile width, admin-only nav');
+  console.log('PASS contract-guarantee: one table with LG + ตราสาร lines per site, not-yet filters, 5%×1.07 guarantee, edit+save, mobile width, admin-only nav');
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

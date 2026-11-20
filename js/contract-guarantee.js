@@ -1,5 +1,6 @@
 /* ค้ำประกันสัญญา (2026-11-20)
- * Laid out like the user's LG-ตราสาร2570.xlsx, one tab per sheet:
+ * Data of the user's LG-ตราสาร2570.xlsx, shown as one table with two lines per site (LG, then ตราสาร);
+ * the Excel export keeps the file's two sheets:
  *  - LG2570      : ลำดับ, ชื่อการไฟฟ้า, เลขที่สัญญา, ลว, เงินค้ำประกัน, ระยะเวลา + "รายการที่ยังไม่ได้ LG"
  *  - ตราสาร2570  : ลำดับ, ชื่อการไฟฟ้า, เลขผู้เสียภาษี, สาขาที่, ที่อยู่, เลขที่สัญญา, ลว, ค่าจ้าง(ไม่รวมVAT), เงินค้ำประกัน, ระยะเวลา
  *                  + "รายการที่ยังไม่ได้ตราสาร"
@@ -17,7 +18,7 @@
   var YEAR = 2570, VAT = 0.07, RATE = 0.05;
   var DEF = { tax_id: '0994000165501', period: '1/1/' + YEAR + '-31/12/' + YEAR };
   var FIELDS = ['pea_name', 'tax_id', 'branch_no', 'address', 'contract_no', 'contract_date', 'wage_ex_vat', 'guarantee', 'period', 'lg_done', 'stamp_done', 'note'];
-  var st = { rows: null, err: '', tab: 'lg', edit: null, busy: false };
+  var st = { rows: null, err: '', tab: 'all', edit: null, busy: false };
 
   // ---------------------------------------------------------------- pure helpers
   function guaranteeOf(wage) { if (wage == null || wage === '' || !isFinite(+wage)) return null; return Math.ceil(Math.round(+wage * (1 + VAT) * RATE * 100) / 100); }
@@ -77,7 +78,8 @@
       '.cg-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}' +
       '.cg-kpi{background:#fff;border:1px solid #e5dced;border-radius:12px;padding:12px 14px}.cg-kpi span{display:block;font-size:13px;color:#6b5d7a}.cg-kpi b{display:block;font-size:22px;color:#3b2252;font-variant-numeric:tabular-nums}' +
       '.cg-kpi.gold{background:#fffaf0;border-color:#f0dca0}.cg-kpi.gold b{color:#8a5b00}' +
-      '.cg-tabs{display:flex;gap:6px;margin-bottom:10px;border-bottom:1px solid #e5dced}.cg-tab{border:0;background:none;padding:9px 14px;font:inherit;font-weight:700;color:#8a7d98;border-bottom:3px solid transparent;cursor:pointer}.cg-tab[aria-selected=true]{color:#5a2787;border-color:#5a2787}' +
+      '.cg-tabs{display:flex;gap:6px;margin-bottom:10px;border-bottom:1px solid #e5dced}.cg-tab{border:0;background:none;padding:9px 14px;font:inherit;font-weight:700;color:#8a7d98;border-bottom:3px solid transparent;cursor:pointer}.cg-tab[aria-pressed=true]{color:#5a2787;border-color:#5a2787}' +
+      '.cg-two .cg-l1 td{border-top:2px solid #e5dced}.cg-two .cg-l2 td{border-top:1px dashed #efe8f5}.cg-sub{font-size:12px;color:#8a7d98}.cg-badge{display:inline-block;border-radius:6px;padding:2px 8px;font-size:13px;font-weight:700;white-space:nowrap}.cg-badge.ok{background:#e3f0e9;color:#236347}.cg-badge.todo{background:#fff1d4;color:#975b0e}' +
       '.cg-card{background:#fff;border:1px solid #e5dced;border-radius:14px;overflow:hidden;margin-bottom:14px}.cg-scroll{overflow:auto}' +
       '.cg-table{width:100%;border-collapse:collapse;font-size:14px}.cg-table th{background:#f5effa;color:#5a2787;text-align:left;padding:9px 10px;white-space:nowrap}' +
       '.cg-table td{padding:8px 10px;border-top:1px solid #f0eaf5;vertical-align:top}.cg-table .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.cg-table tfoot td{background:#fbf8fd;font-weight:800;border-top:2px solid #d9cbe8}' +
@@ -107,38 +109,42 @@
     return w;
   }
   function cell(v, cls) { return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + (v === '' || v == null ? '<span class="cg-miss">—</span>' : esc(v)) + '</td>'; }
+  // one table, two lines per site: line 1 = LG (หนังสือค้ำประกัน), line 2 = ตราสาร (user 2026-11-20)
+  function ordered(rows) {
+    var n = function (r) { return r.c.list_no == null ? 1e9 : +r.c.list_no; };
+    return rows.slice().sort(function (a, b) { return n(a) - n(b) || ((a.b.seq == null ? 1e9 : a.b.seq) - (b.b.seq == null ? 1e9 : b.b.seq)) || a.b.id - b.b.id; });
+  }
   function render() {
-    var w = page(), rows = st.rows || [], lg = st.tab === 'lg';
-    var s = split(rows, st.tab), sLg = split(rows, 'lg'), sSt = split(rows, 'stamp');
-    var sum = s.done.reduce(function (t, r) { return t + (+r.c.guarantee || 0); }, 0);
-    var html = '<div class="cg-head"><div><h2>🏆 ค้ำประกันสัญญา</h2><p>ไซด์ที่ชนะประมูล ปี ' + YEAR + ' · ข้อมูลสัญญา หนังสือค้ำประกัน (LG) และตราสาร</p></div>' +
+    var w = page(), rows = st.rows || [];
+    var sLg = split(rows, 'lg'), sSt = split(rows, 'stamp');
+    var sumLg = sLg.done.reduce(function (t, r) { return t + (+r.c.guarantee || 0); }, 0);
+    var html = '<div class="cg-head"><div><h2>🏆 ค้ำประกันสัญญา</h2><p>ไซด์ที่ชนะประมูล ปี ' + YEAR + ' · หนังสือค้ำประกัน (LG) และตราสาร ไซด์ละ 2 บรรทัด</p></div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cg-btn" data-cg="xlsx">⬇ ส่งออก Excel</button><button class="cg-btn" data-cg="bids">📊 ตารางประมูลแจ้งเตือน</button><button class="cg-btn" data-cg="reload">↻ รีเฟรช</button></div></div>';
-    html += '<div class="cg-kpis"><div class="cg-kpi gold"><span>เงินค้ำประกันที่ออก LG แล้ว</span><b>' + (st.rows ? baht(sLg.done.reduce(function (t, r) { return t + (+r.c.guarantee || 0); }, 0)) : '…') + '</b></div>' +
+    html += '<div class="cg-kpis"><div class="cg-kpi gold"><span>เงินค้ำประกันที่ออก LG แล้ว</span><b>' + (st.rows ? baht(sumLg) : '…') + '</b></div>' +
       '<div class="cg-kpi"><span>ยังไม่ได้ LG</span><b>' + (st.rows ? sLg.todo.length + ' / ' + rows.length : '…') + '</b></div>' +
       '<div class="cg-kpi"><span>ยังไม่ได้ตราสาร</span><b>' + (st.rows ? sSt.todo.length + ' / ' + rows.length : '…') + '</b></div></div>';
-    html += '<div class="cg-tabs" role="tablist"><button class="cg-tab" role="tab" data-cg="tab" data-tab="lg" aria-selected="' + lg + '">LG' + YEAR + '</button><button class="cg-tab" role="tab" data-cg="tab" data-tab="stamp" aria-selected="' + !lg + '">ตราสาร' + YEAR + '</button></div>';
+    html += '<div class="cg-tabs" role="group" aria-label="แสดง">' + [['all', 'ทั้งหมด ' + rows.length], ['lg', 'ยังไม่ได้ LG ' + sLg.todo.length], ['stamp', 'ยังไม่ได้ตราสาร ' + sSt.todo.length]].map(function (t) {
+      return '<button class="cg-tab" data-cg="tab" data-tab="' + t[0] + '" aria-pressed="' + (st.tab === t[0]) + '">' + t[1] + '</button>';
+    }).join('') + '</div>';
     if (st.rows == null) html += '<div class="cg-card"><div class="cg-empty">กำลังโหลด…</div></div>';
     else if (st.err) html += '<div class="cg-card"><div class="cg-err">โหลดไม่สำเร็จ: ' + esc(st.err) + '</div></div>';
     else {
-      var head = lg ? ['ลำดับ', 'ชื่อการไฟฟ้า', 'เลขที่สัญญา', 'ลว', 'เงินค้ำประกัน', 'ระยะเวลา', '']
-        : ['ลำดับ', 'ชื่อการไฟฟ้า', 'เลขผู้เสียภาษี', 'สาขาที่', 'ที่อยู่', 'เลขที่สัญญา', 'ลว', 'ค่าจ้าง(ไม่รวมVAT)', 'เงินค้ำประกัน', 'ระยะเวลา', ''];
-      var num = function (h) { return /ลำดับ|ค่าจ้าง|เงินค้ำ/.test(h); };
-      html += '<div class="cg-card"><div class="cg-scroll"><table class="cg-table" style="min-width:' + (lg ? 760 : 1250) + 'px"><thead><tr>' + head.map(function (h) { return '<th' + (num(h) ? ' class="n"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
-      html += s.done.length ? s.done.map(function (r, i) {
-        var c = r.c;
-        return '<tr><td class="n">' + (i + 1) + '</td>' + cell(c.pea_name) + (lg ? '' : cell(c.tax_id) + cell(c.branch_no) + cell(c.address, 'addr')) +
-          cell(c.contract_no) + cell(beDate(c.contract_date)) + (lg ? '' : cell(baht(c.wage_ex_vat), 'n')) + cell(baht(c.guarantee), 'n') + cell(c.period) +
-          '<td><button class="cg-btn sm" data-cg="edit" data-id="' + r.b.id + '">แก้ไข</button></td></tr>';
-      }).join('') : '<tr><td colspan="' + head.length + '" class="cg-empty">ยังไม่มีรายการที่' + (lg ? 'ออก LG' : 'ทำตราสาร') + 'แล้ว</td></tr>';
-      html += '</tbody><tfoot><tr><td colspan="' + (lg ? 4 : 8) + '">รวม ' + s.done.length + ' รายการ</td><td class="n">' + baht(sum) + '</td><td colspan="2"></td></tr></tfoot></table></div>';
-      html += '<div class="cg-sec">รายการที่ยังไม่ได้ ' + (lg ? 'LG' : 'ตราสาร') + ' (' + s.todo.length + ')</div>';
-      html += s.todo.length ? '<div class="cg-scroll"><table class="cg-table"><tbody>' + s.todo.map(function (r, i) {
-        var w2 = r.c.wage_ex_vat != null ? +r.c.wage_ex_vat : wageOf(r.b), g = r.c.guarantee != null ? +r.c.guarantee : guaranteeOf(w2);
-        return '<tr><td class="n" style="width:40px">' + (i + 1) + '</td><td><b>' + esc(r.c.pea_name || peaName(r.b)) + '</b><span class="cg-meta">ไซด์ ' + esc(r.b.site) + (r.b.zone ? ' · ' + esc(r.b.zone) : '') + (r.c.contract_no ? ' · สัญญา ' + esc(r.c.contract_no) : '') + '</span></td>' +
-          '<td class="n">' + (g == null ? '<span class="cg-miss">ยังไม่มีค่าจ้าง</span>' : 'เงินค้ำ ' + baht(g) + (r.c.guarantee == null ? ' <span class="cg-meta">(ประมาณ)</span>' : '')) + '</td>' +
-          '<td style="width:110px"><button class="cg-btn sm pri" data-cg="edit" data-id="' + r.b.id + '">กรอกข้อมูล</button></td></tr>';
-      }).join('') + '</tbody></table></div>' : '<div class="cg-empty">ครบทุกไซด์แล้ว</div>';
-      html += '</div><div class="cg-note">ไซด์ที่ทำเครื่องหมาย 🏆 ชนะประมูลในตารางประมูลแจ้งเตือนจะขึ้นที่นี่เอง · เงินค้ำประกัน = ค่าจ้าง (ไม่รวม VAT) × 1.07 × 5% ปัดขึ้นเป็นบาท แก้เองได้</div>';
+      var list = ordered(rows).filter(function (r) { return st.tab === 'all' || !r.c[doneKey(st.tab)]; });
+      var head = ['ลำดับ', 'ชื่อการไฟฟ้า', 'เลขที่สัญญา', 'ลว', 'ระยะเวลา', 'เอกสาร', 'จำนวนเงิน', 'เลขผู้เสียภาษี', 'สาขาที่', 'ที่อยู่', ''];
+      html += '<div class="cg-card"><div class="cg-scroll"><table class="cg-table cg-two" style="min-width:1250px"><thead><tr>' + head.map(function (h) { return '<th' + (/ลำดับ|จำนวนเงิน/.test(h) ? ' class="n"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
+      html += list.length ? list.map(function (r, i) {
+        var c = r.c, wage = c.wage_ex_vat != null ? +c.wage_ex_vat : wageOf(r.b), g = c.guarantee != null ? +c.guarantee : guaranteeOf(wage), est = function (has) { return has ? '' : ' <span class="cg-meta">(ประมาณ)</span>'; };
+        var badge = function (done, label) { return '<span class="cg-badge ' + (done ? 'ok' : 'todo') + '">' + (done ? '✓ ' : '') + label + (done ? '' : ' · ยังไม่ได้') + '</span>'; };
+        var rs = ' rowspan="2"';
+        return '<tr class="cg-l1"><td class="n"' + rs + '>' + (i + 1) + '</td><td' + rs + '><b>' + esc(c.pea_name || peaName(r.b)) + '</b><span class="cg-meta">ไซด์ ' + esc(r.b.site) + (r.b.zone ? ' · ' + esc(r.b.zone) : '') + '</span></td>' +
+          cell(c.contract_no).replace('<td', '<td' + rs) + cell(beDate(c.contract_date)).replace('<td', '<td' + rs) + cell(c.period).replace('<td', '<td' + rs) +
+          '<td>' + badge(c.lg_done, 'LG') + '</td><td class="n">' + (g == null ? '<span class="cg-miss">—</span>' : 'เงินค้ำ ' + baht(g) + est(c.guarantee != null)) + '</td><td colspan="3" class="cg-sub">หนังสือค้ำประกันสัญญา</td>' +
+          '<td' + rs + '><button class="cg-btn sm' + (c.lg_done && c.stamp_done ? '' : ' pri') + '" data-cg="edit" data-id="' + r.b.id + '">' + (c.notice_bid_id ? 'แก้ไข' : 'กรอกข้อมูล') + '</button></td></tr>' +
+          '<tr class="cg-l2"><td>' + badge(c.stamp_done, 'ตราสาร') + '</td><td class="n">' + (wage == null ? '<span class="cg-miss">ยังไม่มีค่าจ้าง</span>' : 'ค่าจ้าง ' + baht(wage) + est(c.wage_ex_vat != null)) + '</td>' +
+          cell(c.tax_id) + cell(c.branch_no) + cell(c.address, 'addr') + '</tr>';
+      }).join('') : '<tr><td colspan="' + head.length + '" class="cg-empty">ไม่มีรายการ</td></tr>';
+      html += '</tbody><tfoot><tr><td colspan="6">รวมเงินค้ำประกันที่ออก LG แล้ว ' + sLg.done.length + ' ไซด์</td><td class="n">' + baht(sumLg) + '</td><td colspan="4"></td></tr></tfoot></table></div></div>';
+      html += '<div class="cg-note">ไซด์ที่ทำเครื่องหมาย 🏆 ชนะประมูลในตารางประมูลแจ้งเตือนจะขึ้นที่นี่เอง · เงินค้ำประกัน = ค่าจ้าง (ไม่รวม VAT) × 1.07 × 5% ปัดขึ้นเป็นบาท แก้เองได้ · ส่งออก Excel ได้ 2 ชีต LG' + YEAR + ' / ตราสาร' + YEAR + ' เหมือนไฟล์เดิม</div>';
     }
     w.innerHTML = html;
   }
