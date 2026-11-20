@@ -44,6 +44,8 @@
     ['navQuoteNotice', 'admin', 'เสนอราคาแจ้งเตือน', 'กรอกราคาต่อหน่วยบนไฟล์ใบเสนอราคา', 'invoice'],
     ['navNoticeBids', 'admin', 'ตารางประมูลแจ้งเตือน', 'ตารางประมูลและใบเสนอราคาของแต่ละไซด์', 'pl'],
     ['navPaperOrder', 'docs', 'สรุปและสั่งกระดาษ', 'สรุปการใช้และสั่งรอบถัดไป', 'paper'],
+    // admin-only like ตารางประมูลแจ้งเตือน (js/contract-guarantee.js hides its nav item for everyone else); placed under สรุปและสั่งกระดาษ on the home page (user 2026-11-20)
+    ['navContractGuarantee', 'docs', 'ค้ำประกันสัญญา', 'ไซด์ที่ชนะประมูลและหลักประกันสัญญา 5%', 'pl'],
     ['navUsers', 'system', 'จัดการผู้ใช้งาน', 'บัญชี บทบาท สิทธิ์ และวันหมดอายุ', 'users'],
     ['navCustomerImport', 'system', 'นำเข้าข้อมูลลูกค้า', 'นำเข้า Excel เข้าฐานลูกค้า', 'import']
   ];
