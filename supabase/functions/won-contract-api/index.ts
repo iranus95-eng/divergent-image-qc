@@ -1,4 +1,4 @@
-// เมนูค้ำประกันสัญญา (admin only): ไซด์ที่ชนะประมูล (notice_bids) + ข้อมูลสัญญาใน contract_guarantees
+// เมนูค้ำประกันสัญญา (admin only): ไซด์ที่ชนะประมูล (notice_bids) + ข้อมูลสัญญาใน won_contracts
 // ตามไฟล์ LG-ตราสาร2570.xlsx (ชีต LG2570 และ ตราสาร2570)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       const won = (bids || []).filter((b) => !/ไม่ชนะ|แพ้/.test(String(b.status || "")));
       let contracts: unknown[] = [];
       if (won.length) {
-        const r = await db.from("contract_guarantees").select("*").in("notice_bid_id", won.map((b) => b.id));
+        const r = await db.from("won_contracts").select("*").in("notice_bid_id", won.map((b) => b.id));
         if (r.error) throw r.error;
         contracts = r.data || [];
       }
@@ -69,14 +69,14 @@ Deno.serve(async (req) => {
       if (be) throw be;
       if (!bid) return json({ error: "NOT_FOUND" }, 404);
       // ลำดับในตาราง: the order rows were first saved in, like the Excel file
-      const { data: cur, error: ce } = await db.from("contract_guarantees").select("list_no").eq("notice_bid_id", id).maybeSingle();
+      const { data: cur, error: ce } = await db.from("won_contracts").select("list_no").eq("notice_bid_id", id).maybeSingle();
       if (ce) throw ce;
       if (!cur?.list_no) {
-        const { data: last, error: le } = await db.from("contract_guarantees").select("list_no").not("list_no", "is", null).order("list_no", { ascending: false }).limit(1).maybeSingle();
+        const { data: last, error: le } = await db.from("won_contracts").select("list_no").not("list_no", "is", null).order("list_no", { ascending: false }).limit(1).maybeSingle();
         if (le) throw le;
         row.list_no = (Number(last?.list_no) || 0) + 1;
       }
-      const { data, error } = await db.from("contract_guarantees").upsert(row, { onConflict: "notice_bid_id" }).select("*").single();
+      const { data, error } = await db.from("won_contracts").upsert(row, { onConflict: "notice_bid_id" }).select("*").single();
       if (error) throw error;
       return json({ ok: true, item: data });
     }
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
     const status = ["SESSION_REQUIRED", "SESSION_INVALID"].includes(m) ? 401 : ["USER_INACTIVE", "ADMIN_ONLY"].includes(m) ? 403 : ["INVALID_AMOUNT", "INVALID_DATE"].includes(m) ? 400 : 500;
-    console.error("contract-guarantee-api", m, e);
+    console.error("won-contract-api", m, e);
     return json({ error: status === 500 ? "SERVER_ERROR" : m }, status);
   }
 });

@@ -11,7 +11,7 @@ let contracts = [{ notice_bid_id: 1, pea_name: 'การไฟฟ้าทด�
   const browser = await chromium.launch(), page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   const saves = [];
-  await page.route('https://neauzvqroaszvqffahkv.functions.supabase.co/contract-guarantee-api', async (r) => {
+  await page.route('https://neauzvqroaszvqffahkv.functions.supabase.co/won-contract-api', async (r) => {
     const b = r.request().postDataJSON(); let out = { ok: true };
     if (b.action === 'list') Object.assign(out, { items, contracts });
     if (b.action === 'save') { saves.push(b); const item = { ...(contracts.find((c) => c.notice_bid_id === b.notice_bid_id) || {}), ...b.row, notice_bid_id: b.notice_bid_id, wage_ex_vat: +b.row.wage_ex_vat || null, guarantee: +b.row.guarantee || null, contract_date: b.row.contract_date || null }; contracts = contracts.filter((c) => c.notice_bid_id !== b.notice_bid_id).concat([item]); out.item = item; }

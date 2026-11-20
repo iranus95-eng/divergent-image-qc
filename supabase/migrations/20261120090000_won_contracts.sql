@@ -2,9 +2,9 @@
 --   ชีต LG2570      : ชื่อการไฟฟ้า, เลขที่สัญญา, ลว., เงินค้ำประกัน, ระยะเวลา  (+ lg_done = ออกหนังสือค้ำ LG แล้ว)
 --   ชีต ตราสาร2570  : + เลขผู้เสียภาษี, สาขาที่, ที่อยู่, ค่าจ้าง(ไม่รวม VAT)   (+ stamp_done = ทำตราสาร/อากรแล้ว)
 -- เงินค้ำประกัน = ค่าจ้าง × 1.07 × 5% ปัดขึ้นเป็นบาท (ตามไฟล์: 302,400 → 16,179) แก้เองได้
--- เข้าถึงผ่าน edge function contract-guarantee-api เท่านั้น (admin)
+-- เข้าถึงผ่าน edge function won-contract-api เท่านั้น (admin)
 
-create table if not exists public.contract_guarantees (
+create table if not exists public.won_contracts (
   notice_bid_id bigint primary key references public.notice_bids(id) on delete cascade,
   pea_name text,                 -- ชื่อการไฟฟ้า (คู่สัญญา)
   tax_id text,                   -- เลขผู้เสียภาษี
@@ -23,11 +23,11 @@ create table if not exists public.contract_guarantees (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-alter table public.contract_guarantees enable row level security;
-comment on table public.contract_guarantees is 'เมนูค้ำประกันสัญญา: เลขที่สัญญา ค่าจ้าง เงินค้ำประกัน LG/ตราสาร ของไซด์ที่ชนะประมูล (เข้าถึงผ่าน contract-guarantee-api เท่านั้น)';
+alter table public.won_contracts enable row level security;
+comment on table public.won_contracts is 'เมนูค้ำประกันสัญญา: เลขที่สัญญา ค่าจ้าง เงินค้ำประกัน LG/ตราสาร ของไซด์ที่ชนะประมูล (เข้าถึงผ่าน won-contract-api เท่านั้น)';
 
 -- 6 รายการจากไฟล์ LG-ตราสาร2570.xlsx (2026-11-20); ค่าจ้างของ ประโคนชัย/โชคชัย/พุทไธสง = จำนวนราย × ราคาที่ชนะ (ตรงกับเงินค้ำในไฟล์)
-insert into public.contract_guarantees (notice_bid_id, pea_name, tax_id, branch_no, address, contract_no, contract_date, wage_ex_vat, guarantee, period, lg_done, stamp_done, list_no)
+insert into public.won_contracts (notice_bid_id, pea_name, tax_id, branch_no, address, contract_no, contract_date, wage_ex_vat, guarantee, period, lg_done, stamp_done, list_no)
 select v.* from (values
   (4::bigint,  'การไฟฟ้าส่วนภูมิภาคอำเภอหนองบุญมาก', '0994000165501', '00602', '399 หมู่ 4 ตำบลหนองหัวแรต อำเภอหนองบุญมาก จังหวัดนครราชสีมา 30410', '024/2569', date '2026-11-19', 302400::numeric, 16179::numeric, '1/1/2570-31/12/2570', true, true, 1),
   (1,  'การไฟฟ้าส่วนภูมิภาคอำเภอปักธงชัย', '0994000165501', '00180', '17 ม.8 ต.เมืองปัก อ.ปักธงชัย จ.นครราชสีมา 30150', 'จ.ปธ.(บร)2040/2569', date '2026-11-19', 409200, 21893, '1/1/2570-31/12/2570', true, true, 2),

@@ -4,8 +4,8 @@
  *  - LG2570      : ลำดับ, ชื่อการไฟฟ้า, เลขที่สัญญา, ลว, เงินค้ำประกัน, ระยะเวลา + "รายการที่ยังไม่ได้ LG"
  *  - ตราสาร2570  : ลำดับ, ชื่อการไฟฟ้า, เลขผู้เสียภาษี, สาขาที่, ที่อยู่, เลขที่สัญญา, ลว, ค่าจ้าง(ไม่รวมVAT), เงินค้ำประกัน, ระยะเวลา
  *                  + "รายการที่ยังไม่ได้ตราสาร"
- * Sites are the won ones (🏆) of ตารางประมูลแจ้งเตือน; the contract data lives in contract_guarantees through
- * the edge function contract-guarantee-api (admin only). เงินค้ำประกัน = ค่าจ้าง × 1.07 × 5% rounded up to the baht
+ * Sites are the won ones (🏆) of ตารางประมูลแจ้งเตือน; the contract data lives in won_contracts through
+ * the edge function won-contract-api (admin only). เงินค้ำประกัน = ค่าจ้าง × 1.07 × 5% rounded up to the baht
  * (the file: 302,400 → 16,179), editable.
  */
 (function () {
@@ -13,7 +13,7 @@
   if (window.__contractGuarantee) return;
   window.__contractGuarantee = true;
 
-  var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/contract-guarantee-api';
+  var API = 'https://neauzvqroaszvqffahkv.functions.supabase.co/won-contract-api';
   var XLSX_SRC = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
   var YEAR = 2570, VAT = 0.07, RATE = 0.05;
   var DEF = { tax_id: '0994000165501', period: '1/1/' + YEAR + '-31/12/' + YEAR };
