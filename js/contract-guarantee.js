@@ -139,7 +139,7 @@
     nav.className = 'nav-item'; nav.id = 'navContractGuarantee'; nav.style.display = 'none';
     nav.innerHTML = '<span class="nav-ico">🏆</span><span>ค้ำประกันสัญญา</span>';
     nav.addEventListener('click', showPage);
-    var ref = document.getElementById('navNoticeBids');
+    var ref = document.getElementById('navPaperOrder') || document.getElementById('navNoticeBids');
     if (ref) ref.insertAdjacentElement('afterend', nav); else side.appendChild(nav);
     syncNav();
   }
