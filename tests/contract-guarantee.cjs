@@ -1,52 +1,70 @@
-// เมนูค้ำประกันสัญญา: lists only won sites (🏆) from notice-bid-api with a 5% contract guarantee. Synthetic fixtures only.
+// เมนูค้ำประกันสัญญา: LG / ตราสาร tabs like LG-ตราสาร2570.xlsx. Synthetic fixtures only (no customer records).
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.CG_PLAYWRIGHT || 'playwright');
 const items = [
-  { id: 1, seq: 1, zone: 'ฉ.3', site: 'ไซด์ A', office: 'กฟส.A', project_no: '111', budget: '564960.00', price_bid: '6.2000', bid_date: '2026-10-20', status: 'ชนะประมูล' },
-  { id: 2, seq: 2, zone: 'ฉ.3', site: 'ไซด์ B', budget: '1027200.00', price_bid: '5.0200', status: 'ไม่ชนะประมูล' },
-  { id: 3, seq: 3, zone: 'ฉ.1', site: 'ไซด์ <C>', budget: '465450.00', price_bid: '5.0200', bid_date: '2026-10-30', status: 'ชนะประมูล' },
-  { id: 4, seq: 4, zone: 'ฉ.1', site: 'ไซด์ D', budget: '500000.00', status: 'รอประมูล' },
-  { id: 5, seq: 5, zone: 'ฉ.1', site: 'ไซด์ E', budget: '700000.00', status: 'แพ้ ชนะไม่ได้' },
+  { id: 1, seq: 1, zone: 'ฉ.3', site: 'ไซด์ A', office: 'กฟส.ไซด์ A', qty: 48000, price_bid: '6.3000', status: 'ชนะประมูล' },
+  { id: 3, seq: 3, zone: 'ฉ.1', site: 'ไซด์ <C>', qty: null, price_bid: '5.0200', status: 'ชนะประมูล' },
+  { id: 4, seq: 4, zone: 'ฉ.1', site: 'ไซด์ D', office: 'กฟจ.ไซด์ D', qty: 72000, price_bid: '4.8300', status: 'ชนะประมูล' },
 ];
+let contracts = [{ notice_bid_id: 1, pea_name: 'การไฟฟ้าทดสอบ A', tax_id: '0000000000000', branch_no: '00001', address: '1 หมู่ 1', contract_no: '001/2569', contract_date: '2026-11-19', wage_ex_vat: 302400, guarantee: 16179, period: '1/1/2570-31/12/2570', lg_done: true, stamp_done: false }];
 (async () => {
   const browser = await chromium.launch(), page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
-  let calls = 0;
-  await page.route('https://neauzvqroaszvqffahkv.functions.supabase.co/notice-bid-api', async (r) => { calls++; await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, items }) }); });
-  await page.route('https://cg-test.invalid/', (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><meta charset="utf-8"><div class="side-nav"><div class="nav-item" id="navNoticeBids">ตาราง</div></div><main class="main-shell"><section id="otherWorkspace">other</section></main>' }));
+  const saves = [];
+  await page.route('https://neauzvqroaszvqffahkv.functions.supabase.co/won-contract-api', async (r) => {
+    const b = r.request().postDataJSON(); let out = { ok: true };
+    if (b.action === 'list') Object.assign(out, { items, contracts });
+    if (b.action === 'save') { saves.push(b); const item = { ...(contracts.find((c) => c.notice_bid_id === b.notice_bid_id) || {}), ...b.row, notice_bid_id: b.notice_bid_id, wage_ex_vat: +b.row.wage_ex_vat || null, guarantee: +b.row.guarantee || null, contract_date: b.row.contract_date || null }; contracts = contracts.filter((c) => c.notice_bid_id !== b.notice_bid_id).concat([item]); out.item = item; }
+    await r.fulfill({ contentType: 'application/json', body: JSON.stringify(out) });
+  });
+  await page.route('https://cg-test.invalid/', (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><meta charset="utf-8"><div class="side-nav"><div class="nav-item" id="navPaperOrder">กระดาษ</div><div class="nav-item" id="navNoticeBids">ตาราง</div></div><main class="main-shell"><section id="otherWorkspace">other</section></main>' }));
   await page.goto('https://cg-test.invalid/');
   await page.evaluate(() => { localStorage.setItem('divergent_web_session_user', JSON.stringify({ username: 'admin', role: 'admin' })); window.getBestDataToken = async () => 't'; });
   await page.addScriptTag({ path: 'js/contract-guarantee.js' });
-  const nav = page.locator('#navContractGuarantee');
-  await nav.waitFor();
-  assert.equal(await page.evaluate(() => document.getElementById('navNoticeBids').nextElementSibling.id), 'navContractGuarantee');
-  await nav.click();
-  await page.locator('#cgBody tr').nth(1).waitFor();
-  const body = await page.locator('#cgBody').innerText();
-  assert.equal(await page.locator('#cgBody tr').count(), 2);
-  assert.ok(!/ไซด์ B|ไซด์ D|ไซด์ E/.test(body), 'only won sites');
-  assert.match(body, /ไซด์ <C>/);                      // escaped, shown as text
-  assert.ok(body.indexOf('ไซด์ <C>') < body.indexOf('ไซด์ A'), 'sorted by zone');
-  assert.match(body, /28,248\.00/);                      // 564,960 × 5%
-  assert.match(body, /23,272\.50/);                      // 465,450 × 5%
-  assert.match(await page.locator('#cgFoot').innerText(), /1,030,410\.00[\s\S]*51,520\.50/);
+  // pure helpers: the file's own numbers
+  assert.deepEqual(await page.evaluate(() => [302400, 409200, 834000, 482460, 361440, 347760].map(ContractGuarantee.guaranteeOf)), [16179, 21893, 44619, 25812, 19338, 18606]);
+  assert.equal(await page.evaluate(() => ContractGuarantee.beDate('2026-11-19')), '19/11/2569');
+  assert.equal(await page.evaluate(() => ContractGuarantee.peaName({ office: 'กฟจ.ชัยภูมิ', site: 'ชัยภูมิ' })), 'การไฟฟ้าส่วนภูมิภาคจังหวัดชัยภูมิ');
+  assert.equal(await page.evaluate(() => document.getElementById('navPaperOrder').nextElementSibling.id), 'navContractGuarantee');
+  await page.locator('#navContractGuarantee').click();
+  await page.locator('.cg-table').first().waitFor();
+  let text = await page.locator('#contractGuaranteeWorkspace').innerText();
+  // one table, two lines per site (LG then ตราสาร)
+  assert.equal(await page.locator('.cg-two tbody tr').count(), 6);
+  assert.match(text, /การไฟฟ้าทดสอบ A[\s\S]*001\/2569[\s\S]*19\/11\/2569[\s\S]*✓ LG[\s\S]*เงินค้ำ 16,179[\s\S]*ตราสาร · ยังไม่ได้[\s\S]*ค่าจ้าง 302,400[\s\S]*0000000000000/);
+  assert.match(text, /ไซด์ <C>/);
+  assert.match(text, /เงินค้ำ 18,606/);                    // ไซด์ D: 72,000 × 4.83 estimate
+  assert.match(text, /ยังไม่มีค่าจ้าง/);
+  assert.match(text, /ยังไม่ได้ LG 2[\s\S]*ยังไม่ได้ตราสาร 3/);
   assert.equal(await page.locator('#otherWorkspace').isVisible(), false);
-  await page.locator('#cgZone').selectOption('ฉ.3');
-  assert.equal(await page.locator('#cgBody tr').count(), 1);
-  assert.match(await page.locator('#cgKpis').innerText(), /28,248\.00/);
-  await page.locator('#cgZone').selectOption('');
-  await page.locator('#cgQ').fill('111');
-  assert.equal(await page.locator('#cgBody tr').count(), 1);
-  await page.locator('[data-cg=reload]').click();
-  await page.waitForFunction(() => document.querySelectorAll('#cgBody tr').length === 1 && !/กำลังโหลด/.test(document.getElementById('cgBody').innerText));
-  assert.equal(calls, 2);
+  await page.locator('[data-tab=stamp]').click();
+  assert.equal(await page.locator('.cg-two tbody tr').count(), 6);
+  await page.locator('[data-tab=lg]').click();
+  assert.equal(await page.locator('.cg-two tbody tr').count(), 4);
+  await page.locator('[data-tab=all]').click();
+  // fill ไซด์ D: defaults come from the bid, guarantee follows the wage
+  await page.locator('[data-cg=edit][data-id="4"]').click();
+  assert.equal(await page.locator('#cgModal [name=pea_name]').inputValue(), 'การไฟฟ้าส่วนภูมิภาคจังหวัดไซด์ D');
+  assert.equal(await page.locator('#cgModal [name=wage_ex_vat]').inputValue(), '347760');
+  assert.equal(await page.locator('#cgModal [name=guarantee]').inputValue(), '18606');
+  await page.locator('#cgModal [name=wage_ex_vat]').fill('302400');
+  assert.equal(await page.locator('#cgModal [name=guarantee]').inputValue(), '16179');
+  await page.locator('#cgModal [name=contract_no]').fill('ฉ.3/009');
+  await page.locator('#cgModal [name=contract_date]').fill('2026-11-20');
+  await page.locator('#cgModal [name=lg_done]').check();
+  await page.locator('#cgModal [type=submit]').click();
+  await page.locator('#cgModal').waitFor({ state: 'detached' });
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0].row.lg_done, true); assert.equal(saves[0].row.stamp_done, false); assert.equal(saves[0].row.tax_id, '0994000165501');
+  text = await page.locator('#contractGuaranteeWorkspace').innerText();
+  assert.match(text, /ยังไม่ได้ LG 1/);
+  assert.match(await page.locator('tfoot').innerText(), /32,358/);   // 16,179 × 2
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  // non-admin: menu hidden
   await page.evaluate(() => localStorage.setItem('divergent_web_session_user', JSON.stringify({ username: 'staff1', role: 'staff' })));
   await page.evaluate(() => document.body.appendChild(document.createElement('div')));
   await page.waitForFunction(() => document.getElementById('navContractGuarantee').style.display === 'none');
   assert.deepEqual(errors, []);
-  console.log('PASS contract-guarantee: won sites only, 5% guarantee, zone/search filters, refresh, mobile width, admin-only nav');
+  console.log('PASS contract-guarantee: one table with LG + ตราสาร lines per site, not-yet filters, 5%×1.07 guarantee, edit+save, mobile width, admin-only nav');
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });
