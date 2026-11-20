@@ -5,7 +5,7 @@
  *  - ตราสาร2570  : ลำดับ, ชื่อการไฟฟ้า, เลขผู้เสียภาษี, สาขาที่, ที่อยู่, เลขที่สัญญา, ลว, ค่าจ้าง(ไม่รวมVAT), เงินค้ำประกัน, ระยะเวลา
  *                  + "รายการที่ยังไม่ได้ตราสาร"
  * Sites are the won ones (🏆) of ตารางประมูลแจ้งเตือน; the contract data lives in won_contracts through
- * the edge function won-contract-api (admin only). เงินค้ำประกัน = ค่าจ้าง × 1.07 × 5% rounded up to the baht
+ * the edge function won-contract-api (every signed-in user, like ตั้งเบิกค่าตอบแทน). เงินค้ำประกัน = ค่าจ้าง × 1.07 × 5% rounded up to the baht
  * (the file: 302,400 → 16,179), editable.
  */
 (function () {
@@ -54,7 +54,7 @@
     try { if (typeof window.getBestDataToken === 'function') { var t = await window.getBestDataToken(); if (t) return t; } } catch (_) {}
     try { return localStorage.getItem('divergent_web_session_token_v1') || localStorage.getItem('divergent_fallback_session_token') || ''; } catch (_) { return ''; }
   }
-  var ERR = { ADMIN_ONLY: 'เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)', INVALID_AMOUNT: 'จำนวนเงินไม่ถูกต้อง', INVALID_DATE: 'วันที่ไม่ถูกต้อง', SESSION_INVALID: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง', SESSION_REQUIRED: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' };
+  var ERR = { ACCESS_DENIED: 'บัญชีนี้ไม่มีสิทธิ์ใช้งาน', INVALID_AMOUNT: 'จำนวนเงินไม่ถูกต้อง', INVALID_DATE: 'วันที่ไม่ถูกต้อง', SESSION_INVALID: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง', SESSION_REQUIRED: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' };
   async function call(body) {
     var t = await token();
     if (!t) throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
@@ -119,7 +119,7 @@
     var sLg = split(rows, 'lg'), sSt = split(rows, 'stamp');
     var sumLg = sLg.done.reduce(function (t, r) { return t + (+r.c.guarantee || 0); }, 0);
     var html = '<div class="cg-head"><div><h2>🏆 ค้ำประกันสัญญา</h2><p>ไซด์ที่ชนะประมูล ปี ' + YEAR + ' · หนังสือค้ำประกัน (LG) และตราสาร ไซด์ละ 2 บรรทัด</p></div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cg-btn" data-cg="xlsx">⬇ ส่งออก Excel</button><button class="cg-btn" data-cg="bids">📊 ตารางประมูลแจ้งเตือน</button><button class="cg-btn" data-cg="reload">↻ รีเฟรช</button></div></div>';
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cg-btn" data-cg="xlsx">⬇ ส่งออก Excel</button>' + (isMainAdmin() ? '<button class="cg-btn" data-cg="bids">📊 ตารางประมูลแจ้งเตือน</button>' : '') + '<button class="cg-btn" data-cg="reload">↻ รีเฟรช</button></div></div>';
     html += '<div class="cg-kpis"><div class="cg-kpi gold"><span>เงินค้ำประกันที่ออก LG แล้ว</span><b>' + (st.rows ? baht(sumLg) : '…') + '</b></div>' +
       '<div class="cg-kpi"><span>ยังไม่ได้ LG</span><b>' + (st.rows ? sLg.todo.length + ' / ' + rows.length : '…') + '</b></div>' +
       '<div class="cg-kpi"><span>ยังไม่ได้ตราสาร</span><b>' + (st.rows ? sSt.todo.length + ' / ' + rows.length : '…') + '</b></div></div>';
@@ -211,16 +211,17 @@
     X.writeFile(wb, 'LG-ตราสาร' + YEAR + '_' + ('0' + d.getDate()).slice(-2) + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + (d.getFullYear() + 543) + '.xlsx');
   }
 
-  // ---------------------------------------------------------------- menu (main admin account only, like ตารางประมูลแจ้งเตือน)
-  function isAdmin() {
+  // ---------------------------------------------------------------- menu: every signed-in user (user 2026-11-20)
+  function menuUser() {
     var u = window.currentMenuUser || null;
     if (!u) { try { u = JSON.parse(localStorage.getItem('divergent_web_session_user') || 'null'); } catch (_) { u = null; } }
-    var role = (u && u.role) || (window.qcAuthorizedUser && window.qcAuthorizedUser.user_role) || '';
-    return String(role).toLowerCase() === 'admin' && String((u && u.username) || '').toLowerCase() === 'admin';
+    return u || (window.qcAuthorizedUser && window.qcAuthorizedUser.user_role ? { role: window.qcAuthorizedUser.user_role } : null);
   }
+  function canUse() { var u = menuUser(); return !!(u && (u.username || u.role || u.id)); }
+  function isMainAdmin() { var u = menuUser() || {}; return String(u.role || '').toLowerCase() === 'admin' && String(u.username || '').toLowerCase() === 'admin'; }
   function syncNav() {
     var nav = document.getElementById('navContractGuarantee'); if (!nav) return;
-    var want = isAdmin() ? '' : 'none';
+    var want = canUse() ? '' : 'none';
     if (nav.style.display !== want) nav.style.display = want;
   }
   function ensureNav() {
@@ -235,7 +236,7 @@
     syncNav();
   }
   function showPage() {
-    if (!isAdmin()) { alert('เมนูนี้เปิดให้เฉพาะผู้ดูแลระบบ (admin)'); return; }
+    if (!canUse()) { alert('กรุณาเข้าสู่ระบบก่อนใช้เมนูนี้'); return; }
     style();
     var w = page();
     document.querySelectorAll('.side-nav .nav-item').forEach(function (x) { x.classList.toggle('active', x.id === 'navContractGuarantee'); });
