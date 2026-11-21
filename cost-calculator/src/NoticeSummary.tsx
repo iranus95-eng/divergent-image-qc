@@ -44,17 +44,23 @@ function reportHtml(
   metrics: [string, number][],
   notes: string[],
 ) {
-  const cell = (value: string | number, i: number, strong: boolean) => {
+  const cell = (
+    value: string | number,
+    i: number,
+    strong: boolean,
+    perJob: boolean,
+  ) => {
     const negative = typeof value === 'number' && value < 0;
-    return `<td style="padding:6px 8px;border-bottom:1px solid #ede9fe;text-align:${i ? 'right' : 'left'};white-space:nowrap;${strong ? 'font-weight:700;' : ''}${negative ? 'color:#b42318;' : ''}">${typeof value === 'number' ? fmt(value, DIGITS[i]) : esc(value)}</td>`;
+    return `<td style="padding:6px 8px;border-bottom:1px solid #ede9fe;text-align:${i ? 'right' : 'left'};white-space:nowrap;${strong ? 'font-weight:700;' : ''}${negative ? 'color:#b42318;' : ''}">${typeof value === 'number' ? fmt(value, perJob ? 2 : DIGITS[i]) : esc(value)}</td>`;
   };
+  // The last two rows are the total and the average per job.
   const rows = table
-    .map(
-      (row, r) =>
-        `<tr style="background:${r === table.length - 1 ? '#f1ebff' : '#fff'}">${row
-          .map((value, i) => cell(value, i, r === table.length - 1))
-          .join('')}</tr>`,
-    )
+    .map((row, r) => {
+      const summary = r >= table.length - 2;
+      return `<tr style="background:${summary ? '#f1ebff' : '#fff'}">${row
+        .map((value, i) => cell(value, i, summary, r === table.length - 1))
+        .join('')}</tr>`;
+    })
     .join('');
   return (
     '<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>' +
@@ -78,6 +84,19 @@ function reportHtml(
       )
       .join('') +
     '</article></body></html>'
+  );
+}
+
+// The average per job under a total in the summary row.
+function PerJob({ value }: { value: number }) {
+  return (
+    <small
+      className={
+        'block font-normal ' + (value < 0 ? 'text-red-700' : 'text-slate-500')
+      }
+    >
+      {fmt(value, 2)}
+    </small>
   );
 }
 
@@ -121,6 +140,11 @@ export default function NoticeSummary({
   const revenue = total((line) => line.revenue);
   const recurring = total((line) => line.recurring);
   const contract = total((line) => line.contract);
+  const jobs = total((line) => line.values.jobs);
+  const direct = total((line) => line.direct);
+  const shared = total((line) => line.shared);
+  // Average per job over every site: each total ÷ all jobs (weighted by jobs).
+  const perJob = (amount: number) => (jobs > 0 ? amount / jobs : 0);
   const sharedTotals = lines[0]?.values;
   const [busy, setBusy] = useState(false);
   const [exportError, setExportError] = useState('');
@@ -141,15 +165,28 @@ export default function NoticeSummary({
     [
       'รวม ' + sites.length + ' ไซด์',
       '',
-      total((line) => line.values.jobs),
+      jobs,
       total((line) => line.workers),
       '',
       revenue,
-      total((line) => line.direct),
-      total((line) => line.shared),
+      direct,
+      shared,
       100,
       revenue - recurring,
       contract,
+    ],
+    [
+      'เฉลี่ยต่อราย (บาท/ราย)',
+      '',
+      '',
+      '',
+      perJob(revenue),
+      '',
+      perJob(direct),
+      perJob(shared),
+      '',
+      perJob(revenue - recurring),
+      '',
     ],
   ];
   const metrics: [string, number][] = [
@@ -166,6 +203,7 @@ export default function NoticeSummary({
           ')'
         : ''),
     'ส่วนกลาง = เงินเดือนผู้คุมงาน + ประกันสังคมส่วนนายจ้าง + QC + ค่าใช้จ่ายสตาฟ + ค่าเอกสาร + ค่ารับรอง เฉลี่ยตามสัดส่วนจำนวนรายของไซด์ที่ชนะประมูล • ยังไม่บวกหรือแยก VAT และภาษีเงินได้นิติบุคคล',
+    'เฉลี่ยต่อราย = ยอดรวมทุกไซด์ ÷ จำนวนราย/เดือนรวมทุกไซด์',
     ...(incomplete.length
       ? [
           'ยังไม่นับในยอดรวม (ข้อมูลไม่ครบ): ' +
@@ -184,7 +222,7 @@ export default function NoticeSummary({
       { cells: HEADERS, bold: true },
       ...table.map((row, r) => ({
         cells: row,
-        bold: r === table.length - 1,
+        bold: r >= table.length - 2,
       })),
       { cells: [] },
       ...notes.map((note) => ({ cells: [note] })),
@@ -375,16 +413,30 @@ export default function NoticeSummary({
               </tr>
             ))}
             <tr className="font-bold">
-              <td>รวม {sites.length} ไซด์</td>
+              <td>
+                รวม {sites.length} ไซด์
+                <small className="block font-normal text-slate-500">
+                  เฉลี่ยต่อราย (บาท/ราย)
+                </small>
+              </td>
               <td></td>
-              <td>{fmt(total((line) => line.values.jobs))}</td>
+              <td>{fmt(jobs)}</td>
               <td>{fmt(total((line) => line.workers))}</td>
-              <td></td>
+              <td title="รายรับรวม ÷ จำนวนรายรวม">
+                {fmt(perJob(revenue), 2)}
+              </td>
               <td>{fmt(revenue)}</td>
-              <td>{fmt(total((line) => line.direct))}</td>
-              <td>{fmt(total((line) => line.shared))}</td>
+              <td>
+                {fmt(direct)}
+                <PerJob value={perJob(direct)} />
+              </td>
+              <td>
+                {fmt(shared)}
+                <PerJob value={perJob(shared)} />
+              </td>
               <td className={revenue - recurring < 0 ? 'text-red-700' : ''}>
                 {fmt(revenue - recurring)}
+                <PerJob value={perJob(revenue - recurring)} />
               </td>
               <td className={contract < 0 ? 'text-red-700' : ''}>
                 {fmt(contract)}
@@ -405,6 +457,9 @@ export default function NoticeSummary({
           + ประกันสังคมส่วนนายจ้าง + QC + ค่าใช้จ่ายสตาฟ + ค่าเอกสาร + ค่ารับรอง
           เฉลี่ยให้ไซด์ที่ชนะประมูลตามสัดส่วนจำนวนราย (จำนวนรายของไซด์ ÷
           จำนวนรายรวมของ {sites.length} ไซด์)
+        </p>
+        <p>
+          เฉลี่ยต่อรายในแถวรวม = ยอดรวมทุกไซด์ ÷ จำนวนราย/เดือนรวมทุกไซด์
         </p>
         <p>
           ยอดรวมส่วนกลางแก้ได้ในหน้าแต่ละไซด์ หัวข้อ "ตั้งค่ายอดรวม"
