@@ -197,13 +197,44 @@ const bids = [
     await page.getByRole('button', { name: /สตึก.*ขาดงบประมาณ/ }).waitFor();
     assert.equal(bids.find((bid) => bid.id === 5).status, 'ชนะประมูล');
     await page.getByRole('button', { name: /แสดงเฉพาะไซด์ที่ชนะประมูล/ }).click();
+    // ตั้งค่าต้นทุน: fixed and average costs are set once for every site.
+    await page
+      .getByRole('button', { name: /ตั้งค่าต้นทุนคงที่ \/ ต้นทุนเฉลี่ย/ })
+      .click();
+    await page
+      .getByRole('heading', { name: 'ตั้งค่าต้นทุนคงที่และต้นทุนเฉลี่ย' })
+      .waitFor();
+    // 90,000 + 9,000 + 50,000 + 350 + 350 + SSO 4 × 17,500 × 5% = 153,200 บาท/เดือน
+    await page.getByText('153,200.00 บาท').waitFor();
+    if (process.env.SETTINGS_SHOT)
+      await page.screenshot({ path: process.env.SETTINGS_SHOT, fullPage: true });
+    await page
+      .getByLabel('ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)', { exact: true })
+      .fill('3.6');
+    await page.getByLabel('ค่าใช้จ่ายสตาฟรวม (บาท/เดือน)').fill('60000');
+    await page.locator('.dvBarUnsaved').waitFor();
+    await page.getByRole('button', { name: 'บันทึกตั้งค่าต้นทุน' }).click();
+    await page.getByText(/บันทึกตั้งค่าต้นทุนแล้ว/).waitFor();
+    const settingsKey = 'epc:electricity-notice:v1:site:cost-settings';
+    assert.equal(rows.get(settingsKey).value.labor, 3.6);
+    assert.equal(rows.get(settingsKey).value.staff, 60000);
+    // The summary uses the new values: one site carries the whole fixed cost.
+    // 6,000 × (3.6 + 0.24 × 1.02 rounded sheets) + 163,200 shared
+    await page.getByRole('button', { name: /สรุปกำไรขาดทุน/ }).click();
+    assert.match(await page.locator('table').innerText(), /163,200/);
     await page.getByRole('table').getByRole('button', { name: 'โชคชัย' }).click();
     const laborInput = page.getByLabel('ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)', {
       exact: true,
     });
+    // Site pages show the settings read-only.
+    assert.equal(await laborInput.inputValue(), '3.6');
+    assert.equal(await laborInput.getAttribute('readonly'), '');
+    const workersInput = page.getByLabel(
+      'พนักงานส่งใบแจ้งเตือน (คน, 0 = คำนวณอัตโนมัติ)',
+    );
     const topSave = page.getByRole('button', { name: 'บันทึก', exact: true });
     // Every edit raises the unsaved warning until บันทึก is pressed.
-    await laborInput.fill('3.51');
+    await workersInput.fill('3');
     await page.locator('.dvBarUnsaved').waitFor();
     await topSave.click();
     await page
@@ -213,10 +244,10 @@ const bids = [
     assert.equal(await page.locator('.dvBarUnsaved').count(), 0);
     assert.equal(await topSave.isDisabled(), true);
     assert.equal(
-      rows.get('epc:electricity-notice:v1:site:bid-8').value.labor,
-      3.51,
+      rows.get('epc:electricity-notice:v1:site:bid-8').value.workers,
+      3,
     );
-    await laborInput.fill('3.5');
+    await workersInput.fill('0');
     await page.getByRole('button', { name: 'บันทึกการเปลี่ยนแปลง' }).click();
     await page
       .getByRole('status')
@@ -226,7 +257,7 @@ const bids = [
     assert.equal(rows.get(key).value.jobs, 6000);
     assert.equal(rows.get(key).value.budget, 616320);
     assert.equal(rows.get(key).value.auction, 4.65);
-    assert.equal(rows.get(key).value.labor, 3.5);
+    assert.equal(rows.get(key).value.workers, 0);
 
     const ctxB = await context(true, true);
     const second = await ctxB.newPage();
@@ -265,22 +296,22 @@ const bids = [
 
     // A second actor's newer record must never be silently overwritten.
     rows.get(key).revision++;
-    // Alter a field using its associated label (the main labor input).
-    const labor = second.getByLabel('ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)', {
-      exact: true,
-    });
-    await labor.fill('3.75');
+    // Alter a per-site field using its associated label.
+    const workers = second.getByLabel(
+      'พนักงานส่งใบแจ้งเตือน (คน, 0 = คำนวณอัตโนมัติ)',
+    );
+    await workers.fill('7');
     await second.getByRole('button', { name: 'บันทึกการเปลี่ยนแปลง' }).click();
     await second
       .getByRole('status')
       .filter({ hasText: 'ข้อมูลถูกแก้ไขจากอีกหน้าจอ' })
       .waitFor();
-    assert.equal(rows.get(key).value.labor, 3.5);
+    assert.equal(rows.get(key).value.workers, 0);
     assert.match(
       await second.evaluate(() =>
         localStorage.getItem('system-cost:pending:v1'),
       ),
-      /3.75/,
+      /"workers\\?":7/,
     );
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log(
