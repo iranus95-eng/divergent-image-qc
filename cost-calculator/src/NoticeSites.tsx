@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Gavel } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import { BarChart3, Gavel, SlidersHorizontal } from "lucide-react";
+import CostSettings from "./CostSettings";
 import NoticeCalculator, {
   type Allocation,
   type BidSource,
-} from './NoticeCalculator';
-import NoticeSummary from './NoticeSummary';
+} from "./NoticeCalculator";
+import NoticeSummary from "./NoticeSummary";
 import {
   loadNoticeBids,
   loadQuotePrices,
   saveNoticeBidStatus,
   type NoticeBid,
-} from './cloud';
+} from "./cloud";
 
 export type Site = BidSource & { id: string; name: string; jobs: number };
 type Row = {
@@ -22,21 +23,22 @@ type Row = {
   missing: string;
 };
 
-const SUMMARY = 'summary';
-const WON = 'ชนะประมูล';
+const SUMMARY = "summary";
+const SETTINGS = "cost-settings";
+const WON = "ชนะประมูล";
 // A site we won is marked by its status, as in ตารางประมูลแจ้งเตือน. "ไม่ชนะประมูล" (❌, set when a result file shows
 // someone else's lower price) also contains "ชนะ", so it has to be ruled out: เสิงสาง was counted as won.
 const isWon = (bid: NoticeBid) => {
-  const s = String(bid.status || '');
-  return s.includes('ชนะ') && !/ไม่ชนะ|แพ้/.test(s);
+  const s = String(bid.status || "");
+  return s.includes("ชนะ") && !/ไม่ชนะ|แพ้/.test(s);
 };
 // Same matching as ตารางประมูลแจ้งเตือน: tone marks, spaces and the กฟส./กฟจ. prefix are ignored,
 // and นครราชสีมา is written นม (so "นม3" finds "เมืองนครราชสีมา 3").
 const nameKey = (text: string) =>
-  String(text || '')
-    .replace(/[ัิ-ฺ็-๎\s.]/g, '')
-    .replace(/^(กฟส|กฟจ|กฟอ)/, '')
-    .replace(/นครราชสีมา/g, 'นม');
+  String(text || "")
+    .replace(/[ัิ-ฺ็-๎\s.]/g, "")
+    .replace(/^(กฟส|กฟจ|กฟอ)/, "")
+    .replace(/นครราชสีมา/g, "นม");
 // A quote belongs to the site of the same name, else to the longest site name inside its title.
 function quoteSite(title: string, bids: NoticeBid[]) {
   const key = nameKey(title);
@@ -54,7 +56,9 @@ function quoteSite(title: string, bids: NoticeBid[]) {
 function yearlyQty(qty: number | null, bid: NoticeBid) {
   if (!qty) return null;
   const estimate =
-    bid.budget && bid.mid_price ? bid.budget / 1.07 / bid.mid_price : bid.qty || 0;
+    bid.budget && bid.mid_price
+      ? bid.budget / 1.07 / bid.mid_price
+      : bid.qty || 0;
   if (!estimate) return qty;
   const off = (value: number) => Math.abs(Math.log(value / estimate));
   return off(qty * 12) < off(qty) ? qty * 12 : qty;
@@ -89,12 +93,12 @@ function buildRows(
       // The winning unit price comes from our quotation, else ราคาปี70 of the bid table.
       const auction = price ?? (bid.price_bid || null);
       const missing = [
-        !(bid.budget && bid.budget > 0) && 'งบประมาณ',
-        !(bid.mid_price && bid.mid_price > 0) && 'ราคากลาง',
-        !auction && 'ราคาที่ชนะ',
+        !(bid.budget && bid.budget > 0) && "งบประมาณ",
+        !(bid.mid_price && bid.mid_price > 0) && "ราคากลาง",
+        !auction && "ราคาที่ชนะ",
       ]
         .filter(Boolean)
-        .join(', ');
+        .join(", ");
       return {
         bid,
         won: isWon(bid),
@@ -104,14 +108,14 @@ function buildRows(
         site: missing
           ? null
           : {
-              id: 'bid-' + bid.id,
+              id: "bid-" + bid.id,
               name: bid.site,
               bidId: bid.id,
               budget: bid.budget!,
               price: bid.mid_price!,
               auction: auction!,
               qty,
-              qtyFrom: quoteQty != null ? 'quote' : qty ? 'table' : null,
+              qtyFrom: quoteQty != null ? "quote" : qty ? "table" : null,
               // ราย/เดือน: the quotation's quantity, else the table's, else งบประมาณ ÷ 1.07 (VAT) ÷ ราคากลาง
               jobs: (qty ?? bid.budget! / 1.07 / bid.mid_price!) / 12,
             },
@@ -125,13 +129,14 @@ export default function NoticeSites({
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [quoteError, setQuoteError] = useState(false);
   const [activeId, setActiveId] = useState(SUMMARY);
   const [dirty, setDirty] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [busyId, setBusyId] = useState(0);
-  const [markError, setMarkError] = useState('');
+  const [markError, setMarkError] = useState("");
+  const [, setSettingsVersion] = useState(0);
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -161,7 +166,7 @@ export default function NoticeSites({
   const leaveSite = () =>
     !dirty ||
     window.confirm(
-      'ไซด์นี้มีข้อมูลที่ยังไม่ได้บันทึก ต้องการเปลี่ยนไซด์โดยไม่บันทึกหรือไม่? กดยกเลิกเพื่อกลับไปบันทึก',
+      "ไซด์นี้มีข้อมูลที่ยังไม่ได้บันทึก ต้องการเปลี่ยนไซด์โดยไม่บันทึกหรือไม่? กดยกเลิกเพื่อกลับไปบันทึก",
     );
   const selectSite = (id: string) => {
     if (id === activeId || !leaveSite()) return;
@@ -169,10 +174,10 @@ export default function NoticeSites({
     setActiveId(id);
   };
   const toggleWon = async (row: Row) => {
-    const next = row.won ? '' : WON;
+    const next = row.won ? "" : WON;
     if (
       row.won &&
-      !window.confirm('ยกเลิกเครื่องหมายชนะประมูลของไซด์ ' + row.bid.site + '?')
+      !window.confirm("ยกเลิกเครื่องหมายชนะประมูลของไซด์ " + row.bid.site + "?")
     )
       return;
     if (row.won && activeId === row.site?.id) {
@@ -181,7 +186,7 @@ export default function NoticeSites({
       setActiveId(SUMMARY);
     }
     setBusyId(row.bid.id);
-    setMarkError('');
+    setMarkError("");
     try {
       await saveNoticeBidStatus(row.bid.id, next);
       setRows((list) =>
@@ -193,9 +198,9 @@ export default function NoticeSites({
       );
     } catch (e) {
       setMarkError(
-        'บันทึกสถานะไซด์ ' +
+        "บันทึกสถานะไซด์ " +
           row.bid.site +
-          ' ไม่สำเร็จ: ' +
+          " ไม่สำเร็จ: " +
           (e instanceof Error ? e.message : String(e)),
       );
     } finally {
@@ -215,7 +220,7 @@ export default function NoticeSites({
   const counted = won.flatMap((row) => (row.site ? [row.site] : []));
   const poolJobs = counted.reduce((sum, site) => sum + site.jobs, 0);
   const allocationFor = (jobs: number): Allocation => ({
-    mode: 'jobs',
+    mode: "jobs",
     otherJobs: poolJobs - jobs,
     sites: counted.length,
   });
@@ -228,11 +233,23 @@ export default function NoticeSites({
         <button
           type="button"
           onClick={() => selectSite(SUMMARY)}
-          aria-current={!active ? 'page' : undefined}
-          className={'siteBtn ' + (!active ? 'siteActive' : '')}
+          aria-current={!active && activeId !== SETTINGS ? "page" : undefined}
+          className={
+            "siteBtn " + (!active && activeId !== SETTINGS ? "siteActive" : "")
+          }
         >
           <BarChart3 size={17} />
           <span>สรุปกำไรขาดทุน</span>
+          <b aria-hidden="true">›</b>
+        </button>
+        <button
+          type="button"
+          onClick={() => selectSite(SETTINGS)}
+          aria-current={activeId === SETTINGS ? "page" : undefined}
+          className={"siteBtn " + (activeId === SETTINGS ? "siteActive" : "")}
+        >
+          <SlidersHorizontal size={17} />
+          <span>ตั้งค่าต้นทุนคงที่ / ต้นทุนเฉลี่ย</span>
           <b aria-hidden="true">›</b>
         </button>
         {listed.map((row) => (
@@ -241,8 +258,8 @@ export default function NoticeSites({
               className="siteWon"
               title={
                 row.won
-                  ? 'ชนะประมูล (กดเพื่อยกเลิก)'
-                  : 'ทำเครื่องหมายว่าชนะประมูล'
+                  ? "ชนะประมูล (กดเพื่อยกเลิก)"
+                  : "ทำเครื่องหมายว่าชนะประมูล"
               }
             >
               <input
@@ -250,17 +267,17 @@ export default function NoticeSites({
                 checked={row.won}
                 disabled={busyId === row.bid.id}
                 onChange={() => void toggleWon(row)}
-                aria-label={'ชนะประมูล ' + row.bid.site}
+                aria-label={"ชนะประมูล " + row.bid.site}
               />
             </label>
             <button
               type="button"
               disabled={!row.won || !row.site}
               onClick={() => row.site && selectSite(row.site.id)}
-              aria-current={active?.id === row.site?.id ? 'page' : undefined}
+              aria-current={active?.id === row.site?.id ? "page" : undefined}
               className={
-                'siteBtn ' +
-                (row.site && active?.id === row.site.id ? 'siteActive' : '')
+                "siteBtn " +
+                (row.site && active?.id === row.site.id ? "siteActive" : "")
               }
             >
               <Gavel size={17} />
@@ -280,8 +297,8 @@ export default function NoticeSites({
           onClick={() => setShowAll((value) => !value)}
         >
           {showAll
-            ? 'แสดงเฉพาะไซด์ที่ชนะประมูล'
-            : 'เพิ่มไซด์ที่ชนะประมูล (แสดงทุกไซด์)'}
+            ? "แสดงเฉพาะไซด์ที่ชนะประมูล"
+            : "เพิ่มไซด์ที่ชนะประมูล (แสดงทุกไซด์)"}
         </button>
       </aside>
       <div className="appMain px-3 sm:px-6 pb-6">
@@ -290,9 +307,17 @@ export default function NoticeSites({
             {markError}
           </p>
         )}
-        {active ? (
+        {activeId === SETTINGS ? (
+          <CostSettings
+            poolJobs={poolJobs}
+            sites={counted.length}
+            onDirtyChange={reportDirty}
+            onSaved={() => setSettingsVersion((n) => n + 1)}
+          />
+        ) : active ? (
           <NoticeCalculator
             key={active.id}
+            onOpenSettings={() => selectSite(SETTINGS)}
             siteId={active.id}
             siteName={active.name}
             bid={active}

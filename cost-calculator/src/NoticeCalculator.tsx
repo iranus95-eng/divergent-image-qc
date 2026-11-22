@@ -1,33 +1,35 @@
-import { cloudStorage, flush, setUnsaved, storageKeys } from './cloud';
-import { useEffect, useRef, useState } from 'react';
-import { Printer, Download, Eye } from 'lucide-react';
-import NoticeReport from './NoticeReport';
-import { datedFileName } from './fileName';
+import { cloudStorage, flush, setUnsaved } from "./cloud";
+import { useEffect, useRef, useState } from "react";
+import { Printer, Download, Eye } from "lucide-react";
+import NoticeReport from "./NoticeReport";
+import {
+  COST_DEFAULTS,
+  COST_KEYS,
+  loadCostSettings,
+  ssoTotal,
+} from "./costSettings";
+import { datedFileName } from "./fileName";
 
-const KEY = 'epc:electricity-notice:v1';
-const SHARED_TOTALS_REVISION = 'confirmed-totals-2026-10-29-v2';
+const KEY = "epc:electricity-notice:v1";
+const SHARED_TOTALS_REVISION = "confirmed-totals-2026-10-29-v2";
 const SHARED_COST_KEYS: (keyof Values)[] = [
-  'supervisorTotal',
-  'qcTotal',
-  'staff',
-  'documents',
-  'hospitality',
+  "supervisorTotal",
+  "qcTotal",
+  "staff",
+  "documents",
+  "hospitality",
 ];
-// Values confirmed for every site at once: reset to the defaults when the revision changes.
-const CONFIRMED_KEYS: (keyof Values)[] = [
-  ...SHARED_COST_KEYS,
-  'paper',
-  'printer',
-];
+// ต้นทุนคงที่และต้นทุนเฉลี่ย come from the ตั้งค่าต้นทุน menu for every site and are read-only here.
+const SETTING_KEYS: (keyof Values)[] = COST_KEYS;
 // Shared costs (supervisors, QC, staff, documents, hospitality) are split over the
 // won sites: by monthly jobs (the site's jobs over all of their jobs) or equally.
 export type Allocation = {
-  mode: 'jobs' | 'equal';
+  mode: "jobs" | "equal";
   otherJobs: number;
   sites: number;
 };
 export const shareOf = (allocation: Allocation, jobs: number) =>
-  allocation.mode === 'equal'
+  allocation.mode === "equal"
     ? allocation.sites > 0
       ? 1 / allocation.sites
       : 0
@@ -38,74 +40,58 @@ const allocateSharedCost = (total: number, share: number) => total * share;
 const defaults = {
   budget: 19200000,
   jobs: 200000,
-  capacity: 2500,
   workers: 0, // พนักงานส่งใบแจ้งเตือน typed by hand; 0 = jobs ÷ capacity
   price: 8,
   auction: 8,
-  labor: 3.5,
-  withholding: 3,
-  printer: 0, // we already own about 200 printers
-  supervisors: 4,
-  supervisorTotal: 90000,
-  qcPeople: 3,
-  qcTotal: 9000,
-  paper: 0.24,
-  waste: 2,
-  documents: 350,
-  staff: 50000,
-  hospitality: 350,
-  shirt: 450,
-  ssoRate: 5,
-  ssoMin: 1650,
-  ssoCap: 17500,
+  ...COST_DEFAULTS,
 };
 type Values = typeof defaults;
 type Field = [keyof Values, string, number?];
 const groups: { title: string; fields: Field[] }[] = [
   {
-    title: 'ปริมาณงานและรายรับ',
+    title: "ปริมาณงานและรายรับ",
     fields: [
-      ['jobs', 'จำนวนรายต่อเดือน (คำนวณอัตโนมัติ)'],
-      ['capacity', 'กำลังงานเฉลี่ย (ราย/คน/เดือน)', 1],
-      ['workers', 'พนักงานส่งใบแจ้งเตือน (คน, 0 = คำนวณอัตโนมัติ)', 1],
-      ['price', 'ราคากลาง (บาท/ราย)'],
-      ['auction', 'ราคาที่ประมูล (บาท/ราย)'],
+      ["jobs", "จำนวนรายต่อเดือน (คำนวณอัตโนมัติ)"],
+      ["capacity", "กำลังงานเฉลี่ย (ราย/คน/เดือน)", 1],
+      ["workers", "พนักงานส่งใบแจ้งเตือน (คน, 0 = คำนวณอัตโนมัติ)", 1],
+      ["price", "ราคากลาง (บาท/ราย)"],
+      ["auction", "ราคาที่ประมูล (บาท/ราย)"],
     ],
   },
   {
-    title: 'ค่าแรงและบุคลากร',
+    title: "ค่าแรงและบุคลากร",
     fields: [
-      ['labor', 'ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)'],
-      ['withholding', 'หัก ณ ที่จ่าย ค่าแรงและ QC (%)'],
-      ['supervisors', 'ผู้คุมงาน (คน)', 1],
-      ['supervisorTotal', 'เงินเดือนผู้คุมงานรวมทุกไซด์ (บาท/เดือน)'],
-      ['qcPeople', 'QC (คน)', 1],
-      ['qcTotal', 'ค่า QC รวมทุกไซด์ (บาท/เดือน)'],
+      ["labor", "ค่าแรงส่งใบแจ้งเตือน (บาท/ราย)"],
+      ["withholding", "หัก ณ ที่จ่าย ค่าแรงและ QC (%)"],
+      ["supervisors", "ผู้คุมงาน (คน)", 1],
+      ["supervisorTotal", "เงินเดือนผู้คุมงานรวมทุกไซด์ (บาท/เดือน)"],
+      ["qcPeople", "QC (คน)", 1],
+      ["qcTotal", "ค่า QC รวมทุกไซด์ (บาท/เดือน)"],
     ],
   },
   {
-    title: 'กระดาษและค่าใช้จ่ายประจำ',
+    title: "กระดาษและค่าใช้จ่ายประจำ",
     fields: [
-      ['paper', 'กระดาษ (บาท/ฉบับ)'],
-      ['waste', 'กระดาษเผื่อเสียเพิ่ม (%)'],
-      ['documents', 'ค่าเอกสารรวมทุกไซด์ (บาท/เดือน)'],
-      ['staff', 'ค่าใช้จ่ายสตาฟรวมทุกไซด์ (บาท/เดือน)'],
-      ['hospitality', 'ค่ารับรองรวมทุกไซด์ (บาท/เดือน)'],
+      ["paper", "กระดาษ (บาท/ฉบับ)"],
+      ["waste", "กระดาษเผื่อเสียเพิ่ม (%)"],
+      ["documents", "ค่าเอกสารรวมทุกไซด์ (บาท/เดือน)"],
+      ["staff", "ค่าใช้จ่ายสตาฟรวมทุกไซด์ (บาท/เดือน)"],
+      ["hospitality", "ค่ารับรองรวมทุกไซด์ (บาท/เดือน)"],
     ],
   },
   {
-    title: 'ค่าเริ่มต้น เฉพาะพนักงานส่งใบแจ้งเตือน',
+    title: "ค่าเริ่มต้น เฉพาะพนักงานส่งใบแจ้งเตือน",
     fields: [
-      ['printer', 'เครื่องพิมพ์ 1 เครื่อง/คน (บาท)'],
-      ['shirt', 'เสื้อ 1 ตัว/คน (บาท)'],
+      ["printer", "เครื่องพิมพ์ 1 เครื่อง/คน (บาท)"],
+      ["shirt", "เสื้อ 1 ตัว/คน (บาท)"],
     ],
   },
   {
-    title: 'ประกันสังคมผู้คุมงาน — ส่วนนายจ้าง',
+    title: "ประกันสังคมผู้คุมงาน — ส่วนนายจ้าง",
     fields: [
-      ['ssoRate', 'อัตราสมทบ (%)'],
-      ['ssoMin', 'ฐานค่าจ้างขั้นต่ำ (บาท/คน)'],
-      ['ssoCap', 'ฐานค่าจ้างสูงสุด (บาท/คน)'],
+      ["ssoRate", "อัตราสมทบ (%)"],
+      ["ssoMin", "ฐานค่าจ้างขั้นต่ำ (บาท/คน)"],
+      ["ssoCap", "ฐานค่าจ้างสูงสุด (บาท/คน)"],
     ],
   },
 ];
@@ -117,36 +103,34 @@ export type BidSource = {
   price: number;
   auction: number;
   qty?: number | null; // ราย per year from the site's quotation, else from the bid table
-  qtyFrom?: 'quote' | 'table' | null;
+  qtyFrom?: "quote" | "table" | null;
 };
 // Monthly jobs: the quotation's (else the bid table's) quantity ÷ 12, else งบประมาณ (VAT removed) ÷ ราคากลาง ÷ 12.
-const jobsOf = (v: Pick<Values, 'budget' | 'price'>, bid?: BidSource) =>
+const jobsOf = (v: Pick<Values, "budget" | "price">, bid?: BidSource) =>
   bid?.qty ? bid.qty / 12 : v.price > 0 ? v.budget / 1.07 / v.price / 12 : 0;
-export const noticeStorageKey = (siteId: string) => KEY + ':site:' + siteId;
+export const noticeStorageKey = (siteId: string) => KEY + ":site:" + siteId;
 const sourceTag = (bid: BidSource) =>
-  ['notice-bids', bid.bidId, bid.budget, bid.price, bid.auction].join(':');
+  ["notice-bids", bid.bidId, bid.budget, bid.price, bid.auction].join(":");
 const fmt = (n: number) =>
-  n.toLocaleString('th-TH', {
+  n.toLocaleString("th-TH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 export function loadNoticeValues(storageKey: string, bid?: BidSource): Values {
   try {
-    const saved = JSON.parse(cloudStorage.getItem(storageKey) || 'null');
+    const saved = JSON.parse(cloudStorage.getItem(storageKey) || "null");
     const result = { ...defaults };
-    if (saved && typeof saved === 'object') {
+    if (saved && typeof saved === "object") {
       for (const key of Object.keys(defaults) as (keyof Values)[]) {
         if (
-          typeof saved[key] === 'number' &&
+          typeof saved[key] === "number" &&
           Number.isFinite(saved[key]) &&
           saved[key] >= 0
         )
           result[key] = saved[key];
       }
     }
-    if (saved?.sharedTotalsRevision !== SHARED_TOTALS_REVISION) {
-      for (const key of CONFIRMED_KEYS) result[key] = defaults[key];
-    }
+    Object.assign(result, loadCostSettings());
     if (saved && saved.auction === undefined) result.auction = result.price;
     if (bid && saved?.bidSource !== sourceTag(bid)) {
       result.budget = bid.budget;
@@ -158,6 +142,7 @@ export function loadNoticeValues(storageKey: string, bid?: BidSource): Values {
   } catch {
     const result = {
       ...defaults,
+      ...loadCostSettings(),
       ...(bid && {
         budget: bid.budget,
         price: bid.price,
@@ -184,16 +169,7 @@ export function computeNotice(v: Values, share: number) {
   const documentsCost = allocateSharedCost(v.documents, share);
   const staffCost = allocateSharedCost(v.staff, share);
   const hospitalityCost = allocateSharedCost(v.hospitality, share);
-  const totalSso =
-    v.supervisors > 0
-      ? (v.supervisors *
-          Math.min(
-            v.ssoCap,
-            Math.max(v.ssoMin, v.supervisorTotal / v.supervisors),
-          ) *
-          v.ssoRate) /
-        100
-      : 0;
+  const totalSso = ssoTotal(v);
   const sso = totalSso * share;
   const recurring =
     labor +
@@ -208,14 +184,14 @@ export function computeNotice(v: Values, share: number) {
   const revenue = v.jobs * v.auction;
   const tax = ((labor + qcCost) * v.withholding) / 100;
   const rows: [string, number][] = [
-    ['ค่าแรงส่งใบแจ้งเตือน (ยอดเต็ม)', labor],
-    ['เงินเดือนผู้คุมงานเฉลี่ยตามไซด์', supervisorCost],
-    ['ประกันสังคมส่วนนายจ้าง', sso],
-    ['ค่า QC เฉลี่ยตามไซด์ (ก่อนหักภาษี)', qcCost],
-    ['กระดาษรวมเผื่อเสีย', paperCount * v.paper],
-    ['ค่าเอกสารเฉลี่ยตามไซด์', documentsCost],
-    ['ค่าใช้จ่ายสตาฟเฉลี่ยตามไซด์', staffCost],
-    ['ค่ารับรองเฉลี่ยตามไซด์', hospitalityCost],
+    ["ค่าแรงส่งใบแจ้งเตือน (ยอดเต็ม)", labor],
+    ["เงินเดือนผู้คุมงานเฉลี่ยตามไซด์", supervisorCost],
+    ["ประกันสังคมส่วนนายจ้าง", sso],
+    ["ค่า QC เฉลี่ยตามไซด์ (ก่อนหักภาษี)", qcCost],
+    ["กระดาษรวมเผื่อเสีย", paperCount * v.paper],
+    ["ค่าเอกสารเฉลี่ยตามไซด์", documentsCost],
+    ["ค่าใช้จ่ายสตาฟเฉลี่ยตามไซด์", staffCost],
+    ["ค่ารับรองเฉลี่ยตามไซด์", hospitalityCost],
   ];
   return {
     workers,
@@ -236,12 +212,14 @@ export function computeNotice(v: Values, share: number) {
 
 export default function NoticeCalculator({
   onDirtyChange,
+  onOpenSettings,
   siteId,
   siteName,
   bid,
   allocation,
 }: {
   onDirtyChange: (dirty: boolean) => void;
+  onOpenSettings?: () => void;
   siteId: string;
   siteName: string;
   bid: BidSource;
@@ -262,30 +240,10 @@ export default function NoticeCalculator({
   const [showContract, setShowContract] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [storageError, setStorageError] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   useEffect(() => {
     try {
-      // Reset the confirmed values once, across all notice-site records.
-      const noticeKeys = storageKeys().filter(
-        (key) => key === KEY || key.startsWith(KEY + ':site:'),
-      );
-      for (const key of noticeKeys) {
-        const record = JSON.parse(cloudStorage.getItem(key) || 'null');
-        if (
-          !record ||
-          typeof record !== 'object' ||
-          Array.isArray(record) ||
-          record.sharedTotalsRevision === SHARED_TOTALS_REVISION
-        )
-          continue;
-        const corrected = {
-          ...record,
-          sharedTotalsRevision: SHARED_TOTALS_REVISION,
-        };
-        for (const field of CONFIRMED_KEYS) corrected[field] = defaults[field];
-        cloudStorage.setItem(key, JSON.stringify(corrected), true);
-      }
-      const saved = JSON.parse(cloudStorage.getItem(storageKey) || 'null');
+      const saved = JSON.parse(cloudStorage.getItem(storageKey) || "null");
       if (saved?.bidSource !== sourceTag(bid)) {
         cloudStorage.setItem(
           storageKey,
@@ -308,23 +266,24 @@ export default function NoticeCalculator({
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
-      event.returnValue = '';
+      event.returnValue = "";
     };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   const jobsNote = bid.qty
-    ? bid.qtyFrom === 'table'
-      ? 'จำนวนรายในตารางประมูลแจ้งเตือน ÷ 12'
-      : 'จำนวนรายจากใบเสนอราคา ÷ 12'
-    : 'งบประมาณ ÷ ราคากลาง ÷ 12';
+    ? bid.qtyFrom === "table"
+      ? "จำนวนรายในตารางประมูลแจ้งเตือน ÷ 12"
+      : "จำนวนรายจากใบเสนอราคา ÷ 12"
+    : "งบประมาณ ÷ ราคากลาง ÷ 12";
   const edit = (key: keyof Values, text: string) => {
+    if (SETTING_KEYS.includes(key)) return;
     setDraft((previous) => ({ ...previous, [key]: text }));
     setDirty(true);
     setNeedsCalculation(true);
-    setMessage('');
+    setMessage("");
     if (
-      text.trim() !== '' &&
+      text.trim() !== "" &&
       Number.isFinite(Number(text)) &&
       Number(text) >= 0
     ) {
@@ -335,48 +294,44 @@ export default function NoticeCalculator({
       });
     }
   };
-  const input = (
-    key: keyof Values,
-    label: string,
-    integer = false,
-    editTotal = false,
-  ) => (
+  const input = (key: keyof Values, label: string, integer = false) => (
     <label className="field" key={key}>
-      {SHARED_COST_KEYS.includes(key) && !editTotal
-        ? label.replace('รวมทุกไซด์', 'เฉพาะไซด์นี้')
+      {SHARED_COST_KEYS.includes(key)
+        ? label.replace("รวมทุกไซด์", "เฉพาะไซด์นี้")
         : label}
       <input
         type="text"
-        inputMode={integer ? 'numeric' : 'decimal'}
-        readOnly={
-          key === 'jobs' || (SHARED_COST_KEYS.includes(key) && !editTotal)
-        }
-        aria-readonly={
-          key === 'jobs' || (SHARED_COST_KEYS.includes(key) && !editTotal)
+        inputMode={integer ? "numeric" : "decimal"}
+        readOnly={key === "jobs" || SETTING_KEYS.includes(key)}
+        aria-readonly={key === "jobs" || SETTING_KEYS.includes(key)}
+        title={
+          SETTING_KEYS.includes(key)
+            ? "แก้ไขที่เมนูตั้งค่าต้นทุน (ใช้กับทุกไซด์)"
+            : undefined
         }
         value={
-          SHARED_COST_KEYS.includes(key) && !editTotal
-            ? values.price > 0 && draft.price !== '' && draft.budget !== ''
+          SHARED_COST_KEYS.includes(key)
+            ? values.price > 0 && draft.price !== "" && draft.budget !== ""
               ? allocateSharedCost(
                   values[key],
                   shareOf(allocation, values.jobs),
                 ).toFixed(2)
-              : ''
-            : key === 'jobs'
-              ? values.price > 0 && draft.price !== '' && draft.budget !== ''
+              : ""
+            : key === "jobs"
+              ? values.price > 0 && draft.price !== "" && draft.budget !== ""
                 ? String(values.jobs)
-                : ''
+                : ""
               : (draft[key] ?? String(values[key]))
         }
         onChange={(event) => edit(key, event.target.value)}
       />
-      {key === 'jobs' && <small>{jobsNote} โดยไม่ปัดเศษจำนวนรายเฉลี่ย</small>}
+      {key === "jobs" && <small>{jobsNote} โดยไม่ปัดเศษจำนวนรายเฉลี่ย</small>}
     </label>
   );
   const invalid =
     Object.values(draft).some(
       (value) =>
-        value.trim() === '' ||
+        value.trim() === "" ||
         !Number.isFinite(Number(value)) ||
         Number(value) < 0,
     ) ||
@@ -404,42 +359,42 @@ export default function NoticeCalculator({
   } = computeNotice(calculated, allocationRatio);
   const reportRef = useRef<HTMLDivElement>(null);
   const [reportBusy, setReportBusy] = useState(false);
-  const [reportError, setReportError] = useState('');
+  const [reportError, setReportError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
-  const exportReport = async (mode: 'print' | 'pdf') => {
+  const exportReport = async (mode: "print" | "pdf") => {
     if (invalid || needsCalculation || reportBusy || !reportRef.current) return;
     setReportBusy(true);
-    setReportError('');
+    setReportError("");
     let printFrame: HTMLIFrameElement | null = null;
     try {
       await document.fonts.ready;
-      const filename = datedFileName('รายงานใบแจ้งเตือน_' + siteName);
-      if (mode === 'pdf') {
+      const filename = datedFileName("รายงานใบแจ้งเตือน_" + siteName);
+      if (mode === "pdf") {
         const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-          import('html2canvas'),
-          import('jspdf'),
+          import("html2canvas"),
+          import("jspdf"),
         ]);
         // Render an isolated document rather than cloning the full calculator.
-        printFrame = document.createElement('iframe');
-        printFrame.title = 'กำลังสร้าง PDF ' + siteName;
+        printFrame = document.createElement("iframe");
+        printFrame.title = "กำลังสร้าง PDF " + siteName;
         printFrame.style.cssText =
-          'position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:0';
+          "position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:0";
         document.body.appendChild(printFrame);
         const exportDoc = printFrame.contentDocument;
-        if (!exportDoc) throw new Error('PDF document unavailable');
+        if (!exportDoc) throw new Error("PDF document unavailable");
         exportDoc.open();
         exportDoc.write(
           '<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:white;width:794px}*{box-sizing:border-box}</style></head><body>' +
             reportRef.current.innerHTML +
-            '</body></html>',
+            "</body></html>",
         );
         exportDoc.close();
         await exportDoc.fonts.ready;
-        const exportArticle = exportDoc.querySelector('article');
-        if (!exportArticle) throw new Error('PDF report unavailable');
+        const exportArticle = exportDoc.querySelector("article");
+        if (!exportArticle) throw new Error("PDF report unavailable");
         const canvas = await html2canvas(exportArticle, {
           scale: 1.5,
-          backgroundColor: '#ffffff',
+          backgroundColor: "#ffffff",
           logging: false,
           width: 794,
           height: Math.min(exportArticle.scrollHeight, 2000),
@@ -449,43 +404,43 @@ export default function NoticeCalculator({
           scrollY: 0,
         });
         const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4",
         });
         const scale = Math.min(190 / canvas.width, 277 / canvas.height);
         const width = canvas.width * scale;
         const height = canvas.height * scale;
         pdf.addImage(
-          canvas.toDataURL('image/jpeg', 0.94),
-          'JPEG',
+          canvas.toDataURL("image/jpeg", 0.94),
+          "JPEG",
           (210 - width) / 2,
           10,
           width,
           height,
         );
-        pdf.setProperties({ title: 'รายงานต้นทุนและกำไร ' + siteName });
-        pdf.save(filename + '.pdf');
+        pdf.setProperties({ title: "รายงานต้นทุนและกำไร " + siteName });
+        pdf.save(filename + ".pdf");
         printFrame.remove();
         printFrame = null;
         canvas.width = 0;
         canvas.height = 0;
-        setMessage('ส่งออก PDF ของไซด์ ' + siteName + ' แล้ว');
+        setMessage("ส่งออก PDF ของไซด์ " + siteName + " แล้ว");
       } else {
-        printFrame = document.createElement('iframe');
-        printFrame.title = 'รายงานสำหรับพิมพ์ ' + siteName;
+        printFrame = document.createElement("iframe");
+        printFrame.title = "รายงานสำหรับพิมพ์ " + siteName;
         printFrame.style.cssText =
-          'position:fixed;left:-10000px;top:0;width:900px;height:1200px;border:0';
+          "position:fixed;left:-10000px;top:0;width:900px;height:1200px;border:0";
         document.body.appendChild(printFrame);
         const doc = printFrame.contentDocument;
-        if (!doc) throw new Error('print frame unavailable');
+        if (!doc) throw new Error("print frame unavailable");
         doc.open();
         doc.write(
           '<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>' +
             filename +
-            '</title><style>@page{size:A4 portrait;margin:8mm}body{margin:0;background:#fff}article{width:100%!important;min-height:0!important;padding:8px!important}table{break-inside:avoid}tr{break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>' +
+            "</title><style>@page{size:A4 portrait;margin:8mm}body{margin:0;background:#fff}article{width:100%!important;min-height:0!important;padding:8px!important}table{break-inside:avoid}tr{break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>" +
             reportRef.current.innerHTML +
-            '</body></html>',
+            "</body></html>",
         );
         doc.close();
         await doc.fonts.ready;
@@ -497,7 +452,7 @@ export default function NoticeCalculator({
     } catch {
       printFrame?.remove();
       setReportError(
-        'ไม่สามารถสร้างรายงานได้ กรุณาลองอีกครั้ง หรือใช้ปุ่มพิมพ์เพื่อบันทึกเป็น PDF',
+        "ไม่สามารถสร้างรายงานได้ กรุณาลองอีกครั้ง หรือใช้ปุ่มพิมพ์เพื่อบันทึกเป็น PDF",
       );
     } finally {
       setReportBusy(false);
@@ -519,7 +474,7 @@ export default function NoticeCalculator({
       setNeedsCalculation(false);
       setDirty(false);
       onDirtyChange(false);
-      setMessage('ส่งข้อมูลใบแจ้งเตือนไปบันทึกแล้ว — ตรวจสถานะฐานข้อมูลด้านบน');
+      setMessage("ส่งข้อมูลใบแจ้งเตือนไปบันทึกแล้ว — ตรวจสถานะฐานข้อมูลด้านบน");
       setStorageError(false);
       void flush().catch(() => {});
       return true;
@@ -531,8 +486,8 @@ export default function NoticeCalculator({
   const saveRef = useRef(save);
   saveRef.current = save;
   useEffect(() => {
-    setUnsaved('notice', dirty ? () => saveRef.current() : null);
-    return () => setUnsaved('notice', null);
+    setUnsaved("notice", dirty ? () => saveRef.current() : null);
+    return () => setUnsaved("notice", null);
   }, [dirty]);
   return (
     <div className="max-w-6xl mx-auto mt-6 space-y-6">
@@ -543,7 +498,7 @@ export default function NoticeCalculator({
             <button
               type="button"
               disabled={invalid || needsCalculation || reportBusy}
-              onClick={() => void exportReport('print')}
+              onClick={() => void exportReport("print")}
               className="noticeOutline"
             >
               <Printer size={17} />
@@ -552,11 +507,11 @@ export default function NoticeCalculator({
             <button
               type="button"
               disabled={invalid || needsCalculation || reportBusy}
-              onClick={() => void exportReport('pdf')}
+              onClick={() => void exportReport("pdf")}
               className="noticePrimary"
             >
               <Download size={17} />
-              {reportBusy ? 'กำลังสร้างรายงาน…' : 'ส่งออก PDF'}
+              {reportBusy ? "กำลังสร้างรายงาน…" : "ส่งออก PDF"}
             </button>
           </div>
         </div>
@@ -576,12 +531,12 @@ export default function NoticeCalculator({
           บันทึกข้อมูลแยกเฉพาะไซด์ {siteName} • งบประมาณ {fmt(bid.budget)} บาท
           และราคากลาง {bid.price} บาท/ราย จากตารางประมูลแจ้งเตือน
           {bid.qty
-            ? 'จำนวนราย ' +
-              bid.qty.toLocaleString('th-TH') +
-              (bid.qtyFrom === 'table'
-                ? ' ราย/ปี จากตารางประมูลแจ้งเตือน (ไม่พบในใบเสนอราคา)'
-                : ' ราย/ปี จากใบเสนอราคา')
-            : 'คำนวณจำนวนรายจากงบประมาณกับราคากลาง (ไม่พบจำนวนในใบเสนอราคา)'}
+            ? "จำนวนราย " +
+              bid.qty.toLocaleString("th-TH") +
+              (bid.qtyFrom === "table"
+                ? " ราย/ปี จากตารางประมูลแจ้งเตือน (ไม่พบในใบเสนอราคา)"
+                : " ราย/ปี จากใบเสนอราคา")
+            : "คำนวณจำนวนรายจากงบประมาณกับราคากลาง (ไม่พบจำนวนในใบเสนอราคา)"}
         </p>
         {hasLegacy && (
           <button
@@ -590,9 +545,9 @@ export default function NoticeCalculator({
             onClick={() => {
               if (
                 !window.confirm(
-                  'นำเข้าข้อมูลใบแจ้งเตือนที่บันทึกไว้ก่อนแยกไซด์ มาแทนค่าที่กำลังกรอกของ ' +
+                  "นำเข้าข้อมูลใบแจ้งเตือนที่บันทึกไว้ก่อนแยกไซด์ มาแทนค่าที่กำลังกรอกของ " +
                     siteName +
-                    ' หรือไม่? ข้อมูลเดิมยังคงอยู่ และต้องกดบันทึกเพื่อเก็บลงไซด์นี้',
+                    " หรือไม่? ข้อมูลเดิมยังคงอยู่ และต้องกดบันทึกเพื่อเก็บลงไซด์นี้",
                 )
               )
                 return;
@@ -608,7 +563,7 @@ export default function NoticeCalculator({
               setDirty(true);
               setNeedsCalculation(true);
               setMessage(
-                'นำเข้าต้นทุนเดิมแล้ว โดยใช้งบประมาณจากตารางประมูลแจ้งเตือน กรุณาคำนวณและบันทึกลงไซด์ ' +
+                "นำเข้าต้นทุนเดิมแล้ว โดยใช้งบประมาณจากตารางประมูลแจ้งเตือน กรุณาคำนวณและบันทึกลงไซด์ " +
                   siteName,
               );
             }}
@@ -632,7 +587,7 @@ export default function NoticeCalculator({
         >
           <span>
             มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก กรุณากดบันทึกข้อมูล
-            {needsCalculation ? ' และคำนวณใหม่' : ''}
+            {needsCalculation ? " และคำนวณใหม่" : ""}
           </span>
           <button
             type="button"
@@ -646,7 +601,7 @@ export default function NoticeCalculator({
       )}
       <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 space-y-3">
         <h2 className="font-bold">งบประมาณและจำนวนราย</h2>
-        {input('budget', 'งบประมาณตลอดสัญญา 12 เดือน (บาท)')}
+        {input("budget", "งบประมาณตลอดสัญญา 12 เดือน (บาท)")}
         <p className="text-sm text-slate-600">
           จำนวนรายต่อเดือน = {jobsNote}
           รายรับและกำไรยังคำนวณจากราคาที่ประมูล
@@ -664,9 +619,9 @@ export default function NoticeCalculator({
                 <div
                   key={key}
                   className={
-                    key === 'budget' || key === 'price' || key === 'auction'
-                      ? 'sm:col-span-2'
-                      : ''
+                    key === "budget" || key === "price" || key === "auction"
+                      ? "sm:col-span-2"
+                      : ""
                   }
                 >
                   {input(key, label, step === 1)}
@@ -676,27 +631,23 @@ export default function NoticeCalculator({
           </section>
         ))}
       </div>
-      <details className="rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-semibold">
-          ตั้งค่ายอดรวมสำหรับเฉลี่ยต้นทุน (เฉลี่ยให้ไซด์ที่ชนะประมูล)
-        </summary>
-        <p className="text-sm text-slate-500 my-3">
-          ช่องต้นทุนด้านบนแสดงยอดเฉพาะไซด์นี้อัตโนมัติ
-          หากต้องการเปลี่ยนฐานยอดรวม ให้แก้ที่นี่แล้วคำนวณและบันทึก
+      <section className="rounded-xl border border-violet-200 bg-violet-50 p-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-700">
+          ต้นทุนคงที่ (ยอดรวมทุกไซด์) และต้นทุนเฉลี่ย (ค่าแรง/ราย กระดาษ
+          กำลังงาน ฯลฯ) ใช้ค่าเดียวกันทุกไซด์
+          แก้ไขได้ที่เมนูตั้งค่าต้นทุนด้านซ้าย
+          ช่องต้นทุนส่วนกลางด้านบนแสดงยอดเฉลี่ยเฉพาะไซด์นี้
         </p>
-        <div className="grid sm:grid-cols-2 gap-4">
-          {input(
-            'supervisorTotal',
-            'เงินเดือนผู้คุมงานรวม (บาท/เดือน)',
-            false,
-            true,
-          )}
-          {input('qcTotal', 'ค่า QC รวม (บาท/เดือน)', false, true)}
-          {input('staff', 'ค่าใช้จ่ายสตาฟรวม (บาท/เดือน)', false, true)}
-          {input('documents', 'ค่าเอกสารรวม (บาท/เดือน)', false, true)}
-          {input('hospitality', 'ค่ารับรองรวม (บาท/เดือน)', false, true)}
-        </div>
-      </details>
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="noticeOutline"
+          >
+            ไปที่ตั้งค่าต้นทุน
+          </button>
+        )}
+      </section>
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -704,7 +655,7 @@ export default function NoticeCalculator({
           onClick={() => {
             setCalculated({ ...values });
             setNeedsCalculation(false);
-            setMessage('คำนวณแล้ว กรุณาบันทึกหากมีการแก้ไขข้อมูล');
+            setMessage("คำนวณแล้ว กรุณาบันทึกหากมีการแก้ไขข้อมูล");
           }}
           className="rounded-xl bg-slate-900 text-white px-6 py-3 disabled:opacity-50"
         >
@@ -718,7 +669,7 @@ export default function NoticeCalculator({
             setNeedsCalculation(false);
             setShowContract(true);
             setMessage(
-              'คำนวณกำไรตลอดสัญญา 12 เดือนแล้ว กรุณาบันทึกหากมีการแก้ไขข้อมูล',
+              "คำนวณกำไรตลอดสัญญา 12 เดือนแล้ว กรุณาบันทึกหากมีการแก้ไขข้อมูล",
             );
           }}
           className="rounded-xl bg-emerald-700 text-white px-6 py-3 disabled:opacity-50"
@@ -755,14 +706,14 @@ export default function NoticeCalculator({
           <section className="grid sm:grid-cols-2 xl:grid-cols-5 gap-4">
             {[
               [
-                'พนักงานส่งใบแจ้งเตือน',
-                workers.toLocaleString('th-TH') + ' คน',
+                "พนักงานส่งใบแจ้งเตือน",
+                workers.toLocaleString("th-TH") + " คน",
               ],
-              ['รายรับ/เดือน', fmt(revenue)],
-              ['ต้นทุนประจำ/เดือน', fmt(recurring)],
-              ['กำไรดำเนินงาน/เดือน', fmt(revenue - recurring)],
+              ["รายรับ/เดือน", fmt(revenue)],
+              ["ต้นทุนประจำ/เดือน", fmt(recurring)],
+              ["กำไรดำเนินงาน/เดือน", fmt(revenue - recurring)],
               [
-                'กำไรตลอดสัญญา 12 เดือน',
+                "กำไรตลอดสัญญา 12 เดือน",
                 fmt((revenue - recurring) * 12 - startup),
               ],
             ].map(([label, value]) => (
@@ -787,11 +738,11 @@ export default function NoticeCalculator({
               </p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                 {[
-                  ['รายรับรวม 12 เดือน', revenue * 12],
-                  ['ต้นทุนประจำรวม 12 เดือน', recurring * 12],
-                  ['ค่าเริ่มต้นครั้งเดียว', startup],
+                  ["รายรับรวม 12 เดือน", revenue * 12],
+                  ["ต้นทุนประจำรวม 12 เดือน", recurring * 12],
+                  ["ค่าเริ่มต้นครั้งเดียว", startup],
                   [
-                    'กำไรตลอดสัญญา หลังหักค่าเริ่มต้น',
+                    "กำไรตลอดสัญญา หลังหักค่าเริ่มต้น",
                     (revenue - recurring) * 12 - startup,
                   ],
                 ].map(([label, amount]) => (
@@ -802,7 +753,7 @@ export default function NoticeCalculator({
                 ))}
               </div>
               <p className="text-sm mt-3">
-                ต้นทุนตลอดสัญญารวมค่าเริ่มต้น {fmt(recurring * 12 + startup)}{' '}
+                ต้นทุนตลอดสัญญารวมค่าเริ่มต้น {fmt(recurring * 12 + startup)}{" "}
                 บาท
               </p>
               {needsCalculation && (
@@ -817,24 +768,23 @@ export default function NoticeCalculator({
             <h2 className="font-bold mb-4">รายละเอียดต้นทุน (บาท)</h2>
             <div className="rounded-xl bg-sky-50 p-4 mb-4 text-sm space-y-2">
               <p>
-                เงินเดือนผู้คุมงาน, QC, ค่าใช้จ่ายสตาฟ, ค่าเอกสาร และค่ารับรอง:{' '}
-                {allocation.mode === 'equal'
-                  ? 'ยอดรวมทุกไซด์ ÷ ' +
+                เงินเดือนผู้คุมงาน, QC, ค่าใช้จ่ายสตาฟ, ค่าเอกสาร และค่ารับรอง:{" "}
+                {allocation.mode === "equal"
+                  ? "ยอดรวมทุกไซด์ ÷ " +
                     allocation.sites +
-                    ' ไซด์ที่ชนะประมูล (เท่ากันทุกไซด์)'
-                  : 'ยอดรวมทุกไซด์ × จำนวนรายของไซด์ ÷ จำนวนรายรวมของไซด์ที่ชนะประมูล'}
+                    " ไซด์ที่ชนะประมูล (เท่ากันทุกไซด์)"
+                  : "ยอดรวมทุกไซด์ × จำนวนรายของไซด์ ÷ จำนวนรายรวมของไซด์ที่ชนะประมูล"}
               </p>
               <p>
-                ไซด์ที่ชนะประมูล {allocation.sites} ไซด์ • จำนวนรายรวม{' '}
-                {fmt(allocation.otherJobs + calculated.jobs)} ราย • ไซด์นี้{' '}
-                {calculated.jobs.toLocaleString('th-TH')} ราย • สัดส่วน{' '}
+                ไซด์ที่ชนะประมูล {allocation.sites} ไซด์ • จำนวนรายรวม{" "}
+                {fmt(allocation.otherJobs + calculated.jobs)} ราย • ไซด์นี้{" "}
+                {calculated.jobs.toLocaleString("th-TH")} ราย • สัดส่วน{" "}
                 {(allocationRatio * 100).toFixed(4)}%
               </p>
               <p>
                 เงินสมทบนายจ้างคำนวณจากเงินเดือนผู้คุมงานรวมก่อน
                 แล้วเฉลี่ยตามสัดส่วนเดียวกัน ช่องทั้ง 5
-                รายการแสดงยอดเฉลี่ยเฉพาะไซด์นี้
-                ยอดรวมแก้ได้ในหัวข้อตั้งค่ายอดรวม
+                รายการแสดงยอดเฉลี่ยเฉพาะไซด์นี้ ยอดรวมแก้ได้ที่เมนูตั้งค่าต้นทุน
               </p>
             </div>
             <table>
@@ -848,27 +798,27 @@ export default function NoticeCalculator({
               <tbody>
                 {rows.map(([label, amount], index) => {
                   const fields: Field[][] = [
-                    [['labor', 'ค่าแรง (บาท/ราย)']],
+                    [["labor", "ค่าแรง (บาท/ราย)"]],
                     [
-                      ['supervisorTotal', 'เงินเดือนรวมทุกไซด์ (บาท/เดือน)'],
-                      ['supervisors', 'ผู้คุมงาน (คน)', 1],
+                      ["supervisorTotal", "เงินเดือนรวมทุกไซด์ (บาท/เดือน)"],
+                      ["supervisors", "ผู้คุมงาน (คน)", 1],
                     ],
                     [
-                      ['ssoRate', 'สมทบนายจ้าง (%)'],
-                      ['ssoMin', 'ฐานขั้นต่ำ (บาท)'],
-                      ['ssoCap', 'ฐานสูงสุด (บาท)'],
+                      ["ssoRate", "สมทบนายจ้าง (%)"],
+                      ["ssoMin", "ฐานขั้นต่ำ (บาท)"],
+                      ["ssoCap", "ฐานสูงสุด (บาท)"],
                     ],
                     [
-                      ['qcTotal', 'QC รวมทุกไซด์ (บาท/เดือน)'],
-                      ['qcPeople', 'QC (คน)', 1],
+                      ["qcTotal", "QC รวมทุกไซด์ (บาท/เดือน)"],
+                      ["qcPeople", "QC (คน)", 1],
                     ],
                     [
-                      ['paper', 'กระดาษ (บาท/ฉบับ)'],
-                      ['waste', 'เผื่อเสีย (%)'],
+                      ["paper", "กระดาษ (บาท/ฉบับ)"],
+                      ["waste", "เผื่อเสีย (%)"],
                     ],
-                    [['documents', 'เอกสารรวมทุกไซด์ (บาท/เดือน)']],
-                    [['staff', 'สตาฟรวมทุกไซด์ (บาท/เดือน)']],
-                    [['hospitality', 'รับรองรวมทุกไซด์ (บาท/เดือน)']],
+                    [["documents", "เอกสารรวมทุกไซด์ (บาท/เดือน)"]],
+                    [["staff", "สตาฟรวมทุกไซด์ (บาท/เดือน)"]],
+                    [["hospitality", "รับรองรวมทุกไซด์ (บาท/เดือน)"]],
                   ];
                   const sharedKey = fields[index].find(([key]) =>
                     SHARED_COST_KEYS.includes(key),
@@ -879,8 +829,8 @@ export default function NoticeCalculator({
                         {label}
                         {sharedKey && (
                           <small className="block text-slate-500 mt-1">
-                            {fmt(calculated[sharedKey])} ×{' '}
-                            {(allocationRatio * 100).toFixed(4)}% ={' '}
+                            {fmt(calculated[sharedKey])} ×{" "}
+                            {(allocationRatio * 100).toFixed(4)}% ={" "}
                             {fmt(amount)} บาท/เดือน
                           </small>
                         )}
@@ -905,17 +855,17 @@ export default function NoticeCalculator({
                   <td>
                     {calculated.jobs > 0
                       ? fmt(recurring / calculated.jobs)
-                      : '—'}
+                      : "—"}
                   </td>
                 </tr>
                 <tr>
                   <td>เครื่องพิมพ์ {workers} เครื่อง (เริ่มต้น)</td>
-                  <td>{input('printer', 'เครื่องพิมพ์ (บาท/เครื่อง)')}</td>
+                  <td>{input("printer", "เครื่องพิมพ์ (บาท/เครื่อง)")}</td>
                   <td>{fmt(workers * calculated.printer)}</td>
                 </tr>
                 <tr>
                   <td>เสื้อ {workers} ตัว (เริ่มต้น)</td>
-                  <td>{input('shirt', 'เสื้อ (บาท/ตัว)')}</td>
+                  <td>{input("shirt", "เสื้อ (บาท/ตัว)")}</td>
                   <td>{fmt(workers * calculated.shirt)}</td>
                 </tr>
                 <tr className="font-bold">
@@ -936,13 +886,13 @@ export default function NoticeCalculator({
           <section className="bg-sky-50 border border-sky-200 rounded-2xl p-5 space-y-2 text-sm">
             <h2 className="font-bold">ยอดจ่ายและภาษีหัก ณ ที่จ่าย</h2>
             <p>
-              ค่าแรง: ยอดเต็ม {fmt(labor)} • หัก{' '}
-              {fmt((labor * calculated.withholding) / 100)} • จ่ายสุทธิ{' '}
+              ค่าแรง: ยอดเต็ม {fmt(labor)} • หัก{" "}
+              {fmt((labor * calculated.withholding) / 100)} • จ่ายสุทธิ{" "}
               {fmt(labor * (1 - calculated.withholding / 100))} บาท
             </p>
             <p>
-              QC รวม {calculated.qcPeople} คน: ยอดที่เฉลี่ยให้ไซด์นี้{' '}
-              {fmt(qcCost)} • หัก {fmt((qcCost * calculated.withholding) / 100)}{' '}
+              QC รวม {calculated.qcPeople} คน: ยอดที่เฉลี่ยให้ไซด์นี้{" "}
+              {fmt(qcCost)} • หัก {fmt((qcCost * calculated.withholding) / 100)}{" "}
               • จ่ายสุทธิ {fmt(qcCost * (1 - calculated.withholding / 100))} บาท
             </p>
             <p>
@@ -950,14 +900,14 @@ export default function NoticeCalculator({
               ไม่หักออกจากต้นทุนหรือบวกซ้ำ
             </p>
             <p>
-              กระดาษ {paperCount.toLocaleString('th-TH')} ฉบับ = จำนวนราย × (1 +
+              กระดาษ {paperCount.toLocaleString("th-TH")} ฉบับ = จำนวนราย × (1 +
               เผื่อเสีย {calculated.waste}%) ปัดขึ้น
             </p>
             <p>
-              ผู้คุมงานใช้เงินเดือนเฉลี่ยเท่ากัน{' '}
+              ผู้คุมงานใช้เงินเดือนเฉลี่ยเท่ากัน{" "}
               {calculated.supervisors > 0
                 ? fmt(calculated.supervisorTotal / calculated.supervisors)
-                : '—'}{' '}
+                : "—"}{" "}
               บาท/คน เงินสมทบคำนวณรายคนตามฐานขั้นต่ำ/สูงสุด
               ส่วนลูกจ้างหักจากเงินเดือน ไม่บวกต้นทุนซ้ำ
             </p>
@@ -981,7 +931,7 @@ export default function NoticeCalculator({
           aria-expanded={previewOpen}
         >
           <Eye size={17} />
-          {previewOpen ? 'ซ่อนตัวอย่างรายงาน' : 'ดูตัวอย่างรายงาน A4'}
+          {previewOpen ? "ซ่อนตัวอย่างรายงาน" : "ดูตัวอย่างรายงาน A4"}
         </button>
         <span className="text-xs text-slate-500">
           รายงานใช้ผลคำนวณล่าสุดของไซด์ {siteName}
@@ -989,7 +939,7 @@ export default function NoticeCalculator({
       </div>
       <div
         className={
-          previewOpen ? 'noticeReportPreview' : 'noticeReportOffscreen'
+          previewOpen ? "noticeReportPreview" : "noticeReportOffscreen"
         }
         data-notice-report
         ref={reportRef}
@@ -1011,15 +961,15 @@ export default function NoticeCalculator({
           unsaved={dirty}
           rows={rows}
           allocationNote={
-            'ค่าใช้จ่ายส่วนกลางเฉลี่ยให้ ' +
+            "ค่าใช้จ่ายส่วนกลางเฉลี่ยให้ " +
             allocation.sites +
-            ' ไซด์ที่ชนะประมูล ' +
-            (allocation.mode === 'equal'
-              ? 'เท่ากันทุกไซด์'
-              : 'ตามสัดส่วนจำนวนราย') +
-            ' (ไซด์นี้ ' +
+            " ไซด์ที่ชนะประมูล " +
+            (allocation.mode === "equal"
+              ? "เท่ากันทุกไซด์"
+              : "ตามสัดส่วนจำนวนราย") +
+            " (ไซด์นี้ " +
             (allocationRatio * 100).toFixed(2) +
-            '%)'
+            "%)"
           }
         />
       </div>
