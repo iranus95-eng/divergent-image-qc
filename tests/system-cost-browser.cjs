@@ -164,6 +164,16 @@ const bids = [
     await page.getByRole('button', { name: /ใบแจ้งเตือนค่าไฟฟ้า/ }).click();
     // The won sites open on their profit and loss summary.
     await page.getByRole('heading', { name: /สรุปกำไรขาดทุน/ }).waitFor();
+    // The per-site table fits on desktop without scrolling sideways.
+    for (const width of [1440, 1280]) {
+      await page.setViewportSize({ width, height: 1000 });
+      const fits = await page
+        .locator('table.pnlTable')
+        .evaluate((t) => t.parentElement.scrollWidth <= t.parentElement.clientWidth);
+      assert.ok(fits, `P&L table scrolls sideways at ${width}px`);
+    }
+    if (process.env.PNL_SHOT) await page.screenshot({ path: process.env.PNL_SHOT, fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
     assert.match(
       await page.locator('table').innerText(),
       /โชคชัย[\s\S]*\t72,000\t6,000\t[\s\S]*4\.65[\s\S]*รวม 1 ไซด์/,

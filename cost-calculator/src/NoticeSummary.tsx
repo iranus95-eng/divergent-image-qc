@@ -300,7 +300,7 @@ export default function NoticeSummary({
     }
   };
   return (
-    <div className="max-w-6xl mx-auto mt-6 space-y-6">
+    <div className="mx-auto mt-6 space-y-6">
       <header className="noticeHeader">
         <div className="noticeToolbar">
           <span className="noticeBrand">DIVERGENT CORPORATION</span>
@@ -363,9 +363,9 @@ export default function NoticeSummary({
           </div>
         ))}
       </section>
-      <section className="bg-white border rounded-2xl p-5 overflow-x-auto">
+      <section className="bg-white border rounded-2xl p-4 overflow-x-auto">
         <h2 className="font-bold mb-4">รายไซด์ (บาท/เดือน)</h2>
-        <table>
+        <table className="pnlTable">
           <thead>
             <tr>
               <th>ไซด์</th>

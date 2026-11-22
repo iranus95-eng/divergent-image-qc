@@ -25,6 +25,13 @@ html{font-family:'IBM Plex Sans Thai','Sarabun',Tahoma,sans-serif}body{margin:0}
 .noticeTheme th{background:#F2E9F7;color:#6E6479}
 .noticeTheme td{border-color:#F0E8F5}
 .noticeTheme .noticeHeader{padding-bottom:4px}
+/* P&L summary: fit all 10 columns in the content width without horizontal scrolling. */
+.pnlTable{font-size:13px;font-variant-numeric:tabular-nums}
+.pnlTable th,.pnlTable td{padding:10px 8px}
+.pnlTable th{line-height:1.35}
+.pnlTable td{white-space:nowrap}
+.pnlTable td:first-child{white-space:normal;min-width:120px}
+@media print{.pnlTable th,.pnlTable td{padding:6px 5px!important}}
 .noticeBrand{font-size:11px;font-weight:700;letter-spacing:.15em;color:#74328F}
 .noticeToolbar{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;margin-bottom:16px}
 .noticeReportActions{display:flex;gap:10px}
