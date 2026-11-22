@@ -168,6 +168,11 @@ const bids = [
       await page.locator('table').innerText(),
       /โชคชัย[\s\S]*\t72,000\t6,000\t[\s\S]*4\.65[\s\S]*รวม 1 ไซด์/,
     );
+    // The total row also shows each total ÷ all jobs (one site: its own price).
+    assert.match(
+      await page.locator('tbody tr').last().innerText(),
+      /เฉลี่ยต่อราย \(บาท\/ราย\)[\s\S]*4\.65/,
+    );
     // Its จำนวนราย comes from the quote, so no site falls back to budget ÷ ราคากลาง.
     assert.equal(
       await page.getByText('ไม่พบจำนวนรายในใบเสนอราคา').count(),
