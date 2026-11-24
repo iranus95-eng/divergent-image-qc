@@ -10,7 +10,7 @@ const ctx={};
 vm.runInNewContext(`var VAT=0.07;function num(s){var n=Number(String(s==null?'':s).replace(/,/g,'').trim());return isFinite(n)?n:0}
 ${cut('// ---------------------------------------------------------------- table detection','// Header text only gives')}
 ${cut('// ---------------------------------------------------------------- blank form','// ---------------------------------------------------------------- end of blank form')}
-this.torFields=torFields;this.blankFromTor=blankFromTor;this.budgetQty=budgetQty;this.torQty=torQty;this.guessPair=guessPair;this.isTorText=isTorText;this.blankDefaults=blankDefaults;this.thaiText=thaiText;this.blankBudget=blankBudget;`,ctx);
+this.torFields=torFields;this.blankFromTor=blankFromTor;this.budgetQty=budgetQty;this.torQty=torQty;this.guessPair=guessPair;this.isTorText=isTorText;this.isBk06=isBk06;this.mergeRuns=mergeRuns;this.blankDefaults=blankDefaults;this.thaiText=thaiText;this.blankBudget=blankBudget;`,ctx);
 
 // กฟส.ภูเขียว ปี 2570: TOR is only the บก.06 price table (no quotation form); marks lost ("ประจาปี"), "กฟส . ภูเขียว"
 {
@@ -65,5 +65,22 @@ this.torFields=torFields;this.blankFromTor=blankFromTor;this.budgetQty=budgetQty
   assert.equal(ctx.torQty(d,6.5),'115922');                // neither fits: nearest under the ราคากลาง
   assert.equal(JSON.stringify(ctx.guessPair(806238.58)),'[107642,7]');
   assert.equal(ctx.isTorText('ใบเสนอราคา ลำดับ รายการ จำนวน ราคาต่อหน่วย'),false);
+}
+// กฟจ.ร้อยเอ็ด ปี 2570 (pB0.pdf, Word): บก.06 with its own money table — 208,785 ราย × 7.00 = 1,461,495.00, budget rounded up
+// to 1,461,500 + VAT = 1,563,805 — and numbers split into touching pieces ("1" "," "563" …), joined back as in torText()
+{
+  const raw=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','quote-notice-roiet-tor.json'),'utf8'));
+  const text=ctx.mergeRuns(raw.map(i=>({str:ctx.thaiText(i.str).trim(),x:i.x,y:-i.y,w:i.w,h:i.h})).filter(i=>i.str)).map(i=>i.str).join(' ');
+  assert.equal(ctx.isBk06(text),true);
+  assert.equal(ctx.isTorText(text),true);
+  const f=ctx.torFields(text);
+  assert.equal(f.qty,'208785');
+  assert.equal(f.mid,'7');
+  assert.equal(f.guess,undefined);
+  assert.equal(f.year,'2570');
+  assert.equal(f.office,'การไฟฟ้าส่วนภูมิภาคจังหวัดร้อยเอ็ด และ กฟส.ในสังกัด');
+  assert.equal(f.area,'กฟจ.ร้อยเอ็ด');
+  assert.equal(f.areaList,'กฟจ.ร้อยเอ็ด กฟส.จตุรพักตรพิมาน กฟส.ศรีสมเด็จ กฟส.ธวัชบุรี กฟส.เมืองสรวง กฟส.ธงธานี กฟส.เชียงขวัญ กฟส.จังหาร');
+  assert.equal(ctx.isBk06('แบบ บก.06 ใบเสนอราคา ราคาที่เสนอ'),false);
 }
 console.log('PASS: quote notice blank form (TOR import, site defaults)');
