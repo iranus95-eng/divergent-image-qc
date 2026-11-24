@@ -10,7 +10,7 @@ const ctx={};
 vm.runInNewContext(`var VAT=0.07;function num(s){var n=Number(String(s==null?'':s).replace(/,/g,'').trim());return isFinite(n)?n:0}
 ${cut('// ---------------------------------------------------------------- table detection','// Header text only gives')}
 ${cut('// ---------------------------------------------------------------- blank form','// ---------------------------------------------------------------- end of blank form')}
-this.torFields=torFields;this.blankDefaults=blankDefaults;this.thaiText=thaiText;this.blankBudget=blankBudget;`,ctx);
+this.torFields=torFields;this.blankFromTor=blankFromTor;this.budgetQty=budgetQty;this.isTorText=isTorText;this.blankDefaults=blankDefaults;this.thaiText=thaiText;this.blankBudget=blankBudget;`,ctx);
 
 // กฟส.ภูเขียว ปี 2570: TOR is only the บก.06 price table (no quotation form); marks lost ("ประจาปี"), "กฟส . ภูเขียว"
 {
@@ -33,5 +33,29 @@ this.torFields=torFields;this.blankDefaults=blankDefaults;this.thaiText=thaiText
   assert.equal(d.year,'2570');
   assert.equal(d.qty,'120000');
   assert.equal(d.mid,'8');
+}
+// กฟส.อำเภอขุขันธ์ ปี 2570 (pB1.pdf): only the บก.06 cover page, Thai digits, no price table, only วงเงิน 806,245 —
+// uploading it as a quotation opens แบบฟอร์มเปล่า; typing ราคากลางต่อหน่วย 5 gives 150,700 ราย
+{
+  const raw=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','quote-notice-khukhan-tor.json'),'utf8'));
+  const text=raw.map(i=>ctx.thaiText(i.str)).join(' ');
+  assert.equal(ctx.isTorText(text),true);
+  const f=ctx.torFields(text);
+  assert.equal(f.budget,'806245');
+  assert.equal(f.qty,undefined);
+  assert.equal(f.year,'2570');
+  assert.equal(f.work,'งานจ้างเหมาบุคคลภายนอกจัดส่งหนังสือแจ้งเตือนค่าไฟฟ้า');
+  assert.equal(f.office,'การไฟฟ้าส่วนภูมิภาคสาขาอำเภอขุขันธ์ และ กฟฟ.ในสังกัด');
+  assert.equal(f.area,'กฟส.ขุขันธ์');
+  assert.equal(f.activity,'จัดส่งหนังสือแจ้งเตือน');
+  const d=ctx.blankFromTor(text,{site:'ขุขันธ์',office:'กฟส.อำเภอขุขันธ์',budget:806238.58,bid_date:'2026-12-02'});
+  assert.equal(d.torBudget,'806245');
+  assert.equal(d.qty,'');
+  assert.equal(d.area,'กฟส.ขุขันธ์');
+  assert.equal(ctx.budgetQty(d.torBudget,5),'150700');
+  assert.equal(ctx.budgetQty(d.torBudget,7),'');          // 107,642.86 ราย: not a whole number, left for the user
+  const k=ctx.blankFromTor(text,{site:'ขุขันธ์',mid_price:5});
+  assert.equal(k.qty,'150700');
+  assert.equal(ctx.isTorText('ใบเสนอราคา ลำดับ รายการ จำนวน ราคาต่อหน่วย'),false);
 }
 console.log('PASS: quote notice blank form (TOR import, site defaults)');

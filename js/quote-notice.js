@@ -707,6 +707,18 @@
       if (!savedId) st.name = site || officeSite(text) || name;      // a new job is named after its site, so it sits under that site in the list
       await readPrintedQty();
       filled = await qtyFromBids() || st.rows.some(function (r) { return r.qtyOcr; });
+      if (!st.rows.length && !savedId && isTorText(text)) {
+        // only the TOR's บก.06 (e.g. กฟส.ขุขันธ์): open แบบฟอร์มเปล่า filled from it instead of a job without a table
+        if (!st.bids) await call({ action: 'list' }, BIDS_API).then(function (j) { st.bids = j.items || []; }, function () { st.bids = []; });
+        var tb = (st.fromBids && (st.bids || []).filter(function (x) { return x.id === st.fromBids.id; })[0]) || bidFor(st.name);
+        var bd = blankFromTor(text, tb || (st.fromBids || (site ? { site: site } : null)));
+        closeJob();
+        st.blank = bd;
+        st.blankMsg = 'ไฟล์ ' + name + ' เป็นตารางราคากลาง (บก.06) ไม่มีแบบฟอร์มใบเสนอราคา ระบบจึงใช้แบบฟอร์มเปล่าและนำข้อมูลจาก TOR มาให้แล้ว' +
+          (num(bd.qty) > 0 && num(bd.mid) > 0 ? ' กรุณาตรวจทานก่อนสร้างแบบฟอร์ม' :
+            bd.torBudget ? ' • TOR บอกเฉพาะวงเงิน ' + money(num(bd.torBudget)) + ' บาท กรุณากรอกราคากลางต่อหน่วย ระบบจะคำนวณจำนวน (ราย) ให้' : ' • กรุณากรอกจำนวน (ราย) และราคากลางต่อหน่วย');
+        return;
+      }
       if (!st.rows.length) alert('ไม่พบตารางราคาในไฟล์นี้ (ต้องมีคอลัมน์ จำนวน, ราคาต่อหน่วย และจำนวนเงิน/รวม) กรุณาส่งไฟล์ให้ผู้ดูแลปรับรูปแบบ');
       ok = true;
     } catch (e) {
@@ -912,22 +924,45 @@
         out.qty = String(q); out.mid = String(p); return true;
       });
     });
+    // a บก.06 cover page alone (e.g. กฟส.ขุขันธ์ 2570) has only the budget: kept so the quantity follows once ราคากลาง is known
+    if (budget && !out.qty) out.budget = String(budget);
     m = F.match(/(?:ประจำปี|ปีงบประมาณ)\s*(?:พ\.\s*ศ\.\s*)?(25\d\d)/);
     if (m) out.year = m[1];
-    var sites = [], re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*สาขา\s*([ก-๎]+)/g;
-    while ((m = re.exec(F))) { var s = m[1].replace(/(และ|ขอ|มี|จะ|ปร)$/, ''); if (sites.indexOf(s) < 0) sites.push(s); }
+    var sites = [], full = {}, re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*สาขา\s*([ก-๎]+)/g;
+    while ((m = re.exec(F))) { var s = m[1].replace(/(และ|ขอ|มี|จะ|ปร)$/, ''), s0 = s;
+      s = s.replace(/^อำเภอ(?=[ก-๎]{2})/, '');      // "สาขาอำเภอขุขันธ์": the office's full name, the site is ขุขันธ์
+      if (sites.indexOf(s) < 0) { sites.push(s); full[s] = s0; } }
     m = F.match(/ช\S{0,3}\s*โครงการ\s*(.+?)\s+(?:หน\S{0,2}วยงานเจ\S{0,2}าของ|\d\s*วงเงิน|วงเงิน)/);
     var project = m ? m[1].trim() : '';
     var main = (project.match(/กฟ[สจ]\.\s*([ก-๎]+?)(?:และ|\s|$)/) || [])[1] || sites[0];
-    if (project) out.work = project.split(/\s*(?:กฟ[สจ]\.|การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค|ในเขต|ประจำปี)/)[0].trim();
+    // "ประกวดราคาจ้างจ้างเหมา…จัดส่งหนังสือแจ้งเตือนค่าไฟฟ้า ด้วยโปรแกรม Invoice Notification SystemINSx ของ กฟส.ขข." → "งานจ้างเหมา…ค่าไฟฟ้า"
+    if (project) out.work = project.replace(/^(?:ประกวดราคา|ประกาศ)\s*(?:จ้าง\s*)?(?=จ้าง)/, '')
+      .split(/\s*(?:กฟ[สจ]\.|การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค|ในเขต|ประจำปี|ด้วยโปรแกรม|ด้วยวิธี|\sของ\s)/)[0].trim();
     if (out.work && !/^งาน/.test(out.work)) out.work = 'งาน' + out.work;
+    if (/จัดส่งหนังสือแจ้งเตือน/.test(project)) out.activity = 'จัดส่งหนังสือแจ้งเตือน';     // INSx jobs: letters, not notices on the meter
     if (main) {
-      out.office = 'การไฟฟ้าส่วนภูมิภาคสาขา' + main + (/กฟฟ\.\s*ในสังกัด/.test(project) ? ' และ กฟฟ.ในสังกัด' : '');
+      out.office = 'การไฟฟ้าส่วนภูมิภาคสาขา' + (full[main] || main) + (/กฟฟ\.\s*ในสังกัด/.test(project) ? ' และ กฟฟ.ในสังกัด' : '');
       out.area = 'กฟส.' + main;
     }
     if (sites.length > 1) out.areaList = sites.map(function (s) { return 'กฟส.' + s; }).join(' ');
     return out;
   }
+  // จำนวน (ราย) from the TOR's วงเงิน and ราคากลางต่อหน่วย, only when they agree to the baht (806,245 ÷ 1.07 ÷ 5 = 150,700)
+  function budgetQty(budget, mid) {
+    budget = num(budget); mid = num(mid);
+    if (!(budget > 0 && mid > 0)) return '';
+    var q = Math.round(budget / (1 + VAT) / mid);
+    return q >= 1000 && Math.abs(q * mid * (1 + VAT) - budget) <= 1 ? String(q) : '';
+  }
+  // the blank form's fields: the site's figures from ตารางประมูลแจ้งเตือน, overwritten by what the TOR says
+  function blankFromTor(text, bid) {
+    var d = blankDefaults(bid), got = torFields(text);
+    Object.keys(got).forEach(function (k) { if (k === 'budget') d.torBudget = got.budget; else d[k] = got[k]; });
+    if (!num(d.qty) && d.torBudget && num(d.mid)) { d.qty = budgetQty(d.torBudget, d.mid); d.qtyAuto = !!d.qty; }
+    return d;
+  }
+  // a file with no price table whose text is a บก.06 (ตารางแสดงวงเงินงบประมาณ … ราคากลาง) is a TOR, not a quotation form
+  function isTorText(text) { var t = String(text || '').replace(/\s+/g, ''); return /วงเงินงบประมาณ/.test(t) && /ราคากลาง|ราคาอ้างอิง/.test(t); }
   var MARK = /[ัิ-ฺ็-๎]/;
   // lines no wider than maxW: break at spaces; a run longer than the line (Thai has no spaces) breaks between letters, never before a mark
   function wrapText(s, font, size, maxW) {
@@ -1092,7 +1127,15 @@
     });
     w.addEventListener('input', function (e) {
       var bf = e.target.getAttribute('data-bf');
-      if (bf && st.blank) { st.blank[bf] = e.target.value; var bo = document.getElementById('qnBfBudget'); if (bo) bo.textContent = money(blankBudget(st.blank)) + ' บาท'; return; }
+      if (bf && st.blank) {
+        st.blank[bf] = e.target.value;
+        if (bf === 'qty') st.blank.qtyAuto = false;
+        // TOR gave only วงเงิน: typing ราคากลางต่อหน่วย fills จำนวน (ราย) while it is empty or was filled this way
+        if (bf === 'mid' && st.blank.torBudget && (st.blank.qtyAuto || !num(st.blank.qty))) {
+          var aq = budgetQty(st.blank.torBudget, st.blank.mid), qi = w.querySelector('[data-bf="qty"]');
+          st.blank.qty = aq; st.blank.qtyAuto = true; if (qi) qi.value = aq;
+        }
+        var bo = document.getElementById('qnBfBudget'); if (bo) bo.textContent = money(blankBudget(st.blank)) + ' บาท'; return; }
       if (e.target.id === 'qnName') { st.name = e.target.value.trim() || st.name; scheduleSave(); return; }
       var i = e.target.getAttribute('data-row'), q = e.target.getAttribute('data-qty');
       if (q != null) st.rows[+q].qty = num(e.target.value);
@@ -1254,7 +1297,8 @@
         text += ' ' + tc.items.map(function (i) { return thaiText(i.str); }).join(' ');
       }
       var got = torFields(text), keys = Object.keys(got);
-      keys.forEach(function (k) { st.blank[k] = got[k]; });
+      keys.forEach(function (k) { if (k === 'budget') st.blank.torBudget = got.budget; else st.blank[k] = got[k]; });
+      if (got.budget && !got.qty && num(st.blank.mid)) { var bq = budgetQty(got.budget, st.blank.mid); if (bq) { st.blank.qty = bq; st.blank.qtyAuto = true; } }
       st.blankMsg = keys.length ? 'นำเข้าจาก ' + file.name + ' แล้ว ' + keys.length + ' ช่อง กรุณาตรวจทานก่อนสร้างแบบฟอร์ม' : 'ไม่พบข้อมูลในไฟล์ ' + file.name + ' กรุณากรอกเอง';
     } catch (e) { console.error('quote-notice tor', e); st.blankMsg = 'อ่านไฟล์ TOR ไม่สำเร็จ: ' + (e.message || e); }
     render();
@@ -1284,6 +1328,7 @@
         return '<div class="qn-line" style="align-items:center"><span style="min-width:190px">' + f[1] + '</span><input data-bf="' + f[0] + '" value="' + esc(d[f[0]] || '') + '"' +
           (f[0] === 'qty' || f[0] === 'mid' ? ' inputmode="decimal" style="flex:1;width:auto;text-align:right"' : ' style="flex:1;width:auto;text-align:left"') + '></div>';
       }).join('') +
+      (d.torBudget ? '<div class="qn-line"><span>วงเงินงบประมาณตาม TOR</span><span>' + money(num(d.torBudget)) + ' บาท</span></div>' : '') +
       '<div class="qn-sum qn-line"><span>วงเงินงบประมาณ รวมภาษีมูลค่าเพิ่ม</span><span id="qnBfBudget">' + money(blankBudget(d)) + ' บาท</span></div>' +
       '<div class="qn-actions"><button class="qn-btn" data-qn="blankMake">✔ สร้างแบบฟอร์มและกรอกราคา</button></div></div>';
     w.querySelectorAll('[data-bf]').forEach(function (el) { el.style.border = '1px solid #d9cfdf'; el.style.borderRadius = '8px'; el.style.padding = '7px 8px'; el.style.font = 'inherit'; el.style.margin = '3px 0'; });
