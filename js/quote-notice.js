@@ -715,7 +715,7 @@
         closeJob();
         st.blank = bd;
         st.blankMsg = 'ไฟล์ ' + name + ' เป็นตารางราคากลาง (บก.06) ไม่มีแบบฟอร์มใบเสนอราคา ระบบจึงใช้แบบฟอร์มเปล่าและนำข้อมูลจาก TOR มาให้แล้ว' +
-          (num(bd.qty) > 0 && num(bd.mid) > 0 ? ' กรุณาตรวจทานก่อนสร้างแบบฟอร์ม' :
+          (num(bd.qty) > 0 && num(bd.mid) > 0 ? (bd.midGuess ? ' • ' + guessNote(bd) : ' กรุณาตรวจทานก่อนสร้างแบบฟอร์ม') :
             bd.torBudget ? ' • TOR บอกเฉพาะวงเงิน ' + money(num(bd.torBudget)) + ' บาท กรุณากรอกราคากลางต่อหน่วย ระบบจะคำนวณจำนวน (ราย) ให้' : ' • กรุณากรอกจำนวน (ราย) และราคากลางต่อหน่วย');
         return;
       }
@@ -924,8 +924,16 @@
         out.qty = String(q); out.mid = String(p); return true;
       });
     });
-    // a บก.06 cover page alone (e.g. กฟส.ขุขันธ์ 2570) has only the budget: kept so the quantity follows once ราคากลาง is known
-    if (budget && !out.qty) out.budget = String(budget);
+    // a บก.06 cover page alone (e.g. กฟส.ขุขันธ์ 2570) has no table: only วงเงิน 806,245 and "ราคากลาง … เป็นเงิน 806,238.58".
+    // The ราคากลาง is จำนวน × ราคาต่อหน่วย + VAT to the satang, so the pair is the one price that gives it exactly
+    // (107,642 × 7.00); marked as an estimate, and typing another price recomputes จำนวน
+    if (budget && !out.qty) {
+      out.budget = String(budget);
+      m = F.match(/ราคากลาง[\s\S]{0,120}?เป็นเงิน\s*(\d{1,3}(?:,\d{3})+\.\d\d)/);
+      if (m && num(m[1]) <= budget) out.ref = String(num(m[1]));
+      var g = guessPair(out.ref) || guessPair(budget);
+      if (g) { out.qty = String(g[0]); out.mid = String(g[1]); out.guess = '1'; }
+    }
     m = F.match(/(?:ประจำปี|ปีงบประมาณ)\s*(?:พ\.\s*ศ\.\s*)?(25\d\d)/);
     if (m) out.year = m[1];
     var sites = [], full = {}, re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*สาขา\s*([ก-๎]+)/g;
@@ -948,17 +956,50 @@
     return out;
   }
   // จำนวน (ราย) from the TOR's วงเงิน and ราคากลางต่อหน่วย, only when they agree to the baht (806,245 ÷ 1.07 ÷ 5 = 150,700)
-  function budgetQty(budget, mid) {
+  function budgetQty(budget, mid, tol) {
     budget = num(budget); mid = num(mid);
     if (!(budget > 0 && mid > 0)) return '';
     var q = Math.round(budget / (1 + VAT) / mid);
-    return q >= 1000 && Math.abs(q * mid * (1 + VAT) - budget) <= 1 ? String(q) : '';
+    return q >= 1000 && Math.abs(Math.round(q * mid * (1 + VAT) * 100) / 100 - budget) <= (tol == null ? 1 : tol) ? String(q) : '';
+  }
+  // the blank form's จำนวน for a typed price: the one that gives the TOR's ราคากลาง to the satang, else its วงเงิน to the satang,
+  // else the nearest whole number under the ราคากลาง (or วงเงิน)
+  function torQty(d, mid) {
+    var r = (d.torRef && budgetQty(d.torRef, mid, 0.011)) || budgetQty(d.torBudget, mid, 0.011);
+    if (r) return r;
+    var base = num(d.torRef) || num(d.torBudget), q = base > 0 && num(mid) > 0 ? Math.round(base / (1 + VAT) / num(mid)) : 0;
+    return q >= 1000 ? String(q) : '';
+  }
+  // จำนวน × ราคาต่อหน่วย + VAT = amount exactly. Offices' ราคากลาง are mostly 8 or 7 บาท, so those go first, then other
+  // whole bahts, .50, .25/.75 and any 5 satang (3–12 บาท)
+  var GUESS_BAHT = [8, 7, 6, 5, 9, 10, 4, 11, 12, 3];
+  function guessPair(amount) {
+    amount = num(amount);
+    if (!(amount > 0)) return null;
+    var tiers = [[0], [50], [25, 75], [5, 10, 15, 20, 30, 35, 40, 45, 55, 60, 65, 70, 80, 85, 90, 95]], hit = null;
+    tiers.some(function (cents) {
+      GUESS_BAHT.forEach(function (b) {
+        cents.forEach(function (c) {
+          var p = b + c / 100, q = !hit && p <= 12 && budgetQty(amount, p, 0.011);
+          if (q) hit = [num(q), p];
+        });
+      });
+      return !!hit;
+    });
+    return hit;
+  }
+  var TOR_KEYS = { budget: 'torBudget', ref: 'torRef', guess: 'midGuess' };
+  function applyTor(d, got) { Object.keys(got).forEach(function (k) { d[TOR_KEYS[k] || k] = got[k]; }); return d; }
+  function guessNote(d) {
+    return d.midGuess && num(d.qty) > 0 ? 'TOR ไม่มีตารางรายละเอียด: จำนวน ' + fmtNum(num(d.qty)) + ' ราย × ราคากลาง ' + money(num(d.mid)) + ' บาท คำนวณย้อนจาก' +
+      (d.torRef ? 'ราคากลาง ' + money(num(d.torRef)) : 'วงเงิน ' + money(num(d.torBudget))) + ' บาท (เป็นค่าประมาณ) ถ้าราคากลางต่อหน่วยไม่ใช่ค่านี้ แก้ช่องราคากลางแล้วระบบคำนวณจำนวนใหม่ให้' : '';
   }
   // the blank form's fields: the site's figures from ตารางประมูลแจ้งเตือน, overwritten by what the TOR says
   function blankFromTor(text, bid) {
     var d = blankDefaults(bid), got = torFields(text);
-    Object.keys(got).forEach(function (k) { if (k === 'budget') d.torBudget = got.budget; else d[k] = got[k]; });
-    if (!num(d.qty) && d.torBudget && num(d.mid)) { d.qty = budgetQty(d.torBudget, d.mid); d.qtyAuto = !!d.qty; }
+    applyTor(d, got);
+    if (got.guess) d.qtyAuto = true;
+    if (!num(d.qty) && d.torBudget && num(d.mid)) { d.qty = torQty(d, d.mid); d.qtyAuto = !!d.qty; }
     return d;
   }
   // a file with no price table whose text is a บก.06 (ตารางแสดงวงเงินงบประมาณ … ราคากลาง) is a TOR, not a quotation form
@@ -1130,9 +1171,10 @@
       if (bf && st.blank) {
         st.blank[bf] = e.target.value;
         if (bf === 'qty') st.blank.qtyAuto = false;
+        if (bf === 'mid') st.blank.midGuess = '';
         // TOR gave only วงเงิน: typing ราคากลางต่อหน่วย fills จำนวน (ราย) while it is empty or was filled this way
         if (bf === 'mid' && st.blank.torBudget && (st.blank.qtyAuto || !num(st.blank.qty))) {
-          var aq = budgetQty(st.blank.torBudget, st.blank.mid), qi = w.querySelector('[data-bf="qty"]');
+          var aq = torQty(st.blank, st.blank.mid), qi = w.querySelector('[data-bf="qty"]');
           st.blank.qty = aq; st.blank.qtyAuto = true; if (qi) qi.value = aq;
         }
         var bo = document.getElementById('qnBfBudget'); if (bo) bo.textContent = money(blankBudget(st.blank)) + ' บาท'; return; }
@@ -1297,9 +1339,11 @@
         text += ' ' + tc.items.map(function (i) { return thaiText(i.str); }).join(' ');
       }
       var got = torFields(text), keys = Object.keys(got);
-      keys.forEach(function (k) { if (k === 'budget') st.blank.torBudget = got.budget; else st.blank[k] = got[k]; });
-      if (got.budget && !got.qty && num(st.blank.mid)) { var bq = budgetQty(got.budget, st.blank.mid); if (bq) { st.blank.qty = bq; st.blank.qtyAuto = true; } }
-      st.blankMsg = keys.length ? 'นำเข้าจาก ' + file.name + ' แล้ว ' + keys.length + ' ช่อง กรุณาตรวจทานก่อนสร้างแบบฟอร์ม' : 'ไม่พบข้อมูลในไฟล์ ' + file.name + ' กรุณากรอกเอง';
+      applyTor(st.blank, got);
+      if (got.guess) st.blank.qtyAuto = true;
+      else { st.blank.midGuess = ''; if (got.budget && !got.qty && num(st.blank.mid)) { var bq = torQty(st.blank, st.blank.mid); if (bq) { st.blank.qty = bq; st.blank.qtyAuto = true; } } }
+      keys = keys.filter(function (k) { return !TOR_KEYS[k]; });
+      st.blankMsg = keys.length ? 'นำเข้าจาก ' + file.name + ' แล้ว ' + keys.length + ' ช่อง ' + (guessNote(st.blank) || 'กรุณาตรวจทานก่อนสร้างแบบฟอร์ม') : 'ไม่พบข้อมูลในไฟล์ ' + file.name + ' กรุณากรอกเอง';
     } catch (e) { console.error('quote-notice tor', e); st.blankMsg = 'อ่านไฟล์ TOR ไม่สำเร็จ: ' + (e.message || e); }
     render();
   }
@@ -1325,10 +1369,11 @@
       '<div class="qn-actions" style="margin-top:0"><button class="qn-btn soft" data-qn="blankTor">📥 นำเข้าข้อมูลจากไฟล์ TOR (ตารางราคากลาง)</button></div>' +
       (st.blankMsg ? '<div class="qn-state" style="margin:-4px 0 8px">' + esc(st.blankMsg) + '</div>' : '') +
       F.map(function (f) {
-        return '<div class="qn-line" style="align-items:center"><span style="min-width:190px">' + f[1] + '</span><input data-bf="' + f[0] + '" value="' + esc(d[f[0]] || '') + '"' +
+        return '<div class="qn-line" style="align-items:center"><span style="min-width:190px">' + f[1] + (d.midGuess && (f[0] === 'qty' || f[0] === 'mid') ? '<small style="display:block;color:#b26a00">ประมาณจาก TOR</small>' : '') + '</span><input data-bf="' + f[0] + '" value="' + esc(d[f[0]] || '') + '"' +
           (f[0] === 'qty' || f[0] === 'mid' ? ' inputmode="decimal" style="flex:1;width:auto;text-align:right"' : ' style="flex:1;width:auto;text-align:left"') + '></div>';
       }).join('') +
       (d.torBudget ? '<div class="qn-line"><span>วงเงินงบประมาณตาม TOR</span><span>' + money(num(d.torBudget)) + ' บาท</span></div>' : '') +
+      (d.torRef ? '<div class="qn-line"><span>ราคากลางตาม TOR</span><span>' + money(num(d.torRef)) + ' บาท</span></div>' : '') +
       '<div class="qn-sum qn-line"><span>วงเงินงบประมาณ รวมภาษีมูลค่าเพิ่ม</span><span id="qnBfBudget">' + money(blankBudget(d)) + ' บาท</span></div>' +
       '<div class="qn-actions"><button class="qn-btn" data-qn="blankMake">✔ สร้างแบบฟอร์มและกรอกราคา</button></div></div>';
     w.querySelectorAll('[data-bf]').forEach(function (el) { el.style.border = '1px solid #d9cfdf'; el.style.borderRadius = '8px'; el.style.padding = '7px 8px'; el.style.font = 'inherit'; el.style.margin = '3px 0'; });
