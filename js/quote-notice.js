@@ -707,7 +707,7 @@
       if (!savedId) st.name = site || officeSite(text) || name;      // a new job is named after its site, so it sits under that site in the list
       await readPrintedQty();
       filled = await qtyFromBids() || st.rows.some(function (r) { return r.qtyOcr; });
-      if (!st.rows.length && !savedId && isTorText(text)) {
+      if (!savedId && isTorText(text) && (!st.rows.length || isBk06(text))) {
         // only the TOR's บก.06 (e.g. กฟส.ขุขันธ์): open แบบฟอร์มเปล่า filled from it instead of a job without a table
         if (!st.bids) await call({ action: 'list' }, BIDS_API).then(function (j) { st.bids = j.items || []; }, function () { st.bids = []; });
         var tb = (st.fromBids && (st.bids || []).filter(function (x) { return x.id === st.fromBids.id; })[0]) || bidFor(st.name);
@@ -916,11 +916,14 @@
       .replace(/([ก-๎])\s*\.\s*(?=[ก-๎])/g, '$1.'), out = {}, m;     // "กฟส . ภูเขียว" → "กฟส.ภูเขียว"
     m = F.match(/วงเงิน[\s\S]{0,60}?(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/);
     var budget = m ? num(m[1]) : 0;
-    // quantity and price per notice: the pair whose quantity × price + VAT is the budget
+    // quantity and price per notice: the pair whose quantity × price + VAT is the budget, or whose quantity × price is an
+    // amount printed in the table (กฟจ.ร้อยเอ็ด: 208,785 × 7.00 = 1,461,495.00, while the budget is rounded up to 1,563,805)
     var nums = (F.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g) || []).map(num);
     if (budget) nums.some(function (q) {
       return q >= 1000 && nums.some(function (p) {
-        if (!(p > 0 && p < 100) || Math.abs(q * p * (1 + VAT) - budget) > 0.5) return false;
+        if (!(p >= 2 && p < 100)) return false;
+        var a = Math.round(q * p * 100) / 100;
+        if (Math.abs(a * (1 + VAT) - budget) > 0.5 && !nums.some(function (n) { return n !== q && Math.abs(n - a) < 0.01; })) return false;
         out.qty = String(q); out.mid = String(p); return true;
       });
     });
@@ -936,23 +939,30 @@
     }
     m = F.match(/(?:ประจำปี|ปีงบประมาณ)\s*(?:พ\.\s*ศ\.\s*)?(25\d\d)/);
     if (m) out.year = m[1];
-    var sites = [], full = {}, re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*สาขา\s*([ก-๎]+)/g;
-    while ((m = re.exec(F))) { var s = m[1].replace(/(และ|ขอ|มี|จะ|ปร)$/, ''), s0 = s;
+    // offices: "การไฟฟ้าส่วนภูมิภาคสาขา…" (กฟส.) or "…จังหวัด…" (กฟจ., e.g. ร้อยเอ็ด)
+    var sites = [], full = {}, kind = {}, re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(สาขา|จังหวัด)\s*([ก-๎]+)/g;
+    while ((m = re.exec(F))) { var s = m[2].replace(/(และ|ขอ|มี|จะ|ปร)$/, ''), s0 = s;
       s = s.replace(/^อำเภอ(?=[ก-๎]{2})/, '');      // "สาขาอำเภอขุขันธ์": the office's full name, the site is ขุขันธ์
-      if (sites.indexOf(s) < 0) { sites.push(s); full[s] = s0; } }
+      if (sites.indexOf(s) < 0) { sites.push(s); full[s] = s0; kind[s] = m[1]; } }
     m = F.match(/ช\S{0,3}\s*โครงการ\s*(.+?)\s+(?:หน\S{0,2}วยงานเจ\S{0,2}าของ|\d\s*วงเงิน|วงเงิน)/);
     var project = m ? m[1].trim() : '';
-    var main = (project.match(/กฟ[สจ]\.\s*([ก-๎]+?)(?:และ|\s|$)/) || [])[1] || sites[0];
+    var main = (project.match(/กฟ[สจ]\.\s*([ก-๎]+?)(?:และ|\s|$)/) || [])[1];
+    if (!main || /^ใน/.test(main) || (sites.length && sites.indexOf(main) < 0 && main.length < 3)) main = sites[0];
     // "ประกวดราคาจ้างจ้างเหมา…จัดส่งหนังสือแจ้งเตือนค่าไฟฟ้า ด้วยโปรแกรม Invoice Notification SystemINSx ของ กฟส.ขข." → "งานจ้างเหมา…ค่าไฟฟ้า"
     if (project) out.work = project.replace(/^(?:ประกวดราคา|ประกาศ)\s*(?:จ้าง\s*)?(?=จ้าง)/, '')
       .split(/\s*(?:กฟ[สจ]\.|การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค|ในเขต|ประจำปี|ด้วยโปรแกรม|ด้วยวิธี|\sของ\s)/)[0].trim();
     if (out.work && !/^งาน/.test(out.work)) out.work = 'งาน' + out.work;
     if (/จัดส่งหนังสือแจ้งเตือน/.test(project)) out.activity = 'จัดส่งหนังสือแจ้งเตือน';     // INSx jobs: letters, not notices on the meter
     if (main) {
-      out.office = 'การไฟฟ้าส่วนภูมิภาคสาขา' + (full[main] || main) + (/กฟฟ\.\s*ในสังกัด/.test(project) ? ' และ กฟฟ.ในสังกัด' : '');
-      out.area = 'กฟส.' + main;
+      var sub = (project.match(/(กฟ[ฟส])\.\s*ในสังกัด/) || [])[1];
+      out.office = 'การไฟฟ้าส่วนภูมิภาค' + (kind[main] || 'สาขา') + (full[main] || main) + (sub ? ' และ ' + sub + '.ในสังกัด' : '');
+      out.area = (kind[main] === 'จังหวัด' ? 'กฟจ.' : 'กฟส.') + main;
     }
-    if (sites.length > 1) out.areaList = sites.map(function (s) { return 'กฟส.' + s; }).join(' ');
+    if (sites.length > 1) out.areaList = sites.map(function (s) { return (kind[s] === 'จังหวัด' ? 'กฟจ.' : 'กฟส.') + s; }).join(' ');
+    // offices under it listed in the table: "รวม กฟส.ในสังกัด (กฟส.จตุรพักตรพิมาน, กฟส.ศรีสมเด็จ, …)"
+    m = F.match(/สังกัด\s*\(([^)]*)\)/);
+    var subs = m ? (m[1].match(/กฟ[สจ]\.\s*[ก-๎]+/g) || []).map(function (x) { return x.replace(/\s+/g, ''); }) : [];
+    if (subs.length && out.area && !out.areaList) out.areaList = [out.area].concat(subs.filter(function (x) { return x !== out.area; })).join(' ');
     return out;
   }
   // จำนวน (ราย) from the TOR's วงเงิน and ราคากลางต่อหน่วย, only when they agree to the baht (806,245 ÷ 1.07 ÷ 5 = 150,700)
@@ -1002,7 +1012,18 @@
     if (!num(d.qty) && d.torBudget && num(d.mid)) { d.qty = torQty(d, d.mid); d.qtyAuto = !!d.qty; }
     return d;
   }
+  // pdf.js text items → one string, numbers split into touching pieces ("1" "," "563" "," "805." "00") joined back
+  function torText(items) {
+    return mergeRuns(items.filter(function (i) { return i.str && i.str.trim(); }).map(function (i) {
+      return { str: thaiText(i.str).trim(), x: i.transform[4], y: -i.transform[5], w: i.width, h: Math.hypot(i.transform[2], i.transform[3]) };
+    })).map(function (i) { return i.str; }).join(' ');
+  }
   // a file with no price table whose text is a บก.06 (ตารางแสดงวงเงินงบประมาณ … ราคากลาง) is a TOR, not a quotation form
+  // the บก.06 itself (a TOR, never an offer form): its money table can look like a price table to detectTables (กฟจ.ร้อยเอ็ด)
+  function isBk06(text) {
+    var t = String(text || '').replace(/\s+/g, '');
+    return /บก\.?(06|๐๖)|ตารางแสดงวงเงินงบประมาณที่ได\S{0,2}รับจัดสรร/.test(t) && !/ใบเสนอราคา|ราคาที่เสนอ|ผู้เสนอราคา/.test(t);
+  }
   function isTorText(text) { var t = String(text || '').replace(/\s+/g, ''); return /วงเงินงบประมาณ/.test(t) && /ราคากลาง|ราคาอ้างอิง/.test(t); }
   var MARK = /[ัิ-ฺ็-๎]/;
   // lines no wider than maxW: break at spaces; a run longer than the line (Thai has no spaces) breaks between letters, never before a mark
@@ -1047,6 +1068,8 @@
     function text(s, x, top, o) {
       o = o || {}; s = String(s); if (!s.trim()) return;
       var z = o.size || S, r = run(s, o.bold ? shape.bold : shape.regular, z);
+      // a figure wider than its cell (รวมทั้งสิ้น 1,563,799.65 of กฟจ.ร้อยเอ็ด) is set smaller to fit
+      if (o.maxW && r.w > o.maxW) { z = z * o.maxW / r.w; r = run(s, o.bold ? shape.bold : shape.regular, z); }
       if (o.align === 'center') x -= r.w / 2; else if (o.align === 'right') x -= r.w;
       r.glyphs.forEach(function (g) {
         if (!g.path.commands.length) return;
@@ -1079,10 +1102,10 @@
     text('จำนวน', cx(2), t0 + base, B); text('ราคากลาง(บาท)', cx(3, 5), t0 + base, B); text('ราคาที่เสนอ (บาท)', cx(5, 7), t0 + base, B);
     text('(ราย)', cx(2), hm + base, B); text('ต่อหน่วย', cx(3), hm + base, B); text('รวม', cx(4), hm + base, B); text('ต่อหน่วย', cx(5), hm + base, B); text('รวม', cx(6), hm + base, B);
     text('1', cx(0), hb + base, C); text(d.activity || '', xs[1] + 5, hb + base);
-    text(fmtNum(qty), cx(2), hb + base, C); text(fmtNum(mid), cx(3), hb + base, C); text(fmtNum(amount), xs[5] - 6, hb + base, { align: 'right' });
+    text(fmtNum(qty), cx(2), hb + base, C); text(fmtNum(mid), cx(3), hb + base, C); text(fmtNum(amount), xs[5] - 6, hb + base, { align: 'right', maxW: xs[5] - xs[4] - 10 });
     [['รวม', amount], ['VAT 7%', vat], ['รวมทั้งสิ้น', amount + vat, true]].forEach(function (s, i) {
       var top = rb + rh * i + base;
-      text(s[0], xs[4] - 6, top, { align: 'right', bold: s[2] }); text(fmtNum(s[1]), xs[5] - 6, top, { align: 'right', bold: s[2] });
+      text(s[0], xs[4] - 6, top, { align: 'right', bold: s[2] }); text(fmtNum(s[1]), xs[5] - 6, top, { align: 'right', bold: s[2], maxW: xs[5] - xs[4] - 10 });
     });
     [t0, hb, rb, rb + rh, rb + rh * 2, end].forEach(function (t) { line(L, t, RM, t); });
     line(xs[2], hm, RM, hm);
@@ -1336,7 +1359,7 @@
       var lib = await loadPdfJs(), pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise, text = '';
       for (var n = 1; n <= Math.min(pdf.numPages, 6); n++) {
         var tc = await (await pdf.getPage(n)).getTextContent();
-        text += ' ' + tc.items.map(function (i) { return thaiText(i.str); }).join(' ');
+        text += ' ' + torText(tc.items);
       }
       var got = torFields(text), keys = Object.keys(got);
       applyTor(st.blank, got);
