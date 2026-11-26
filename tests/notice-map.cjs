@@ -10,7 +10,8 @@ vm.runInNewContext(fs.readFileSync(path.join(root,'js/notice-map.js'),'utf8'),ct
 const M=ctx.window.NoticeMap;
 const of=site=>JSON.parse(JSON.stringify(M.districtsOf({site}).map(d=>d.p+'/'+d.n)));
 
-assert.equal(ctx.window.NOTICE_MAP_DATA.districts.length,114);
+assert.equal(ctx.window.NOTICE_MAP_DATA.districts.length,228);   // 12 provinces (user, 26 พ.ย. 69)
+assert.equal(ctx.window.NOTICE_MAP_DATA.provinces.length,12);
 // site names as they are in the table
 assert.deepEqual(of('ขอนแก่น'),['ขอนแก่น/เมืองขอนแก่น']);
 assert.deepEqual(of('ขอนแก่น 2'),['ขอนแก่น/เมืองขอนแก่น']);
@@ -28,11 +29,17 @@ assert.deepEqual(of('กฟส.หมูสี'),['นครราชสีม�
 { const t=ctx.window.NOTICE_MAP_DATA.tambons; assert.deepEqual(JSON.parse(JSON.stringify(t.map(x=>x.p+'/'+x.a+'/'+x.n))),['นครราชสีมา/ปากช่อง/หมูสี']);
   const h=M.html([{id:1,site:'ปากช่อง',status:'ชนะประมูล'}]);
   assert.ok(h.includes('>ต.หมูสี</text>'));
-  assert.ok(/class="nm-tb won" fill="#e3f4e6"/.test(h));
+  assert.ok(/class="nm-tb won" fill="#f9e4c5"/.test(h));   // a won district keeps its province colour, with a red outline
   assert.ok(h.includes('รวม ต.หมูสี'));
   assert.ok(M.pictureSvg([{id:1,site:'ปากช่อง',status:'ชนะประมูล'}],'').svg.includes('>ต.หมูสี</text>')); }
-assert.deepEqual(of('อุดรธานี'),[]);   // outside the 5 provinces
-assert.deepEqual(of('ร้อยเอ็ด'),[]);
+assert.deepEqual(of('อุดรธานี'),[]);   // outside the 12 provinces
+assert.deepEqual(of('สว่างแดนดิน'),[]);
+// the 7 provinces added on 26 พ.ย. 69
+assert.deepEqual(of('ร้อยเอ็ด 2'),['ร้อยเอ็ด/เมืองร้อยเอ็ด']);
+assert.deepEqual(of('ยโสธร'),['ยโสธร/เมืองยโสธร']);
+assert.deepEqual(of('มหาสารคาม'),['มหาสารคาม/เมืองมหาสารคาม']);
+assert.deepEqual(of('ขุขันธ์'),['ศรีสะเกษ/ขุขันธ์']);
+assert.deepEqual(of('กฟจ.อุบลราชธานี'),['อุบลราชธานี/เมืองอุบลราชธานี']);
 // every district of COVER exists
 Object.keys(M.COVER).forEach(k=>{ assert.ok(of(k.split('/')[1]).includes(k),k); M.COVER[k].forEach(c=>assert.ok(of(c.split('/')[1]).includes(c),c)); });
 
@@ -80,8 +87,10 @@ console.log('notice-map: ok');
 // the downloaded picture: one SVG document with the title, the date and the legend counts
 const pic=M.pictureSvg(rows,'');
 assert.ok(pic.svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"'));
-assert.ok(pic.svg.includes('แผนที่ไซด์ประมูลแจ้งเตือน 5 จังหวัด'));
-assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์ · 10,000 ราย/เดือน'));
+assert.ok(pic.svg.includes('แผนที่ไซด์ประมูลแจ้งเตือน 12 จังหวัด'));
+assert.ok(pic.svg.includes('ขอนแก่น • ชัยภูมิ • นครราชสีมา • บุรีรัมย์ • สุรินทร์ • กาฬสินธุ์ • มหาสารคาม • ร้อยเอ็ด • ยโสธร • อำนาจเจริญ • ศรีสะเกษ • อุบลราชธานี'));
+assert.equal((pic.svg.match(/class="nm-pb"/g)||[]).length,12);   // a name badge per province
+assert.ok(pic.svg.includes('ชนะประมูล 1 ไซด์ • 10,000 ราย/เดือน'));
 // a won row without จำนวนราย: วงเงิน ÷ 1.07 ÷ ราคากลาง
 assert.ok(M.pictureSvg([{site:'พล',status:'ชนะประมูล',budget:667680,mid_price:8}],'').svg.includes('6,500 ราย/เดือน'));
 // the quotation's จำนวนราย (setQty, from the bid table) wins over the table and the budget (บ้านไผ่: 172,488 ราย/ปี)

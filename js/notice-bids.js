@@ -1016,7 +1016,7 @@
     if (st.rows == null) { box.innerHTML = '<div class="nb-empty">กำลังโหลด…</div>'; return; }
     if (st.err) { box.innerHTML = '<div class="nb-empty">โหลดตารางไม่สำเร็จ: ' + esc(st.err) + ' <button class="nb-btn soft" data-nb="reload">ลองใหม่</button></div>'; return; }
     var open = st.open != null ? (st.rows || []).filter(function (x) { return x.id === st.open; })[0] : null;
-    // the map of the 5 provinces follows the rows: drawn again with the list every time a status changes (js/notice-map.js)
+    // the map of the 12 provinces follows the rows: drawn again with the list every time a status changes (js/notice-map.js)
     drawMap(open);
     if (st.map && !open) syncBranches();   // a site just marked won gets its sub-branches (read once per quotation)
     if (open) { box.innerHTML = detailHtml(open); return; }
@@ -1082,7 +1082,7 @@
       '<div class="nb-bar"' + (st.open != null ? ' style="display:none"' : '') + '>' +
       '<input id="nbQ" placeholder="ค้นหาไซด์งาน / เลขที่โครงการ" value="' + esc(st.q) + '">' +
       '<button class="nb-btn won' + (st.wonOnly ? ' on' : '') + '" data-nb="won" title="แสดงเฉพาะไซด์ที่ชนะประมูล">🏆 ชนะประมูล ' + wonSummary() + '</button>' +
-      '<button class="nb-btn won' + (st.map ? ' on' : '') + '" data-nb="map" title="แผนที่ 5 จังหวัด: 🏆 ไซด์ที่ชนะ • กด 📍 เป้าหมาย ที่ไซด์รอประมูลเพื่อปักหมุด">🗺 แผนที่</button>' +
+      '<button class="nb-btn won' + (st.map ? ' on' : '') + '" data-nb="map" title="แผนที่ 12 จังหวัด: 🏆 ไซด์ที่ชนะ • กด 📍 เป้าหมาย ที่ไซด์รอประมูลเพื่อปักหมุด">🗺 แผนที่</button>' +
       '<button class="nb-btn soft" data-nb="add">➕ เพิ่มแถว</button><button class="nb-btn soft" data-nb="xlsx">⬇ Excel</button><button class="nb-btn soft" data-nb="line" title="ส่งไซด์ที่เคาะราคาวันนี้เข้า LINE แอดมิน (วันที่มีประมูล ระบบส่งเอง 07:00 และทุก 30 นาที 09:00-12:00, 13:00-16:00)">📣 ส่งเข้า LINE แอดมิน</button><div id="nbOpenSum" class="nb-sum"></div></div>' +
       '<div id="nbMap"></div><div id="nbTable"></div>';
     renderTable();
