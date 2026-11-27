@@ -343,7 +343,9 @@
     var total = lowest.reduce(function (s, v) { return s + v; }, 0), mid0 = Number(mid) || 8;
     var res = { total: total, per: qty, monthly: false, item: -1, areas: null };
     opt = opt || {};
-    if ((opt.est || opt.ours) && opt.budget) {
+    // a ประกาศผู้ชนะ naming someone else (opt.theirs) was not won at our price: our unit price dividing its total into whole
+    // notices is chance (เสิงสาง: 367,224 ÷ 1.07 ÷ 5.72 = 60,000 and 564,960 ÷ 1.07 ÷ 60,000 = 8.80, but the TOR is 66,000 × 8)
+    if ((opt.est || opt.ours) && opt.budget && !opt.theirs) {
       var fix = (opt.quotePrices || []).map(function (qp) {
         var q = total / (1 + VAT) / qp, qr = Math.round(q);
         if (!(qp > 0) || Math.abs(q - qr) > 0.01 || qr < 1000 || qr === qty) return null;
@@ -436,6 +438,17 @@
       row.has_announce = ann.length > 0; row.has_tor = tor.length > 0;
       return row;
     });
+  }
+  // ราย/ปี a quotation stands for (its total ÷ 1.07 ÷ its unit price), against the row's own estimate (budget ÷ 1.07 ÷ ราคากลาง).
+  // A quotation priced per month (ราย/เดือน) is taken ×12 when twelve times it is nearer the estimate. A quotation whose
+  // quantity was never filled (เสิงสาง 2026-11-27: total 6.12 = one notice at 5.72) is no quantity at all: 1 × 12 = 12 ราย
+  // made the winner's 367,224.00 read as 28,600 บาท/ราย instead of 5.20 over 66,000 ราย. Far from the estimate either way
+  // (over 3 times), or a handful of notices, the row's own quantity is used instead.
+  function quoteQtyFor(q, est) {
+    if (!(q >= 100)) return null;
+    if (!est) return q;
+    var off = function (v) { return Math.abs(Math.log(v / est)); }, best = off(q * 12) < off(q) ? q * 12 : q;
+    return off(best) > Math.log(3) ? null : best;
   }
   // ---------------------------------------------------------------- end of extraction
 
@@ -542,7 +555,7 @@
     quotesOf(row).forEach(function (h) { (h.prices || []).forEach(function (v) { if (qps.indexOf(v) < 0) qps.push(v); }); });
     var qts = quotesOf(row).map(function (h) { return Number(h.total_amount) || 0; });
     var byTotal = isOurWin(d.lowest, qts, [], 0);
-    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, budget: Number(row.budget) || 0, quotePrices: qps, quoteQtys: quoteQtys(row) }), price = r.price, total = r.total;
+    var r = resultPrice(d.lowest, qty, row.mid_price, row.site, names, { est: dv.est, ours: byTotal, theirs: !!d.winner_announce && !d.ours, budget: Number(row.budget) || 0, quotePrices: qps, quoteQtys: quoteQtys(row) }), price = r.price, total = r.total;
     var patch = { price_bid: price };
     if (named && d.project_no && !String(named.project_no || '').trim()) patch.project_no = d.project_no;
     // a winner announcement that names us is our win, whatever our quotation says
@@ -629,11 +642,7 @@
     if (!st.quotes || !r.id) return null;
     var h = quotesOf(r).filter(function (x) { return x.qty > 0; })[0];
     if (!h) return null;
-    // a quotation priced per month (ราย/เดือน) is taken ×12: when twelve times it is nearer the budget's own estimate
-    var est = r.budget && r.mid_price ? r.budget / (1 + VAT) / r.mid_price : Number(r.qty) || 0;
-    if (!est) return h.qty;
-    var off = function (v) { return Math.abs(Math.log(v / est)); };
-    return off(h.qty * 12) < off(h.qty) ? h.qty * 12 : h.qty;
+    return quoteQtyFor(h.qty, r.budget && r.mid_price ? r.budget / (1 + VAT) / r.mid_price : Number(r.qty) || 0);
   }
   function derived(r) {
     var qty = quoteQty(r) || Number(r.qty) || null, est = false;

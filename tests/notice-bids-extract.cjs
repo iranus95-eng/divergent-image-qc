@@ -10,7 +10,7 @@ const b=src.indexOf('// --------------------------------------------------------
 assert.ok(a>0&&b>a,'extraction section not found');
 const w0=src.indexOf('  function won(r)'),w1=src.indexOf('\n',src.indexOf('  function lost(r)'));
 const ctx={};
-vm.runInNewContext(`var VAT=0.07;${src.slice(w0,w1)}\n${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;this.isOurWin=isOurWin;this.won=won;this.lost=lost;this.nameKey=nameKey;`,ctx);
+vm.runInNewContext(`var VAT=0.07;${src.slice(w0,w1)}\n${src.slice(a,b)};this.extract=extract;this.mergeDocs=mergeDocs;this.resultPrice=resultPrice;this.isOurWin=isOurWin;this.won=won;this.lost=lost;this.nameKey=nameKey;this.quoteQtyFor=quoteQtyFor;`,ctx);
 const fx=n=>JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures',n),'utf8'));
 
 // กฟส.พุทไธสง ปี 2570: announcement (e-GP file name carries the project number) + TOR with marks missing ("การไฟฟาสวนภูมิภาค")
@@ -291,4 +291,22 @@ console.log('PASS: notice bids result file → ❌ สังขะ (round lowest
   // หนองกี่: someone else won
   assert.equal(ctx.extract(fx('notice-bids-nongki-winner.json'),'หนองกี่.pdf').ours,false);
   console.log('PASS: notice bids ประกาศผู้ชนะ 2 โซน (บ้านฝาง) → ours, 5.23');
+}
+
+// เสิงสาง 2026-11-27: ประกาศผู้ชนะ หจก.ชิดชล กรุ๊ป 367,224.00 บาท; our quotation was never given its quantity (total 6.12 =
+// one notice at 5.72), so its "1 ราย" × 12 became the site's quantity and the winner read as 28,600 บาท/ราย
+{
+  const est=564960/1.07/8;   // 66,000 ราย
+  assert.equal(ctx.quoteQtyFor(1,est),null);
+  assert.equal(ctx.quoteQtyFor(66000,est),66000);
+  assert.equal(ctx.quoteQtyFor(5500,est),66000);          // ราย/เดือน
+  assert.equal(ctx.quoteQtyFor(10000,10000/1.07*0+120000),120000);
+  assert.equal(ctx.quoteQtyFor(61200,68000),61200);       // บ้านดุง: near enough
+  assert.equal(ctx.quoteQtyFor(96000,48000),96000);       // จอหอ: twice the row
+  assert.equal(ctx.quoteQtyFor(66000,0),66000);
+  // the award names หจก.ชิดชล กรุ๊ป: our 5.72 splitting 367,224 into 60,000 ราย is chance, not the winning price
+  const ss=ctx.resultPrice([367224],66000,8,'เสิงสาง',[''],{est:true,theirs:true,budget:564960,quotePrices:[5.72]});
+  assert.equal(ss.price,5.2); assert.equal(ss.per,66000);
+  assert.equal(ctx.resultPrice([367224],66000,8,'เสิงสาง',[''],{est:true,budget:564960,quotePrices:[5.72]}).price,5.72);   // ours/unknown: unchanged
+  console.log('PASS: เสิงสาง ประกาศผู้ชนะ 367,224.00 → 5.20 บาท/ราย (quotation without a quantity is not 12 ราย)');
 }
