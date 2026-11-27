@@ -46,13 +46,58 @@
     'มหาสารคาม': ['#f5e9b9', '#8e7514'], 'ร้อยเอ็ด': ['#e1def8', '#5362a7'], 'ยโสธร': ['#f6d8bd', '#b65c36'],
     'อำนาจเจริญ': ['#d8ecbb', '#537e16'], 'ศรีสะเกษ': ['#c9e8f2', '#176782'], 'อุบลราชธานี': ['#f0d6e9', '#934476']
   };
-  // badges nudged off each other where two provinces are small and side by side (ยโสธร / อำนาจเจริญ)
-  var SHIFT = { 'ยโสธร': [-10, 8], 'อำนาจเจริญ': [14, -24] };
   function fill(p) { return (COLOR[p] || ['#fff'])[0]; }
   function provinces() { var D = window.NOTICE_MAP_DATA; return D && D.provinces || []; }
   // the province names in a rounded badge of its colour; the width counts only the letters that take room (not ั ิ ่ ้ …)
+  function badgeW(p) { return Math.round(String(p).replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length * 10.2 + 18); }
+  function inside(q, d) {
+    if (q[0] < d.bb[0] || q[0] > d.bb[2] || q[1] < d.bb[1] || q[1] > d.bb[3]) return false;
+    var c = false, rings = d.rings;
+    rings.forEach(function (r) {
+      for (var i = 0, j = r.length - 1; i < r.length; j = i++) {
+        if ((r[i][1] > q[1]) !== (r[j][1] > q[1]) && q[0] < (r[j][0] - r[i][0]) * (q[1] - r[i][1]) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
+      }
+    });
+    return c;
+  }
+  function overlap(a, b) { return Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1])); }
+  // where each province's name badge goes: near the middle of the province, inside it, never over a 🏆 / ✕ / 📍
+  // (user, 27 พ.ย. 69: "ชื่อจังหวัดบังถ้วยรางวัล"), as little as it can over district names and the other badges
+  var spotCache = {};
+  function placeBadges(g, signs, names) {
+    var ck = signs.map(function (b) { return b.join(','); }).join(';');
+    if (spotCache[ck]) return spotCache[ck];
+    var placed = [], out = {};
+    // the spots a badge fits inside its province do not change with the marks: found once (g.spots)
+    if (!g.spots) {
+      g.spots = {};
+      Object.keys(g.prov).forEach(function (p) {
+        var a = g.prov[p], cx = a.x / a.n, cy = a.y / a.n, w = badgeW(p), list = g.spots[p] = [];
+        var mine = g.list.filter(function (d) { return d.p === p; });
+        for (var dy = -120; dy <= 120; dy += 8) for (var dx = -160; dx <= 160; dx += 10) {
+          var x = cx + dx, y = cy + dy, box = [x - w / 2 - 3, y - 16, x + w / 2 + 3, y + 16];
+          if ([[x, y], [box[0], box[1]], [box[2], box[1]], [box[0], box[3]], [box[2], box[3]]].every(function (q) { return mine.some(function (d) { return inside(q, d); }); }))
+            list.push({ x: x, y: y, box: box, far: (dx * dx + dy * dy) * 0.08 });
+        }
+      });
+    }
+    Object.keys(g.prov).forEach(function (p) {
+      var a = g.prov[p], cx = a.x / a.n, cy = a.y / a.n, w = badgeW(p), best = null;
+      g.spots[p].forEach(function (c) {
+        var box = c.box, hit = 0, near = 0;
+        signs.forEach(function (b) { hit += overlap(box, b); });
+        placed.forEach(function (b) { hit += overlap(box, b); });
+        names.forEach(function (b) { near += overlap(box, b); });
+        var score = hit * 100 + near + c.far;
+        if (!best || score < best.s) best = { s: score, x: c.x, y: c.y, box: box };
+      });
+      if (!best) best = { x: cx, y: cy, box: [cx - w / 2, cy - 13, cx + w / 2, cy + 13] };
+      placed.push(best.box); out[p] = [Math.round(best.x), Math.round(best.y)];
+    });
+    return (spotCache = {})[ck] = out;
+  }
   function badge(p, x, y) {
-    var n = String(p).replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length, w = Math.round(n * 10.2 + 18);
+    var w = badgeW(p);
     return '<g class="nm-pb"><rect x="' + (x - w / 2) + '" y="' + (y - 13) + '" width="' + w + '" height="26" rx="5" fill="' + ((COLOR[p] || [])[1] || '#4b2378') + '"/>' +
       '<text x="' + x + '" y="' + (y + 1) + '">' + esc(p) + '</text></g>';
   }
@@ -83,7 +128,10 @@
     var pt = function (p) { return [pad + (p[0] - minX) * cos * k, pad + (maxY - p[1]) * k]; };
     var byName = {}, byKey = {};
     D.districts.forEach(function (d) {
-      d.path = d.g.map(function (r) { return 'M' + r.map(function (p) { var q = pt(p); return q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join('L') + 'Z'; }).join('');
+      d.rings = d.g.map(function (r) { return r.map(pt); });
+      d.bb = [1e9, 1e9, -1e9, -1e9];
+      d.rings.forEach(function (r) { r.forEach(function (q) { d.bb[0] = Math.min(d.bb[0], q[0]); d.bb[1] = Math.min(d.bb[1], q[1]); d.bb[2] = Math.max(d.bb[2], q[0]); d.bb[3] = Math.max(d.bb[3], q[1]); }); });
+      d.path = d.rings.map(function (r) { return 'M' + r.map(function (q) { return q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join('L') + 'Z'; }).join('');
       d.xy = pt(d.c); d.key = key(d);
       (byName[d.n] = byName[d.n] || []).push(d); byKey[d.key] = d;
     });
@@ -193,16 +241,18 @@
       var ds = districtsOf(r); if (ds.length) aim.push(r.site || '');
       ds.forEach(function (d) { focus[d.key] = 1; });
     });
-    var shapes = '', labels = '', signs = '';
+    var shapes = '', labels = '', signs = '', signBox = [], nameBox = [];
     g.list.forEach(function (d) {
       var e = m[d.key], s = state(e), x = Math.round(d.xy[0]), y = Math.round(d.xy[1]);
       var tip = d.n + ' (' + d.p + ')' + (d.tams ? '\nรวม ' + d.tams.map(function (n) { return 'ต.' + n; }).join(', ') : '') + (e ? [['won', '🏆 ชนะประมูล'], ['cover', '🏆 สาขาย่อยของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
         .filter(function (k) { return e[k[0]].length; }).map(function (k) { return '\n' + k[1] + ': ' + e[k[0]].join(', '); }).join('') : '');
       shapes += '<path class="nm-d' + (s === 'won' ? ' won' : '') + '" fill="' + fill(d.p) + '" d="' + d.path + '"><title>' + esc(tip) + '</title></path>';
       labels += '<text class="nm-l" x="' + x + '" y="' + y + '">' + esc(d.n) + '</text>';
-      if (s === 'won') signs += check(x, y + 13);
-      else if (s === 'wait' && focus[d.key]) signs += pin(x, y - 9);
-      else if (s === 'lost') signs += cross(x, y + 12);
+      var lw = d.n.replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length * 5.6;
+      nameBox.push([x - lw / 2, y - 7, x + lw / 2, y + 7]);
+      if (s === 'won') { signs += check(x, y + 13); signBox.push([x - 10, y + 3, x + 10, y + 23]); }
+      else if (s === 'wait' && focus[d.key]) { signs += pin(x, y - 9); signBox.push([x - 9, y - 33, x + 9, y - 9]); }
+      else if (s === 'lost') { signs += cross(x, y + 12); signBox.push([x - 7, y + 5, x + 7, y + 19]); }
     });
     g.tams.forEach(function (t) {
       var e = m[t.d.key], s = state(e);
@@ -212,7 +262,8 @@
     });
     // won districts drawn again on top, so their red outline is not hidden under the neighbours' grey edges
     var tops = g.list.filter(function (d) { return state(m[d.key]) === 'won'; }).map(function (d) { return '<path class="nm-wo" d="' + d.path + '"/>'; }).join('');
-    var prov = Object.keys(g.prov).map(function (p) { var a = g.prov[p]; var o = SHIFT[p] || [0, 0]; return badge(p, Math.round(a.x / a.n) + o[0], Math.round(a.y / a.n) + o[1]); }).join('');
+    var spot = placeBadges(g, signBox, nameBox);
+    var prov = Object.keys(g.prov).map(function (p) { return badge(p, spot[p][0], spot[p][1]); }).join('');
     // ราย/ปี of every site we won (also one off the map), the same sum as the 🏆 button: the quotation's จำนวนราย
     // (set by the bid table with setQty), else จำนวนราย, else วงเงิน ÷ 1.07 ÷ ราคากลาง
     var units = (rows || []).filter(won).reduce(function (t, r) {

@@ -147,3 +147,11 @@ for (const site of ['นางรอง','ประโคนชัย']) {
 { const mm=M.marks([{id:73,site:'บัวใหญ่',status:'ชนะประมูล'}]).m;
   for (const k of ['บัวลาย','สีดา','แก้งสนามนาง']) assert.equal(M.state(mm['นครราชสีมา/'+k]),'won',k); }
 console.log('notice-map branches: ok');
+// a province's name badge never covers a 🏆 (user, 27 พ.ย. 69: "ชื่อจังหวัดบังถ้วยรางวัล"): every won site of the table today
+{ const won=['ปักธงชัย','บ้านฝาง','ชุมแพ','ภูเวียง','พิมาย','มัญจาคีรี','พล','จักราช','ขอนแก่น','กระนวน','หนองสองห้อง','พุทไธสง','บัวใหญ่','สตึก','นางรอง','ประโคนชัย','บ้านไผ่','สูงเนิน','ครบุรี','หนองเรือ','ท่าตูม','โชคชัย','ปากช่อง','ชัยภูมิ','หนองบุญมาก','เมืองนครราชสีมา 3','บ้านกรวด','ละหานทราย'].map((site,i)=>({id:i+1,site,status:'ชนะประมูล'}));
+  const svg=M.html(won);
+  const cups=[...svg.matchAll(/class="nm-ck" transform="translate\(([\d.-]+) ([\d.-]+)\)/g)].map(m=>[+m[1],+m[2]]);
+  const pbs=[...svg.matchAll(/<g class="nm-pb"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)"/g)].map(m=>[+m[1],+m[2],+m[1]+ +m[3],+m[2]+ +m[4]]);
+  assert.equal(pbs.length,12); assert.ok(cups.length>40);
+  for (const [x,y] of cups) for (const b of pbs) assert.ok(x+9<b[0]||x-9>b[2]||y+9<b[1]||y-9>b[3],'badge over trophy at '+x+','+y); }
+console.log('notice-map badges: ok');
