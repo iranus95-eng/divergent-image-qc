@@ -1,7 +1,7 @@
 import json, sys, math
 src, out = sys.argv[1], sys.argv[2]
 d = json.load(open(src, encoding='utf-8'))
-P = ['ขอนแก่น', 'ชัยภูมิ', 'นครราชสีมา', 'บุรีรัมย์', 'สุรินทร์']
+P = ['ขอนแก่น', 'ชัยภูมิ', 'นครราชสีมา', 'บุรีรัมย์', 'สุรินทร์', 'กาฬสินธุ์', 'มหาสารคาม', 'ร้อยเอ็ด', 'ยโสธร', 'อำนาจเจริญ', 'ศรีสะเกษ', 'อุบลราชธานี']
 TOL = float(sys.argv[3]) if len(sys.argv) > 3 else 0.004
 def dp(pts, tol):
     if len(pts) < 3: return pts
@@ -40,7 +40,7 @@ if len(sys.argv) > 4:
         g = f['geometry']; polys = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
         rings = [r for r in (ring(poly[0]) for poly in polys) if len(r) >= 4]
         tams.append({'n': p['tam_th'], 'a': p['amp_th'], 'p': p['pro_th'], 'c': [round(p['lon'], 3), round(p['lat'], 3)], 'g': rings})
-js = ('/* อำเภอของ 5 จังหวัด (ขอนแก่น ชัยภูมิ นครราชสีมา บุรีรัมย์ สุรินทร์) สำหรับแผนที่ตารางประมูลแจ้งเตือน (js/notice-map.js)\n'
+js = ('/* อำเภอของ ' + str(len(P)) + ' จังหวัด (' + ' '.join(P) + ') สำหรับแผนที่ตารางประมูลแจ้งเตือน (js/notice-map.js)\n'
       ' * ขอบเขตอำเภอจาก OpenGISData-Thailand districts.geojson (chingchai, CC BY 4.0), ลดจุดด้วย Douglas-Peucker ' + str(TOL) + '° แล้วปัดทศนิยม 3 ตำแหน่ง\n'
       ' * ตำบลที่วาดเพิ่มในอำเภอ (tambons): จาก subdistricts.geojson ชุดเดียวกัน\n'
       ' * สร้างใหม่: scripts/build-notice-map-data.py <districts.geojson> js/notice-map-data.js 0.004 <subdistricts.geojson> */\n'

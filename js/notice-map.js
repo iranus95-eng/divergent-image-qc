@@ -1,5 +1,7 @@
-/* แผนที่ตารางประมูลแจ้งเตือน (2026-11-02)
- * The district map of the 5 provinces (ขอนแก่น ชัยภูมิ นครราชสีมา บุรีรัมย์ สุรินทร์), drawn from the rows of ตารางประมูลแจ้งเตือน,
+/* แผนที่ตารางประมูลแจ้งเตือน (2026-11-02; 12 จังหวัด from 2026-11-26)
+ * The district map of the 12 provinces (ขอนแก่น ชัยภูมิ นครราชสีมา บุรีรัมย์ สุรินทร์ กาฬสินธุ์ มหาสารคาม ร้อยเอ็ด ยโสธร อำนาจเจริญ
+ * ศรีสะเกษ อุบลราชธานี), drawn from the rows of ตารางประมูลแจ้งเตือน, in the look of the user's map of 21 พ.ย. 69
+ * (each province its own colour and name badge, a won district keeps its colour with a red outline),
  * so it follows the table every time a result changes:
  *  - 🏆 gold   : a site we won (status "ชนะประมูล"), plus the districts its office also serves (COVER, from the map we used before)
  *  - 📍 orange : only the sites picked with their "📍 เป้าหมาย" buttons (several at once) in the site list (NoticeMap.setFocus); the other sites
@@ -37,7 +39,23 @@
   };
   // a site named after a tambon, not a district
   var ALIAS = { 'จอหอ': 'เมืองนครราชสีมา', 'หมูสี': 'ปากช่อง' };
-  var FILL = { 'ขอนแก่น': '#fdf1f1', 'ชัยภูมิ': '#eff6ec', 'นครราชสีมา': '#fdf7ee', 'บุรีรัมย์': '#ecf3fc', 'สุรินทร์': '#f3effb' };
+  // [district fill, name badge] of each province, as the map of 21 พ.ย. 69 has them
+  var COLOR = {
+    'ขอนแก่น': ['#d8e8f8', '#235b96'], 'ชัยภูมิ': ['#ddebd3', '#46733a'], 'นครราชสีมา': ['#f9e4c5', '#a66420'],
+    'บุรีรัมย์': ['#d5ebe8', '#167c78'], 'สุรินทร์': ['#e6ddf5', '#694a97'], 'กาฬสินธุ์': ['#f6dce5', '#b8456a'],
+    'มหาสารคาม': ['#f5e9b9', '#8e7514'], 'ร้อยเอ็ด': ['#e1def8', '#5362a7'], 'ยโสธร': ['#f6d8bd', '#b65c36'],
+    'อำนาจเจริญ': ['#d8ecbb', '#537e16'], 'ศรีสะเกษ': ['#c9e8f2', '#176782'], 'อุบลราชธานี': ['#f0d6e9', '#934476']
+  };
+  // badges nudged off each other where two provinces are small and side by side (ยโสธร / อำนาจเจริญ)
+  var SHIFT = { 'ยโสธร': [-10, 8], 'อำนาจเจริญ': [14, -24] };
+  function fill(p) { return (COLOR[p] || ['#fff'])[0]; }
+  function provinces() { var D = window.NOTICE_MAP_DATA; return D && D.provinces || []; }
+  // the province names in a rounded badge of its colour; the width counts only the letters that take room (not ั ิ ่ ้ …)
+  function badge(p, x, y) {
+    var n = String(p).replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length, w = Math.round(n * 10.2 + 18);
+    return '<g class="nm-pb"><rect x="' + (x - w / 2) + '" y="' + (y - 13) + '" width="' + w + '" height="26" rx="5" fill="' + ((COLOR[p] || [])[1] || '#4b2378') + '"/>' +
+      '<text x="' + x + '" y="' + (y + 1) + '">' + esc(p) + '</text></g>';
+  }
   var W = 1000;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -180,7 +198,7 @@
       var e = m[d.key], s = state(e), x = Math.round(d.xy[0]), y = Math.round(d.xy[1]);
       var tip = d.n + ' (' + d.p + ')' + (d.tams ? '\nรวม ' + d.tams.map(function (n) { return 'ต.' + n; }).join(', ') : '') + (e ? [['won', '🏆 ชนะประมูล'], ['cover', '🏆 สาขาย่อยของ'], ['wait', '📍 รอประมูล/รอผล'], ['lost', '✕ ไม่ชนะ']]
         .filter(function (k) { return e[k[0]].length; }).map(function (k) { return '\n' + k[1] + ': ' + e[k[0]].join(', '); }).join('') : '');
-      shapes += '<path class="nm-d' + (s === 'won' ? ' won' : '') + '" fill="' + (s === 'won' ? '#e3f4e6' : FILL[d.p] || '#fff') + '" d="' + d.path + '"><title>' + esc(tip) + '</title></path>';
+      shapes += '<path class="nm-d' + (s === 'won' ? ' won' : '') + '" fill="' + fill(d.p) + '" d="' + d.path + '"><title>' + esc(tip) + '</title></path>';
       labels += '<text class="nm-l" x="' + x + '" y="' + y + '">' + esc(d.n) + '</text>';
       if (s === 'won') signs += check(x, y + 13);
       else if (s === 'wait' && focus[d.key]) signs += pin(x, y - 9);
@@ -188,13 +206,13 @@
     });
     g.tams.forEach(function (t) {
       var e = m[t.d.key], s = state(e);
-      shapes += '<path class="nm-tb' + (s === 'won' ? ' won' : '') + '" fill="' + (s === 'won' ? '#e3f4e6' : FILL[t.p] || '#fff') + '" d="' + t.path + '"><title>' +
+      shapes += '<path class="nm-tb' + (s === 'won' ? ' won' : '') + '" fill="' + fill(t.p) + '" d="' + t.path + '"><title>' +
         esc('ต.' + t.n + ' (อ.' + t.a + ' ' + t.p + ')' + (e ? ' — ' + ['won', 'cover', 'wait', 'lost'].map(function (k) { return e[k].join(', '); }).filter(Boolean).join(', ') : '')) + '</title></path>';
       labels += '<text class="nm-tl" x="' + Math.round(t.xy[0]) + '" y="' + Math.round(t.xy[1]) + '">ต.' + esc(t.n) + '</text>';
     });
     // won districts drawn again on top, so their red outline is not hidden under the neighbours' grey edges
     var tops = g.list.filter(function (d) { return state(m[d.key]) === 'won'; }).map(function (d) { return '<path class="nm-wo" d="' + d.path + '"/>'; }).join('');
-    var prov = Object.keys(g.prov).map(function (p) { var a = g.prov[p]; return '<text class="nm-p" x="' + Math.round(a.x / a.n) + '" y="' + Math.round(a.y / a.n) + '">' + esc(p) + '</text>'; }).join('');
+    var prov = Object.keys(g.prov).map(function (p) { var a = g.prov[p]; var o = SHIFT[p] || [0, 0]; return badge(p, Math.round(a.x / a.n) + o[0], Math.round(a.y / a.n) + o[1]); }).join('');
     // ราย/ปี of every site we won (also one off the map), the same sum as the 🏆 button: the quotation's จำนวนราย
     // (set by the bid table with setQty), else จำนวนราย, else วงเงิน ÷ 1.07 ÷ ราคากลาง
     var units = (rows || []).filter(won).reduce(function (t, r) {
@@ -203,7 +221,7 @@
     }, 0);
     var count = function (f) { return (rows || []).filter(function (r) { return !cancelled(r) && f(r) && districtsOf(r).length; }).length; };
     return {
-      body: shapes + tops + '<g class="nm-prov">' + prov + '</g><g>' + labels + '</g>' + signs, H: g.H, off: mk.off.length,
+      body: shapes + tops + '<g>' + labels + '</g>' + signs + '<g class="nm-prov">' + prov + '</g>', H: g.H, off: mk.off.length,
       won: count(won), units: units, aim: aim, lost: count(lost), wait: count(function (r) { return !won(r) && !lost(r); })
     };
   }
@@ -211,28 +229,28 @@
   function short(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
   function n0(v) { return Math.round(v).toLocaleString('en-US'); }
   // per month, like the 🏆 button (units is ราย/ปี)
-  function unitsText(u) { return u ? ' · ' + n0(u / 12) + ' ราย/เดือน' : ''; }
+  function unitsText(u) { return u ? ' • ' + n0(u / 12) + ' ราย/เดือน' : ''; }
   var lastRows = null;
   function html(rows) {
     var d = draw(rows);
     if (!d) return '<div class="nm-empty">โหลดข้อมูลแผนที่ไม่สำเร็จ</div>';
     lastRows = rows;
     return '<div class="nm-wrap"><div class="nm-top"><button type="button" class="nm-dl" data-nm="dl" title="บันทึกแผนที่ตามสถานะตอนนี้เป็นรูป PNG">⬇ ดาวน์โหลดแผนที่ (PNG)</button></div>' +
-      '<div class="nm-scroll"><svg class="nm-svg" viewBox="0 0 ' + W + ' ' + d.H + '" role="img" aria-label="แผนที่ไซด์ประมูล 5 จังหวัด">' + d.body + '</svg></div>' +
+      '<div class="nm-scroll"><svg class="nm-svg" viewBox="0 0 ' + W + ' ' + d.H + '" role="img" aria-label="แผนที่ไซด์ประมูล ' + provinces().length + ' จังหวัด">' + d.body + '</svg></div>' +
       '<div class="nm-legend"><span><svg viewBox="-10 -10 20 20">' + check(0, 1) + '</svg> ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</span>' +
       '<span>รอประมูล / รอผล ' + d.wait + ' ไซด์</span>' +
       (d.aim.length ? '<span><svg viewBox="-10 -24 20 26">' + pin(0, 0) + '</svg> เป้าหมาย ' + d.aim.length + ' ไซด์: ' + esc(d.aim.join(', ')) +
         ' <button type="button" class="nm-clr" data-nb="aimclear" title="เอาหมุดเป้าหมายออกทั้งหมด">ล้าง</button></span>' : '') +
       '<span><svg viewBox="-10 -10 20 20">' + cross(0, 0) + '</svg> ไม่ชนะ ' + d.lost + ' ไซด์</span>' +
       '<small>อัปเดตตามตารางทุกครั้งที่สถานะเปลี่ยน • กด 📍 เป้าหมาย ที่ไซด์รอประมูลในรายการเพื่อปักหมุดบนแผนที่ (เลือกได้หลายไซด์) • 🏆 ในอำเภอข้างเคียง = สาขาย่อยของไซด์ที่ชนะ (จากใบเสนอราคา) • ชี้หรือแตะอำเภอเพื่อดูไซด์' +
-      (d.off ? ' • ไซด์นอก 5 จังหวัดนี้ ' + d.off + ' ไซด์ไม่อยู่บนแผนที่' : '') +
+      (d.off ? ' • ไซด์นอก ' + provinces().length + ' จังหวัดนี้ ' + d.off + ' ไซด์ไม่อยู่บนแผนที่' : '') +
       ' • ขอบเขตอำเภอ: OpenGISData-Thailand (CC BY 4.0)</small></div></div>';
   }
 
   // ---------------------------------------------------------------- download: the map as it is now, with a title and the legend, as a PNG
   var MAP_CSS = '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-tb{stroke:#8f8f8f;stroke-width:.6;stroke-dasharray:3 2}.nm-tl{font-size:9px;font-weight:700;fill:#555;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:2.5px;stroke-linejoin:round}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6}' +
     '.nm-l{font-size:10.5px;font-weight:700;fill:#222;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}' +
-    '.nm-p{font-size:30px;font-weight:800;fill:#4b2378;opacity:.15;text-anchor:middle;dominant-baseline:middle}' +
+    '.nm-pb text{font-size:17px;font-weight:800;fill:#fff;text-anchor:middle;dominant-baseline:middle}.nm-pb rect{stroke:#fff;stroke-width:1.5}' +
     '.nm-ck path{fill:#f5b800;stroke:#9a6a00;stroke-width:1.1;stroke-linejoin:round}.nm-ck .h{fill:none;stroke:#c98f00;stroke-width:1.8}' +
     '.nm-x{fill:none;stroke:#9a9a9a;stroke-width:2.6;stroke-linecap:round}' +
     '.nm-pin path{fill:#f2581c;stroke:#f6c84c;stroke-width:1.6}.nm-pin circle{fill:#fff}';
@@ -255,13 +273,14 @@
   // the whole picture as one SVG document: title on top, the map, the legend under it
   function pictureSvg(rows, font) {
     var d = draw(rows); if (!d) return null;
-    var day = thaiToday(), top = 70, foot = 98, H = top + d.H + foot, y = top + d.H + 30;
+    var day = thaiToday(), top = 86, foot = 98, H = top + d.H + foot, y = top + d.H + 30;
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
       '<style>' + font + 'text{font-family:NmSarabun,Sarabun,Tahoma,sans-serif}' + MAP_CSS +
       '.nm-t{font-size:24px;font-weight:800;fill:#222}.nm-s{font-size:13px;fill:#555}.nm-g{font-size:15px;font-weight:700;fill:#222}.nm-n{font-size:11px;fill:#777}</style>' +
       '<rect width="100%" height="100%" fill="#fff"/>' +
-      '<text class="nm-t" x="24" y="36">แผนที่ไซด์ประมูลแจ้งเตือน 5 จังหวัด</text>' +
-      '<text class="nm-s" x="24" y="58">ขอนแก่น • ชัยภูมิ • นครราชสีมา • บุรีรัมย์ • สุรินทร์ | ข้อมูล ณ ' + day.th + '</text>' +
+      '<text class="nm-t" x="24" y="36">แผนที่ไซด์ประมูลแจ้งเตือน ' + provinces().length + ' จังหวัด</text>' +
+      '<text class="nm-s" x="24" y="58">' + esc(provinces().join(' • ')) + '</text>' +
+      '<text class="nm-s" x="24" y="76">ข้อมูลผลประมูล ณ ' + day.th + '</text>' +
       '<g transform="translate(0 ' + top + ')">' + d.body + '</g>' +
       check(32, y) + '<text class="nm-g" x="48" y="' + (y + 5) + '">ชนะประมูล ' + d.won + ' ไซด์' + unitsText(d.units) + '</text>' +
       '<text class="nm-g" x="24" y="' + (y + 33) + '">รอประมูล / รอผล ' + d.wait + ' ไซด์</text>' +
@@ -302,10 +321,10 @@
     if (typeof document === 'undefined' || document.getElementById('nmStyle')) return;
     var s = document.createElement('style'); s.id = 'nmStyle';
     s.textContent = '.nm-wrap{background:#fff;border:1px solid #e5dced;border-radius:14px;padding:10px;margin-bottom:14px}' +
-      '.nm-scroll{overflow:auto;-webkit-overflow-scrolling:touch}.nm-svg{display:block;width:100%;min-width:760px;height:auto}' +
+      '.nm-scroll{overflow:auto;-webkit-overflow-scrolling:touch}.nm-svg{display:block;width:100%;min-width:900px;height:auto}' +
       '.nm-d{stroke:#8f8f8f;stroke-width:.6}.nm-d:hover,.nm-tb:hover{filter:brightness(.95)}.nm-tb{stroke:#8f8f8f;stroke-width:.6;stroke-dasharray:3 2}.nm-tl{font-size:9px;font-weight:700;fill:#555;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:2.5px;stroke-linejoin:round;pointer-events:none}.nm-wo{fill:none;stroke:#d62828;stroke-width:1.6;pointer-events:none}' +
       '.nm-l{font-size:10.5px;font-weight:700;fill:#222;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;pointer-events:none}' +
-      '.nm-p{font-size:30px;font-weight:800;fill:#4b2378;opacity:.15;text-anchor:middle;dominant-baseline:middle;pointer-events:none}' +
+      '.nm-pb{pointer-events:none}.nm-pb text{font-size:17px;font-weight:800;fill:#fff;text-anchor:middle;dominant-baseline:middle}.nm-pb rect{stroke:#fff;stroke-width:1.5}' +
       '.nm-ck path{fill:#f5b800;stroke:#9a6a00;stroke-width:1.1;stroke-linejoin:round;pointer-events:none}.nm-ck .h{fill:none;stroke:#c98f00;stroke-width:1.8}' +
       '.nm-x{fill:none;stroke:#9a9a9a;stroke-width:2.6;stroke-linecap:round;pointer-events:none}' +
       '.nm-pin{pointer-events:none}.nm-pin path{fill:#f2581c;stroke:#f6c84c;stroke-width:1.6}.nm-pin circle{fill:#fff}' +
