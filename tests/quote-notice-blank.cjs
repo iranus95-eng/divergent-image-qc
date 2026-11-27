@@ -83,4 +83,21 @@ this.torFields=torFields;this.blankFromTor=blankFromTor;this.budgetQty=budgetQty
   assert.equal(f.areaList,'กฟจ.ร้อยเอ็ด กฟส.จตุรพักตรพิมาน กฟส.ศรีสมเด็จ กฟส.ธวัชบุรี กฟส.เมืองสรวง กฟส.ธงธานี กฟส.เชียงขวัญ กฟส.จังหาร');
   assert.equal(ctx.isBk06('แบบ บก.06 ใบเสนอราคา ราคาที่เสนอ'),false);
 }
+// กฟส.ขุนหาญ + กฟส.ไพรบึง ปี 2570 (pB0.pdf, Word): บก.06 whose row ราคารวม is rounded to the hundred (66,928 × 7 = 468,496 → 468,500),
+// วงเงิน printed ex-VAT then "รวมเป็นเงิน 501,295.00", year split "ปี 25 70", two offices named in the project
+{
+  const raw=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','quote-notice-khunhan-tor.json'),'utf8'));
+  const text=ctx.mergeRuns(raw.map(i=>({str:ctx.thaiText(i.str).trim(),x:i.x,y:-i.y,w:i.w,h:i.h})).filter(i=>i.str)).map(i=>i.str).join(' ');
+  assert.equal(ctx.isBk06(text),true);
+  const f=ctx.torFields(text);
+  assert.equal(f.qty,'66928');
+  assert.equal(f.mid,'7');
+  assert.equal(f.guess,undefined);
+  assert.equal(f.year,'2570');
+  assert.equal(f.work,'งานจ้างเหมาบุคคลภายนอกจัดส่งหนังสือแจ้งเตือนค่าไฟฟ้า');
+  assert.equal(f.activity,'จัดส่งหนังสือแจ้งเตือน');
+  assert.equal(f.office,'การไฟฟ้าส่วนภูมิภาคสาขาขุนหาญ และ กฟส.ไพรบึง');
+  assert.equal(f.area,'กฟส.ขุนหาญ');
+  assert.equal(f.areaList,'กฟส.ขุนหาญ กฟส.ไพรบึง');
+}
 console.log('PASS: quote notice blank form (TOR import, site defaults)');
