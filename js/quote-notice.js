@@ -916,14 +916,18 @@
       .replace(/([ก-๎])\s*\.\s*(?=[ก-๎])/g, '$1.'), out = {}, m;     // "กฟส . ภูเขียว" → "กฟส.ภูเขียว"
     m = F.match(/วงเงิน[\s\S]{0,60}?(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/);
     var budget = m ? num(m[1]) : 0;
+    // "วงเงินงบประมาณที่ได้รับจัดสรร 468,500 บาท ภาษีมูลค่าเพิ่ม 32,795.00 บาท รวมเป็นเงิน 501,295.00 บาท" (กฟส.ขุนหาญ): the total
+    var mv = m && F.slice(m.index + m[0].length).match(/^\s*บาท\s*ภาษีมูลค่าเพิ่ม\s*[\d,.]+\s*บาท\s*รวม\S{0,6}\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/);
+    if (mv && num(mv[1]) > budget) budget = num(mv[1]);
     // quantity and price per notice: the pair whose quantity × price + VAT is the budget, or whose quantity × price is an
     // amount printed in the table (กฟจ.ร้อยเอ็ด: 208,785 × 7.00 = 1,461,495.00, while the budget is rounded up to 1,563,805)
+    // or a table row "จำนวน ราคาต่อหน่วย ราคารวม" whose ราคารวม is rounded to the hundred (กฟส.ขุนหาญ: 66,928 7 468,500 = 468,496)
     var nums = (F.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g) || []).map(num);
-    if (budget) nums.some(function (q) {
-      return q >= 1000 && nums.some(function (p) {
+    if (budget) nums.some(function (q, i) {
+      return q >= 1000 && nums.some(function (p, j) {
         if (!(p >= 2 && p < 100)) return false;
-        var a = Math.round(q * p * 100) / 100;
-        if (Math.abs(a * (1 + VAT) - budget) > 0.5 && !nums.some(function (n) { return n !== q && Math.abs(n - a) < 0.01; })) return false;
+        var a = Math.round(q * p * 100) / 100, row = j === i + 1 && nums[i + 2] % 100 === 0 && Math.abs(nums[i + 2] - a) < 100;
+        if (!row && Math.abs(a * (1 + VAT) - budget) > 0.5 && !nums.some(function (n) { return n !== q && Math.abs(n - a) < 0.01; })) return false;
         out.qty = String(q); out.mid = String(p); return true;
       });
     });
@@ -937,8 +941,8 @@
       var g = guessPair(out.ref) || guessPair(budget);
       if (g) { out.qty = String(g[0]); out.mid = String(g[1]); out.guess = '1'; }
     }
-    m = F.match(/(?:ประจำปี|ปีงบประมาณ)\s*(?:พ\.\s*ศ\.\s*)?(25\d\d)/);
-    if (m) out.year = m[1];
+    m = F.match(/(?:ประจำปี|ปีงบประมาณ|\sปี)\s*(?:พ\.\s*ศ\.\s*)?(2\s?5\s?\d\s?\d)(?!\d)/);     // "ปี 25 70": Word splits the digits
+    if (m) out.year = m[1].replace(/\s/g, '');
     // offices: "การไฟฟ้าส่วนภูมิภาคสาขา…" (กฟส.) or "…จังหวัด…" (กฟจ., e.g. ร้อยเอ็ด)
     var sites = [], full = {}, kind = {}, re = /การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค\s*(สาขา|จังหวัด)\s*([ก-๎]+)/g;
     while ((m = re.exec(F))) { var s = m[2].replace(/(และ|ขอ|มี|จะ|ปร)$/, ''), s0 = s;
@@ -953,12 +957,17 @@
       .split(/\s*(?:กฟ[สจ]\.|การไฟฟ\S{0,2}า\s*ส\S{0,2}วนภูมิภาค|ในเขต|ประจำปี|ด้วยโปรแกรม|ด้วยวิธี|\sของ\s)/)[0].trim();
     if (out.work && !/^งาน/.test(out.work)) out.work = 'งาน' + out.work;
     if (/จัดส่งหนังสือแจ้งเตือน/.test(project)) out.activity = 'จัดส่งหนังสือแจ้งเตือน';     // INSx jobs: letters, not notices on the meter
+    // offices named in the project besides the owner: "ในเขตรับผิดชอบของ กฟส.ขุนหาญ และ กฟส.ไพรบึง"
+    var named = (project.match(/กฟ[สจ]\.\s*[ก-๎]+/g) || []).map(function (x) { return x.replace(/\s+/g, '').replace(/และ$/, ''); })
+      .filter(function (x, i, a) { return x.length > 5 && !/\.ใน/.test(x) && a.indexOf(x) === i; });
     if (main) {
       var sub = (project.match(/(กฟ[ฟส])\.\s*ในสังกัด/) || [])[1];
-      out.office = 'การไฟฟ้าส่วนภูมิภาค' + (kind[main] || 'สาขา') + (full[main] || main) + (sub ? ' และ ' + sub + '.ในสังกัด' : '');
+      var also = named.filter(function (x) { return x.slice(4) !== main; });
+      out.office = 'การไฟฟ้าส่วนภูมิภาค' + (kind[main] || 'สาขา') + (full[main] || main) + (sub ? ' และ ' + sub + '.ในสังกัด' : also.length ? ' และ ' + also.join(' ') : '');
       out.area = (kind[main] === 'จังหวัด' ? 'กฟจ.' : 'กฟส.') + main;
     }
     if (sites.length > 1) out.areaList = sites.map(function (s) { return (kind[s] === 'จังหวัด' ? 'กฟจ.' : 'กฟส.') + s; }).join(' ');
+    else if (main && named.length > 1) out.areaList = named.join(' ');
     // offices under it listed in the table: "รวม กฟส.ในสังกัด (กฟส.จตุรพักตรพิมาน, กฟส.ศรีสมเด็จ, …)"
     m = F.match(/สังกัด\s*\(([^)]*)\)/);
     var subs = m ? (m[1].match(/กฟ[สจ]\.\s*[ก-๎]+/g) || []).map(function (x) { return x.replace(/\s+/g, ''); }) : [];
