@@ -53,15 +53,18 @@ function quoteSite(title: string, bids: NoticeBid[]) {
 // A quote's quantity is per year, or per month when its column is ราย/เดือน: it is taken as
 // monthly when twelve times it is nearer the bid's own estimate (budget ÷ 1.07 ÷ ราคากลาง,
 // else the bid table's จำนวนราย), the same reading as ตารางประมูลแจ้งเตือน (js/notice-bids.js quoteQty).
+// A quote whose quantity was never filled (total = one notice, เสิงสาง) or that is over 3 times
+// off the estimate either way gives no quantity, so the bid's own is used (quoteQtyFor there).
 function yearlyQty(qty: number | null, bid: NoticeBid) {
-  if (!qty) return null;
+  if (!qty || qty < 100) return null;
   const estimate =
     bid.budget && bid.mid_price
       ? bid.budget / 1.07 / bid.mid_price
       : bid.qty || 0;
   if (!estimate) return qty;
   const off = (value: number) => Math.abs(Math.log(value / estimate));
-  return off(qty * 12) < off(qty) ? qty * 12 : qty;
+  const best = off(qty * 12) < off(qty) ? qty * 12 : qty;
+  return off(best) > Math.log(3) ? null : best;
 }
 
 function buildRows(
